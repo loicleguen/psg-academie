@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from src.models.pays import Pays
 from src.db.database import get_session
 from sqlmodel import select
@@ -7,7 +7,8 @@ from typing import List
 router = APIRouter(prefix="/pays", tags=["Pays"])
 
 @router.post("/", response_model=Pays)
-def create_pays(pays: Pays):
+def create_pays(pays: Pays = Body(..., example={"nom": "France"})):
+    pays.id = None  # Ensure id is not set by client
     with get_session() as session:
         session.add(pays)
         session.commit()
