@@ -2,15 +2,17 @@
 from fastapi import FastAPI
 from src.routes.pays import router as pays_router
 from src.db.database import init_db
+from contextlib import asynccontextmanager
 
-app = FastAPI()
-
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app):
     init_db()
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(pays_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Bienvenue sur PSG-ACADEMIE API"}
+    return {"message": "Welcome to PSG-ACADEMIE API"}

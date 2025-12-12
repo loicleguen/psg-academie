@@ -25,7 +25,7 @@ def update_pays(pays_id: int, pays: Pays):
     with get_session() as session:
         db_pays = session.get(Pays, pays_id)
         if not db_pays:
-            raise HTTPException(status_code=404, detail="Pays non trouvé")
+            raise HTTPException(status_code=404, detail="Country not found")
         db_pays.nom = pays.nom
         session.add(db_pays)
         session.commit()
@@ -37,7 +37,7 @@ def delete_pays(pays_id: int):
     with get_session() as session:
         db_pays = session.get(Pays, pays_id)
         if not db_pays:
-            raise HTTPException(status_code=404, detail="Pays non trouvé")
+            raise HTTPException(status_code=404, detail="Country not found")
         session.delete(db_pays)
         session.commit()
-        return {"message": "Pays supprimé"}
+        return {"message": "Country deleted"}
