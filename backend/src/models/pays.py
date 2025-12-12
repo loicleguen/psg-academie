@@ -2,7 +2,6 @@ from sqlmodel import SQLModel, Field
 from typing import Optional
 from pydantic import BaseModel
 import pycountry
-import pycountry_convert
 from pycountry_convert import country_name_to_country_alpha2
 import unicodedata
 
