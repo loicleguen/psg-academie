@@ -12,4 +12,3 @@ class Academy(SQLModel, table=True):
 
 class AcademyUpdate(BaseModel):
     name: str
-    country_id: int

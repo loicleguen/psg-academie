@@ -31,7 +31,7 @@ def update_academy(academy_id: int, academy_update: AcademyUpdate, session: Sess
     if not academy:
         raise HTTPException(status_code=404, detail="Academy not found")
     academy.name = academy_update.name
-    academy.country_id = academy_update.country_id
+    # academy.country_id n'est pas modifié
     session.commit()
     session.refresh(academy)
     return academy

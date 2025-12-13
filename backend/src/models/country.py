@@ -10,4 +10,4 @@ class Country(SQLModel, table=True):
         orm_mode = True
 
 class CountryUpdate(BaseModel):
-    nom: str
+    name: str
