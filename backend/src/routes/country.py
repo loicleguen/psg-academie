@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body
-from src.models.country import Country, is_valid_country
+from src.models.country import Country, CountryUpdate, is_valid_country
 from src.db.database import get_session
 from sqlmodel import select, func
 from typing import List
@@ -29,7 +29,7 @@ def list_countries():
         return country_list
 
 @router.put("/{country_id}", response_model=Country)
-def update_country(country_id: int, country: Country):
+def update_country(country_id: int, country: CountryUpdate):
     if not is_valid_country(country.name):
         raise HTTPException(status_code=400, detail="Country name is not a valid official country.")
     with get_session() as session:
