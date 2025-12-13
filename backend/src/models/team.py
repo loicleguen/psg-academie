@@ -5,7 +5,7 @@ from pydantic import BaseModel
 class Team(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    academy_id: int = Field(foreign_key="academy.id")
+    academy_id: int = Field(foreign_key="academy.id", ondelete="CASCADE")
 
     class Config:
         orm_mode = True

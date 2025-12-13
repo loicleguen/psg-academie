@@ -4,9 +4,9 @@ from pydantic import BaseModel
 
 class Player(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    nom: str
+    name: str
     age: Optional[int]
-    equipe_id: int = Field(foreign_key="team.id")
+    team_id: int = Field(foreign_key="team.id", ondelete="CASCADE")
 
     class Config:
         orm_mode = True
