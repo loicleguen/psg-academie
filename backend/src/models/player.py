@@ -6,7 +6,7 @@ class Player(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     nom: str
     age: Optional[int]
-    equipe_id: int = Field(foreign_key="equipeacademie.id")
+    equipe_id: int = Field(foreign_key="team.id")
 
     class Config:
         orm_mode = True
