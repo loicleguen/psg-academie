@@ -1,46 +1,46 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
 from ..db.database import get_session
-from ..models.academie import AcademieDuPays, AcademieDuPaysUpdate
+from ..models.academie import Academy, AcademyUpdate
 
-router = APIRouter(prefix="/academies", tags=["academies"])
 
-@router.post("/", response_model=AcademieDuPays, status_code=status.HTTP_201_CREATED)
-def create_academie(academie: AcademieDuPaysUpdate, session: Session = Depends(get_session)):
-    db_academie = AcademieDuPays.from_orm(academie)
-    session.add(db_academie)
+
+@router.post("/", response_model=Academy, status_code=status.HTTP_201_CREATED)
+def create_academy(academy: AcademyUpdate, session: Session = Depends(get_session)):
+    db_academy = Academy.from_orm(academy)
+    session.add(db_academy)
     session.commit()
-    session.refresh(db_academie)
-    return db_academie
+    session.refresh(db_academy)
+    return db_academy
 
-@router.get("/", response_model=list[AcademieDuPays])
+@router.get("/", response_model=list[Academy])
 def read_academies(session: Session = Depends(get_session)):
-    academies = session.exec(select(AcademieDuPays)).all()
+    academies = session.exec(select(Academy)).all()
     return academies
 
 
-# Nouvelle route : GET academies par pays_id
-@router.get("/pays/{pays_id}", response_model=list[AcademieDuPays])
-def read_academies_by_pays(pays_id: int, session: Session = Depends(get_session)):
-    academies = session.exec(select(AcademieDuPays).where(AcademieDuPays.pays_id == pays_id)).all()
+# Nouvelle route : GET academies par country_id
+@router.get("/country/{country_id}", response_model=list[Academy])
+def read_academies_by_country(country_id: int, session: Session = Depends(get_session)):
+    academies = session.exec(select(Academy).where(Academy.country_id == country_id)).all()
     return academies
 
-@router.put("/{academie_id}", response_model=AcademieDuPays)
-def update_academie(academie_id: int, academie_update: AcademieDuPaysUpdate, session: Session = Depends(get_session)):
-    academie = session.get(AcademieDuPays, academie_id)
-    if not academie:
-        raise HTTPException(status_code=404, detail="Academie not found")
-    academie.nom = academie_update.nom
-    academie.pays_id = academie_update.pays_id
+@router.put("/{academy_id}", response_model=Academy)
+def update_academy(academy_id: int, academy_update: AcademyUpdate, session: Session = Depends(get_session)):
+    academy = session.get(Academy, academy_id)
+    if not academy:
+        raise HTTPException(status_code=404, detail="Academy not found")
+    academy.name = academy_update.name
+    academy.country_id = academy_update.country_id
     session.commit()
-    session.refresh(academie)
-    return academie
+    session.refresh(academy)
+    return academy
 
-@router.delete("/{academie_id}", status_code=status.HTTP_200_OK)
-def delete_academie(academie_id: int, session: Session = Depends(get_session)):
-    academie = session.get(AcademieDuPays, academie_id)
-    if not academie:
-        raise HTTPException(status_code=404, detail="Academie not found")
-    session.delete(academie)
+@router.delete("/{academy_id}", status_code=status.HTTP_200_OK)
+def delete_academy(academy_id: int, session: Session = Depends(get_session)):
+    academy = session.get(Academy, academy_id)
+    if not academy:
+        raise HTTPException(status_code=404, detail="Academy not found")
+    session.delete(academy)
     session.commit()
-    return {"message": "Academie deleted successfully"}
+    return {"message": "Academy deleted successfully"}

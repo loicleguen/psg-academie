@@ -1,46 +1,46 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
 from ..db.database import get_session
-from ..models.equipe import EquipeAcademie, EquipeAcademieUpdate
+from ..models.equipe import Team, TeamUpdate
 
-router = APIRouter(prefix="/equipes", tags=["equipes"])
+router = APIRouter(prefix="/teams", tags=["teams"])
 
-@router.post("/", response_model=EquipeAcademie, status_code=status.HTTP_201_CREATED)
-def create_equipe(equipe: EquipeAcademieUpdate, session: Session = Depends(get_session)):
-    db_equipe = EquipeAcademie.from_orm(equipe)
-    session.add(db_equipe)
+@router.post("/", response_model=Team, status_code=status.HTTP_201_CREATED)
+def create_team(team: TeamUpdate, session: Session = Depends(get_session)):
+    db_team = Team.from_orm(team)
+    session.add(db_team)
     session.commit()
-    session.refresh(db_equipe)
-    return db_equipe
+    session.refresh(db_team)
+    return db_team
 
-@router.get("/", response_model=list[EquipeAcademie])
-def read_equipes(session: Session = Depends(get_session)):
-    equipes = session.exec(select(EquipeAcademie)).all()
-    return equipes
+@router.get("/", response_model=list[Team])
+def read_teams(session: Session = Depends(get_session)):
+    teams = session.exec(select(Team)).all()
+    return teams
 
 
-# Nouvelle route : GET equipes par academie_id
-@router.get("/academie/{academie_id}", response_model=list[EquipeAcademie])
-def read_equipes_by_academie(academie_id: int, session: Session = Depends(get_session)):
-    equipes = session.exec(select(EquipeAcademie).where(EquipeAcademie.academie_id == academie_id)).all()
-    return equipes
+# Nouvelle route : GET teams par academy_id
+@router.get("/academy/{academy_id}", response_model=list[Team])
+def read_teams_by_academy(academy_id: int, session: Session = Depends(get_session)):
+    teams = session.exec(select(Team).where(Team.academy_id == academy_id)).all()
+    return teams
 
-@router.put("/{equipe_id}", response_model=EquipeAcademie)
-def update_equipe(equipe_id: int, equipe_update: EquipeAcademieUpdate, session: Session = Depends(get_session)):
-    equipe = session.get(EquipeAcademie, equipe_id)
-    if not equipe:
-        raise HTTPException(status_code=404, detail="Equipe not found")
-    equipe.nom = equipe_update.nom
-    equipe.academie_id = equipe_update.academie_id
+@router.put("/{team_id}", response_model=Team)
+def update_team(team_id: int, team_update: TeamUpdate, session: Session = Depends(get_session)):
+    team = session.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    team.name = team_update.name
+    team.academy_id = team_update.academy_id
     session.commit()
-    session.refresh(equipe)
-    return equipe
+    session.refresh(team)
+    return team
 
-@router.delete("/{equipe_id}", status_code=status.HTTP_200_OK)
-def delete_equipe(equipe_id: int, session: Session = Depends(get_session)):
-    equipe = session.get(EquipeAcademie, equipe_id)
-    if not equipe:
-        raise HTTPException(status_code=404, detail="Equipe not found")
-    session.delete(equipe)
+@router.delete("/{team_id}", status_code=status.HTTP_200_OK)
+def delete_team(team_id: int, session: Session = Depends(get_session)):
+    team = session.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    session.delete(team)
     session.commit()
-    return {"message": "Equipe deleted successfully"}
+    return {"message": "Team deleted successfully"}

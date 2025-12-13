@@ -32,9 +32,9 @@ def is_valid_country(name: str) -> bool:
     except Exception:
         return False
 
-class Pays(SQLModel, table=True):
+class Country(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    nom: str
+    name: str
 
     class Config:
         orm_mode = True
