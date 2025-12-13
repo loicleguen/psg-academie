@@ -39,5 +39,5 @@ class Country(SQLModel, table=True):
     class Config:
         orm_mode = True
 
-class PaysUpdate(BaseModel):
+class CountryUpdate(BaseModel):
     nom: str
