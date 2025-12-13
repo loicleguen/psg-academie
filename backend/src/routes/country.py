@@ -1,6 +1,5 @@
-
 from fastapi import APIRouter, HTTPException, Body
-from src.models.pays import Country, is_valid_country
+from src.models.country import Country, is_valid_country
 from src.db.database import get_session
 from sqlmodel import select, func
 from typing import List

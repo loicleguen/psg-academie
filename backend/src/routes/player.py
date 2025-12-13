@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from ..db.database import get_session
 from ..models.player import Player, PlayerUpdate
 
-router = APIRouter(prefix="/player", tags=["player"])
+router = APIRouter(prefix="/players", tags=["players"])
 
 @router.post("/", response_model=Player, status_code=status.HTTP_201_CREATED)
 def create_Player(Player: PlayerUpdate, session: Session = Depends(get_session)):
@@ -29,9 +29,9 @@ def update_Player(Player_id: int, Player_update: PlayerUpdate, session: Session 
     Player = session.get(Player, Player_id)
     if not Player:
         raise HTTPException(status_code=404, detail="Player not found")
-    Player.nom = Player_update.nom
+    Player.name = Player_update.nom
     Player.age = Player_update.age
-    Player.equipe_id = Player_update.equipe_id
+    Player.team_id = Player_update.equipe_id
     session.commit()
     session.refresh(Player)
     return Player

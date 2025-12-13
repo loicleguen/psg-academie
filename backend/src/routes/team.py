@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
 from ..db.database import get_session
-from ..models.equipe import Team, TeamUpdate
+from ..models.team import Team, TeamUpdate
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 

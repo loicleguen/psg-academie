@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
 from ..db.database import get_session
-from ..models.academie import Academy, AcademyUpdate
+from ..models.academy import Academy, AcademyUpdate
 
-
+router = APIRouter(prefix="/academies", tags=["academies"])
 
 @router.post("/", response_model=Academy, status_code=status.HTTP_201_CREATED)
 def create_academy(academy: AcademyUpdate, session: Session = Depends(get_session)):
