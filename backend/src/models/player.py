@@ -12,6 +12,6 @@ class Player(SQLModel, table=True):
         orm_mode = True
 
 class PlayerUpdate(BaseModel):
-    nom: str
+    name: str
     age: Optional[int]
-    equipe_id: int
+    team_id: int
