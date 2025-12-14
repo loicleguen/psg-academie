@@ -7,7 +7,7 @@ router = APIRouter(prefix="/players", tags=["players"])
 
 @router.post("/", response_model=Player, status_code=status.HTTP_201_CREATED)
 def create_player(player: PlayerCreate, session: Session = Depends(get_session)):
-    db_player = Player.from_orm(player)
+    db_player = Player(**player.model_dump())
     session.add(db_player)
     session.commit()
     session.refresh(db_player)

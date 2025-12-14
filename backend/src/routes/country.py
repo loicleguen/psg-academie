@@ -1,24 +1,24 @@
-from fastapi import APIRouter, HTTPException, Body
-from src.models.country import Country, CountryUpdate
+from fastapi import APIRouter, HTTPException, Depends, status
+from src.models.country import Country, CountryCreate, CountryUpdate
 from src.db.database import get_session
 from sqlmodel import select, func
 from typing import List
 
 router = APIRouter(prefix="/countries", tags=["countries"])
 
-@router.post("/", response_model=Country)
-def create_country(country: Country = Body(..., example={"name": "France"})):
-    country.id = None  # Ensure id is not set by client
-    with get_session() as session:
+@router.post("/", response_model=Country, status_code=status.HTTP_201_CREATED)
+def create_country(country: CountryCreate, session=Depends(get_session)):
+    with session:
         existing = session.exec(
             select(Country).where(func.lower(Country.name) == country.name.lower())
         ).first()
         if existing:
             raise HTTPException(status_code=409, detail="Country name already exists.")
-        session.add(country)
+        db_country = Country(**country.model_dump())
+        session.add(db_country)
         session.commit()
-        session.refresh(country)
-        return country
+        session.refresh(db_country)
+        return db_country
 
 @router.get("/", response_model=List[Country])
 def list_countries():

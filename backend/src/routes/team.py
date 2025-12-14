@@ -7,7 +7,7 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 
 @router.post("/", response_model=Team, status_code=status.HTTP_201_CREATED)
 def create_team(team: TeamCreate, session: Session = Depends(get_session)):
-    db_team = Team.from_orm(team)
+    db_team = Team(**team.model_dump())
     session.add(db_team)
     session.commit()
     session.refresh(db_team)

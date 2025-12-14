@@ -9,5 +9,8 @@ class Country(SQLModel, table=True):
     class Config:
         from_attributes = True
 
+class CountryCreate(BaseModel):
+    name: str
+
 class CountryUpdate(BaseModel):
     name: str

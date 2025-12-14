@@ -7,7 +7,7 @@ router = APIRouter(prefix="/academies", tags=["academies"])
 
 @router.post("/", response_model=Academy, status_code=status.HTTP_201_CREATED)
 def create_academy(academy: AcademyCreate, session: Session = Depends(get_session)):
-    db_academy = Academy.from_orm(academy)
+    db_academy = Academy(**academy.model_dump())
     session.add(db_academy)
     session.commit()
     session.refresh(db_academy)
