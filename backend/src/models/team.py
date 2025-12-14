@@ -8,7 +8,7 @@ class Team(SQLModel, table=True):
     academy_id: int = Field(foreign_key="academy.id", ondelete="CASCADE")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class TeamCreate(BaseModel):
     name: str

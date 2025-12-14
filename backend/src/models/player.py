@@ -9,9 +9,13 @@ class Player(SQLModel, table=True):
     team_id: int = Field(foreign_key="team.id", ondelete="CASCADE")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class PlayerCreate(BaseModel):
+    name: str
+    age: Optional[int]
+    team_id: int
 
 class PlayerUpdate(BaseModel):
     name: str
     age: Optional[int]
-    team_id: int

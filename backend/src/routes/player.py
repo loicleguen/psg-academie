@@ -1,17 +1,17 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
 from ..db.database import get_session
-from ..models.player import Player, PlayerUpdate
+from ..models.player import Player, PlayerCreate, PlayerUpdate
 
 router = APIRouter(prefix="/players", tags=["players"])
 
 @router.post("/", response_model=Player, status_code=status.HTTP_201_CREATED)
-def create_Player(Player: PlayerUpdate, session: Session = Depends(get_session)):
-    db_Player = Player.from_orm(Player)
-    session.add(db_Player)
+def create_player(player: PlayerCreate, session: Session = Depends(get_session)):
+    db_player = Player.from_orm(player)
+    session.add(db_player)
     session.commit()
-    session.refresh(db_Player)
-    return db_Player
+    session.refresh(db_player)
+    return db_player
 
 @router.get("/", response_model=list[Player])
 def read_player(session: Session = Depends(get_session)):
@@ -24,23 +24,23 @@ def read_player_by_team(team_id: int, session: Session = Depends(get_session)):
     player = session.exec(select(Player).where(Player.team_id == team_id)).all()
     return player
 
-@router.put("/{Player_id}", response_model=Player)
-def update_Player(Player_id: int, Player_update: PlayerUpdate, session: Session = Depends(get_session)):
-    Player = session.get(Player, Player_id)
-    if not Player:
+@router.put("/{player_id}", response_model=Player)
+def update_player(player_id: int, player_update: PlayerUpdate, session: Session = Depends(get_session)):
+    player = session.get(Player, player_id)
+    if not player:
         raise HTTPException(status_code=404, detail="Player not found")
-    Player.name = Player_update.name
-    Player.age = Player_update.age
-    Player.team_id = Player_update.team_id
+    player.name = player_update.name
+    player.age = player_update.age
+    # player.team_id n'est pas modifié
     session.commit()
-    session.refresh(Player)
-    return Player
+    session.refresh(player)
+    return player
 
-@router.delete("/{Player_id}", status_code=status.HTTP_200_OK)
-def delete_Player(Player_id: int, session: Session = Depends(get_session)):
-    Player = session.get(Player, Player_id)
-    if not Player:
+@router.delete("/{player_id}", status_code=status.HTTP_200_OK)
+def delete_player(player_id: int, session: Session = Depends(get_session)):
+    player = session.get(Player, player_id)
+    if not player:
         raise HTTPException(status_code=404, detail="Player not found")
-    session.delete(Player)
+    session.delete(player)
     session.commit()
     return {"message": "Player deleted successfully"}

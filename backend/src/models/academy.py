@@ -8,7 +8,7 @@ class Academy(SQLModel, table=True):
     country_id: int = Field(foreign_key="country.id", ondelete="CASCADE")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class AcademyCreate(BaseModel):
     name: str

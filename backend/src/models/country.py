@@ -7,7 +7,7 @@ class Country(SQLModel, table=True):
     name: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CountryUpdate(BaseModel):
     name: str
