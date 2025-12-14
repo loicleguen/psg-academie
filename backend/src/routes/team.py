@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
 from ..db.database import get_session
-from ..models.team import Team, TeamUpdate
+from ..models.team import Team, TeamCreate, TeamUpdate
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
 @router.post("/", response_model=Team, status_code=status.HTTP_201_CREATED)
-def create_team(team: TeamUpdate, session: Session = Depends(get_session)):
+def create_team(team: TeamCreate, session: Session = Depends(get_session)):
     db_team = Team.from_orm(team)
     session.add(db_team)
     session.commit()
@@ -31,7 +31,7 @@ def update_team(team_id: int, team_update: TeamUpdate, session: Session = Depend
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     team.name = team_update.name
-    team.academy_id = team_update.academy_id
+    # team.academy_id n'est pas modifié
     session.commit()
     session.refresh(team)
     return team

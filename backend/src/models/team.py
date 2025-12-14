@@ -10,6 +10,9 @@ class Team(SQLModel, table=True):
     class Config:
         orm_mode = True
 
-class TeamUpdate(BaseModel):
+class TeamCreate(BaseModel):
     name: str
     academy_id: int
+
+class TeamUpdate(BaseModel):
+    name: str

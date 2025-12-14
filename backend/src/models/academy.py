@@ -10,5 +10,9 @@ class Academy(SQLModel, table=True):
     class Config:
         orm_mode = True
 
+class AcademyCreate(BaseModel):
+    name: str
+    country_id: int
+
 class AcademyUpdate(BaseModel):
     name: str
