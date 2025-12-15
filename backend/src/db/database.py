@@ -1,6 +1,13 @@
 from sqlmodel import SQLModel, create_engine, Session
 import os
 
+# Import models to ensure they're registered with SQLModel
+from ..models.country import Country
+from ..models.academy import Academy
+from ..models.team import Team
+from ..models.player import Player
+from ..models.catapult import CatapultSession
+
 # Paramètres de connexion PostgreSQL (doivent correspondre à docker-compose.yml)
 POSTGRES_USER = os.getenv("POSTGRES_USER", "psguser")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "psgpass")
