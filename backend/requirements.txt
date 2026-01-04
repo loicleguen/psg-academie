@@ -2,8 +2,9 @@ fastapi==0.124.4
 matplotlib==3.10.8
 pandas==2.3.3
 pydantic==2.12.5
+pillow==12.0.0
 seaborn==0.13.2
 sqlmodel==0.0.27
-python-multipart==0.0.20
+python-multipart==0.0.21
 uvicorn==0.34.0
 psycopg2-binary==2.9.10
