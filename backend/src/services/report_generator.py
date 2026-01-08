@@ -391,7 +391,9 @@ class SessionReportGenerator:
         num_rows = len(session_data) + 1  # +1 for header
         
                 # Largeurs personnalisées (total = 1.0)
-        col_widths = [0.16, 0.055, 0.065, 0.05, 0.055, 0.05, 0.055, 0.055, 0.05, 0.055, 0.05, 0.05, 0.05, 0.055, 0.05, 0.055]
+        # Largeurs relatives (normalisées à 1.0)
+        widths_raw = [16, 5.5, 6.5, 5, 5.5, 5, 5.5, 5.5, 5, 5.5, 5, 5, 5, 5.5, 5, 5.5]
+        col_widths = [w/sum(widths_raw) for w in widths_raw]
         row_height = 1.0 / num_rows
         
         # Draw header row
