@@ -364,7 +364,7 @@ class SessionReportGenerator:
         )
         
         # === TABLE ===
-        table_ax = plt.axes([0.05, 0.05, 0.9, 0.54])
+        table_ax = plt.axes([0.02, 0.05, 0.96, 0.54])
         table_ax.set_facecolor(SessionReportGenerator.COLORS['background'])
         table_ax.axis('off')
         
