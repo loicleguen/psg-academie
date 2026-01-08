@@ -390,23 +390,25 @@ class SessionReportGenerator:
         num_cols = len(headers)
         num_rows = len(session_data) + 1  # +1 for header
         
-        col_width = [0.12, 0.06, 0.07, 0.05, 0.06, 0.05, 0.06, 0.06, 0.05, 0.06, 0.05, 0.05, 0.05, 0.06, 0.05, 0.05]
+                # Largeurs personnalisées (total = 1.0)
+        col_widths = [0.12, 0.055, 0.065, 0.05, 0.055, 0.05, 0.055, 0.055, 0.05, 0.055, 0.05, 0.05, 0.05, 0.055, 0.05, 0.055]
         row_height = 1.0 / num_rows
         
         # Draw header row
         for col_idx, header in enumerate(headers):
-            x = col_idx * col_width
+            x = sum(col_widths[:col_idx])  # Position cumulative
+            current_width = col_widths[col_idx]
             y = 1 - row_height
             
             rect = patches.Rectangle(
-                (x, y), col_width, row_height,
+                (x, y), current_width, row_height,
                 linewidth=0.5, edgecolor='white',
                 facecolor=SessionReportGenerator.COLORS['header_bg']
             )
             table_ax.add_patch(rect)
             
             table_ax.text(
-                x + col_width/2, y + row_height/2, header,
+                x + current_width/2, y + row_height/2, header,
                 ha='center', va='center',
                 fontsize=8, fontweight='bold',
                 color=SessionReportGenerator.COLORS['text_white']
@@ -462,10 +464,11 @@ class SessionReportGenerator:
             colors[11] = SessionReportGenerator.get_color_for_percentile(pp, p33_pp, p66_pp)
             
             for col_idx, (value, bg_color) in enumerate(zip(row_data, colors)):
-                x = col_idx * col_width
+                x = sum(col_widths[:col_idx])  # Position cumulative
+                current_width = col_widths[col_idx]
                 
                 rect = patches.Rectangle(
-                    (x, y), col_width, row_height,
+                    (x, y), current_width, row_height,
                     linewidth=0.5, edgecolor='#4a5568',
                     facecolor=bg_color
                 )
@@ -473,7 +476,7 @@ class SessionReportGenerator:
                 
                 # Text alignment
                 alignment = 'left' if col_idx == 0 else 'center'
-                x_text = x + 0.01 if col_idx == 0 else x + col_width/2
+                x_text = x + 0.01 if col_idx == 0 else x + current_width/2
                 
                 table_ax.text(
                     x_text, y + row_height/2, value,
