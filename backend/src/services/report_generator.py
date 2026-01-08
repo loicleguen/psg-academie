@@ -364,7 +364,7 @@ class SessionReportGenerator:
         )
         
         # === TABLE ===
-        table_ax = plt.axes([0.02, 0.05, 0.96, 0.54])
+        table_ax = plt.axes([0.0, 0.05, 1.0, 0.54])
         table_ax.set_facecolor(SessionReportGenerator.COLORS['background'])
         table_ax.axis('off')
         
@@ -391,7 +391,7 @@ class SessionReportGenerator:
         num_rows = len(session_data) + 1  # +1 for header
         
                 # Largeurs personnalisées (total = 1.0)
-        col_widths = [0.12, 0.055, 0.065, 0.05, 0.055, 0.05, 0.055, 0.055, 0.05, 0.055, 0.05, 0.05, 0.05, 0.055, 0.05, 0.055]
+        col_widths = [0.16, 0.055, 0.065, 0.05, 0.055, 0.05, 0.055, 0.055, 0.05, 0.055, 0.05, 0.05, 0.05, 0.055, 0.05, 0.055]
         row_height = 1.0 / num_rows
         
         # Draw header row
