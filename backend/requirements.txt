@@ -1,11 +1,31 @@
+# === FRAMEWORK WEB ===
+# Framework web moderne et rapide pour créer des APIs REST avec Python
 fastapi==0.124.4
-matplotlib==3.10.8
-pandas==2.3.3
-pydantic==2.12.5
-pillow==12.0.0
-seaborn==0.13.2
-sqlmodel==0.0.27
-python-multipart==0.0.21
+# Serveur ASGI ultra-rapide pour exécuter FastAPI en production et développement
 uvicorn==0.34.0
+# Gestion des fichiers uploadés dans FastAPI (formulaires multipart/form-data)
+python-multipart==0.0.21
+
+# === BASE DE DONNÉES ===
+# ORM moderne combinant SQLAlchemy et Pydantic pour gérer la base de données
+sqlmodel==0.0.27
+# Adaptateur PostgreSQL pour Python (connexion à la base de données)
 psycopg2-binary==2.9.10
+# Outil de migration de base de données (versionning du schéma SQL)
 alembic==1.14.0
+
+# === VALIDATION ===
+# Validation des données et sérialisation (utilisé par FastAPI et SQLModel)
+pydantic==2.12.5
+
+# === TRAITEMENT DE DONNÉES ===
+# Analyse et manipulation de données (DataFrames, calculs statistiques)
+pandas==2.3.3
+
+# === VISUALISATION ===
+# Bibliothèque de visualisation pour créer des graphiques (gauges, courbes, etc.)
+matplotlib==3.10.8
+# Visualisation statistique avancée (heatmaps, graphiques élégants)
+seaborn==0.13.2
+# Manipulation d'images (création de rapports PDF, redimensionnement, etc.)
+pillow==12.0.0
