@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from typing import List, Dict, Any
 import pandas as pd
 import base64
+from fastapi import Query
 
 from ..db.database import get_session
 from ..models.catapult import CatapultSession, CatapultSessionCreate
@@ -69,7 +70,7 @@ def get_all_sessions(session: Session = Depends(get_session)):
     return sessions
 
 
-@router.get("/sessions/title/{session_title}")
+@router.get("/sessions/title")
 def get_sessions_by_title(session_title: str, session: Session = Depends(get_session)):
     """Get all sessions with a specific title"""
     statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
@@ -94,7 +95,7 @@ def get_session_by_id(session_id: int, session: Session = Depends(get_session)):
     return db_session
 
 
-@router.post("/analyze/session/{session_title}")
+@router.post("/analyze/session")
 def analyze_session(session_title: str, session: Session = Depends(get_session)):
     """
     Analyze a training session with split detection and player comparison
@@ -164,21 +165,11 @@ def analyze_player(
     return analysis
 
 
-@router.delete("/sessions/{session_id}")
-def delete_session(session_id: int, session: Session = Depends(get_session)):
-    """Delete a Catapult session"""
-    db_session = session.get(CatapultSession, session_id)
-    if not db_session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session.delete(db_session)
-    session.commit()
-    
-    return {"message": "Session deleted successfully"}
-
-
-@router.delete("/sessions/title/{session_title}")
-def delete_sessions_by_title(session_title: str, session: Session = Depends(get_session)):
+@router.delete("/sessions/title")
+def delete_sessions_by_title(
+    session_title: str = Query(..., description="Session title to delete"),
+    session: Session = Depends(get_session)
+):
     """Delete all sessions with a specific title"""
     statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
     db_sessions = session.exec(statement).all()
@@ -193,6 +184,19 @@ def delete_sessions_by_title(session_title: str, session: Session = Depends(get_
     session.commit()
     
     return {"message": f"Deleted {count} sessions"}
+
+
+@router.delete("/sessions/{session_id}")
+def delete_session(session_id: int, session: Session = Depends(get_session)):
+    """Delete a Catapult session"""
+    db_session = session.get(CatapultSession, session_id)
+    if not db_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session.delete(db_session)
+    session.commit()
+    
+    return {"message": "Session deleted successfully"}
 
 
 @router.post("/graphs/player/{player_name}")
@@ -242,7 +246,7 @@ def generate_player_graphs(
     }
 
 
-@router.post("/graphs/session/{session_title}")
+@router.post("/graphs/session")
 def generate_session_graphs(
     session_title: str,
     session: Session = Depends(get_session)
@@ -275,7 +279,7 @@ def generate_session_graphs(
     }
 
 
-@router.get("/graphs/session/{session_title}/{metric}.png")
+@router.get("/graphs/session/{metric}.png")
 def get_session_graph_image(
     session_title: str,
     metric: str,
@@ -467,7 +471,7 @@ def generate_session_report(
     }
 
 
-@router.get("/reports/session/{session_title}.png")
+@router.get("/reports/session.png")
 def get_session_report_image(
     session_title: str,
     session: Session = Depends(get_session)
