@@ -1,0 +1,46 @@
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# Node/React
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker - Volume PostgreSQL
+postgres_data/
+pgdata/
+
+# Fichiers CSV (données sensibles)
+*.csv
+
+# Python - Compilés
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Tests (pour plus tard)
+.pytest_cache/
+.coverage
+htmlcov/
