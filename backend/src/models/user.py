@@ -2,6 +2,7 @@ from sqlmodel import SQLModel, Field
 from typing import Optional
 from datetime import datetime
 from enum import Enum
+from pydantic import EmailStr
 
 
 class UserRole(str, Enum):
@@ -15,7 +16,7 @@ class UserRole(str, Enum):
 class User(SQLModel, table=True):
     """Modèle utilisateur pour l'authentification"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(unique=True, index=True, max_length=255)
+    email: EmailStr = Field(unique=True, index=True, max_length=255)
     hashed_password: str = Field(max_length=255)
     role: UserRole = Field(default=UserRole.ANALYST)
     is_active: bool = Field(default=True)
