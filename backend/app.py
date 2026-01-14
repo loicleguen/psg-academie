@@ -6,7 +6,7 @@ from src.routes.academy import router as academy_router
 from src.routes.team import router as team_router
 from src.routes.player import router as player_router
 from src.routes.catapult import router as catapult_router
-from src.routes.auth import router as auth_router  # NOUVEAU
+from src.routes.auth import router as auth_router
 from src.db.database import init_db
 from contextlib import asynccontextmanager
 
@@ -18,7 +18,7 @@ async def lifespan(app):
 app = FastAPI(lifespan=lifespan)
 
 
-app.include_router(auth_router)  # NOUVEAU : Router d'authentification en premier
+app.include_router(auth_router)
 app.include_router(country_router)
 app.include_router(academy_router)
 app.include_router(team_router)
