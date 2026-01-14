@@ -55,6 +55,7 @@ class Token(SQLModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int  # secondes
+    refresh_token: str
 
 
 class TokenData(SQLModel):
@@ -76,3 +77,13 @@ class UserUpdateMe(SQLModel):
     """Schéma pour mettre à jour son propre profil (sans email ni role)"""
     password: Optional[str] = None
     full_name: Optional[str] = None
+
+
+class RefreshToken(SQLModel, table=True):
+    """Modèle pour stocker les refresh tokens"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(unique=True, index=True, max_length=500)
+    user_id: int = Field(foreign_key="user.id")
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_revoked: bool = Field(default=False)

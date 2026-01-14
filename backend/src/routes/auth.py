@@ -66,7 +66,7 @@ def login(
         session: Session de base de données
         
     Returns:
-        Token: Token JWT d'accès
+        Token: Token JWT d'accès + refresh token
         
     Raises:
         HTTPException 401: Si les identifiants sont incorrects
@@ -94,13 +94,66 @@ def login(
         expires_delta=access_token_expires
     )
     
+    # Créer le refresh token
+    refresh_token = AuthService.create_refresh_token(user.id, session)
+    
     return Token(
         access_token=access_token,
+        refresh_token=refresh_token,
         token_type="bearer",
         expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60  # en secondes
     )
 
 
+
+
+@router.post("/refresh", response_model=Token, tags=["Auth - Public"], summary="Refresh access token")
+def refresh_access_token(
+    refresh_token: str,
+    session: Session = Depends(get_session)
+):
+    """
+    Obtenir un nouveau access token avec un refresh token
+    
+    Args:
+        refresh_token: Token de rafraîchissement
+        session: Session de base de données
+        
+    Returns:
+        Token: Nouveau token JWT d'accès
+        
+    Raises:
+        HTTPException 401: Si le refresh token est invalide ou expiré
+    """
+    # Vérifier le refresh token
+    user = AuthService.verify_refresh_token(refresh_token, session)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user"
+        )
+    
+    # Créer un nouveau access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = AuthService.create_access_token(
+        data={"sub": user.email, "role": user.role},
+        expires_delta=access_token_expires
+    )
+    
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,  # On renvoie le même refresh token
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
 @router.get("/me", response_model=UserRead, tags=["Auth - User"], summary="[Me] Get my profile")
 def read_users_me(current_user: User = Depends(get_current_user)):
     """

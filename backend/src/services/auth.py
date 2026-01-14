@@ -110,3 +110,67 @@ class AuthService:
             return None
         
         return user
+
+    @staticmethod
+    def create_refresh_token(user_id: int, session: Session) -> str:
+        """
+        Crée un refresh token et le stocke en base de données
+        
+        Args:
+            user_id: ID de l'utilisateur
+            session: Session de base de données
+            
+        Returns:
+            Token de rafraîchissement
+        """
+        from ..models.user import RefreshToken
+        import secrets
+        
+        # Générer un token aléatoire sécurisé
+        token = secrets.token_urlsafe(64)
+        
+        # Expiration dans 7 jours
+        expires_at = datetime.utcnow() + timedelta(days=1)
+        
+        # Stocker en base
+        refresh_token = RefreshToken(
+            token=token,
+            user_id=user_id,
+            expires_at=expires_at
+        )
+        session.add(refresh_token)
+        session.commit()
+        
+        return token
+    
+    @staticmethod
+    def verify_refresh_token(token: str, session: Session) -> Optional[User]:
+        """
+        Vérifie un refresh token et retourne l'utilisateur associé
+        
+        Args:
+            token: Refresh token à vérifier
+            session: Session de base de données
+            
+        Returns:
+            User si le token est valide, None sinon
+        """
+        from ..models.user import RefreshToken
+        
+        # Récupérer le refresh token depuis la DB
+        statement = select(RefreshToken).where(
+            RefreshToken.token == token,
+            RefreshToken.is_revoked == False
+        )
+        db_token = session.exec(statement).first()
+        
+        if not db_token:
+            return None
+        
+        # Vérifier l'expiration
+        if db_token.expires_at < datetime.utcnow():
+            return None
+        
+        # Récupérer l'utilisateur
+        user = session.get(User, db_token.user_id)
+        return user
