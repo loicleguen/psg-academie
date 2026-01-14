@@ -29,7 +29,7 @@ class User(SQLModel, table=True):
 
 class UserCreate(SQLModel):
     """Schéma pour créer un utilisateur"""
-    email: str
+    email: EmailStr
     password: str
     full_name: Optional[str] = None
     role: UserRole = UserRole.ANALYST
@@ -62,3 +62,12 @@ class TokenData(SQLModel):
     """Données contenues dans le token JWT"""
     email: Optional[str] = None
     role: Optional[str] = None
+
+
+class UserUpdate(SQLModel):
+    """Schéma pour mettre à jour un utilisateur"""
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    full_name: Optional[str] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None

@@ -4,9 +4,9 @@ from sqlmodel import Session
 from datetime import timedelta
 
 from ..db.database import get_session
-from ..models.user import User, UserCreate, UserRead, UserLogin, Token
+from ..models.user import User, UserCreate, UserRead, UserLogin, Token, UserUpdate
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
-from ..middleware.security import get_current_user
+from ..middleware.security import get_current_user, require_admin
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -124,3 +124,123 @@ def logout():
     en supprimant le token. Cette route est informative.
     """
     return {"message": "Successfully logged out. Please delete the token from client."}
+
+
+@router.put("/me", response_model=UserRead)
+def update_my_profile(
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Modifier son propre profil
+    
+    Args:
+        user_update: Nouvelles données (email, nom, mot de passe)
+        current_user: Utilisateur authentifié
+        
+    Returns:
+        UserRead: Utilisateur mis à jour
+    """
+    from ..models.user import UserUpdate
+    
+    if user_update.email is not None:
+        current_user.email = user_update.email
+    if user_update.full_name is not None:
+        current_user.full_name = user_update.full_name
+    if user_update.password is not None:
+        current_user.hashed_password = AuthService.get_password_hash(user_update.password)
+    
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return current_user
+
+
+@router.delete("/me")
+def delete_my_account(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Supprimer son propre compte
+    
+    Args:
+        current_user: Utilisateur authentifié
+        
+    Returns:
+        Message de confirmation
+    """
+    email = current_user.email
+    session.delete(current_user)
+    session.commit()
+    return {"message": f"Account {email} deleted successfully"}
+
+
+@router.put("/users/{user_id}", response_model=UserRead)
+def update_user(
+    user_id: int,
+    user_update: UserUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Modifier un utilisateur (admin uniquement)
+    
+    Permet de changer le rôle et le statut actif
+    
+    Args:
+        user_id: ID de l'utilisateur à modifier
+        user_update: Nouvelles données
+        current_user: Admin authentifié
+        
+    Returns:
+        UserRead: Utilisateur mis à jour
+    """
+    from ..models.user import UserUpdate
+    
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user_update.email is not None:
+        user.email = user_update.email
+    if user_update.full_name is not None:
+        user.full_name = user_update.full_name
+    if user_update.password is not None:
+        user.hashed_password = AuthService.get_password_hash(user_update.password)
+    if user_update.role is not None:
+        user.role = user_update.role
+    if user_update.is_active is not None:
+        user.is_active = user_update.is_active
+    
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Supprimer un utilisateur (admin uniquement)
+    
+    Args:
+        user_id: ID de l'utilisateur à supprimer
+        current_user: Admin authentifié
+        
+    Returns:
+        Message de confirmation
+    """
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    email = user.email
+    session.delete(user)
+    session.commit()
+    return {"message": f"User {email} deleted successfully"}
