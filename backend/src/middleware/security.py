@@ -105,4 +105,3 @@ def require_role(allowed_roles: List[UserRole]):
 # Raccourcis pour les rôles courants
 require_admin = require_role([UserRole.ADMIN])
 require_coach_or_admin = require_role([UserRole.COACH, UserRole.ADMIN])
-require_analyst_or_above = require_role([UserRole.ANALYST, UserRole.COACH, UserRole.ADMIN])

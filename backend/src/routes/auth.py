@@ -4,14 +4,14 @@ from sqlmodel import Session
 from datetime import timedelta
 
 from ..db.database import get_session
-from ..models.user import User, UserCreate, UserRead, UserLogin, Token, UserUpdate
+from ..models.user import User, UserCreate, UserRead, UserLogin, Token, UserUpdate, UserUpdateMe
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from ..middleware.security import get_current_user, require_admin
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth", )
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, tags=["Auth - Public"], summary="Register new user")
 def register(user_data: UserCreate, session: Session = Depends(get_session)):
     """
     Enregistrer un nouvel utilisateur
@@ -53,7 +53,7 @@ def register(user_data: UserCreate, session: Session = Depends(get_session)):
     return db_user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, tags=["Auth - Public"], summary="Login and get JWT token")
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session)
@@ -101,7 +101,7 @@ def login(
     )
 
 
-@router.get("/me", response_model=UserRead)
+@router.get("/me", response_model=UserRead, tags=["Auth - User"], summary="[Me] Get my profile")
 def read_users_me(current_user: User = Depends(get_current_user)):
     """
     Récupérer les informations de l'utilisateur connecté
@@ -115,7 +115,7 @@ def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/logout")
+@router.post("/logout", tags=["Auth - Public"], summary="Logout (client-side)")
 def logout():
     """
     Déconnecter l'utilisateur
@@ -126,26 +126,25 @@ def logout():
     return {"message": "Successfully logged out. Please delete the token from client."}
 
 
-@router.put("/me", response_model=UserRead)
+@router.put("/me", response_model=UserRead, tags=["Auth - User"], summary="[Me] Update my profile")
 def update_my_profile(
-    user_update: UserUpdate,
+    user_update: UserUpdateMe,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
-    Modifier son propre profil
+    Modifier son propre profil (nom et mot de passe uniquement)
+    
+    Note: L'email ne peut pas être modifié par l'utilisateur lui-même
+    pour éviter l'invalidation du token JWT. Seul un admin peut modifier l'email.
     
     Args:
-        user_update: Nouvelles données (email, nom, mot de passe)
+        user_update: Nouvelles données (nom, mot de passe)
         current_user: Utilisateur authentifié
         
     Returns:
         UserRead: Utilisateur mis à jour
     """
-    from ..models.user import UserUpdate
-    
-    if user_update.email is not None:
-        current_user.email = user_update.email
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
     if user_update.password is not None:
@@ -157,7 +156,7 @@ def update_my_profile(
     return current_user
 
 
-@router.delete("/me")
+@router.delete("/me", tags=["Auth - User"], summary="[Me] Delete my account")
 def delete_my_account(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
@@ -177,7 +176,26 @@ def delete_my_account(
     return {"message": f"Account {email} deleted successfully"}
 
 
-@router.put("/users/{user_id}", response_model=UserRead)
+@router.get("/users", response_model=list[UserRead], tags=["Auth - Admin"], summary="[Admin] List all users")
+def get_all_users(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Lister tous les utilisateurs (admin uniquement)
+    
+    Args:
+        current_user: Admin authentifié
+        
+    Returns:
+        Liste de tous les utilisateurs
+    """
+    from sqlmodel import select
+    users = session.exec(select(User)).all()
+    return users
+
+
+@router.put("/users/{user_id}", response_model=UserRead, tags=["Auth - Admin"], summary="[Admin] Update user")
 def update_user(
     user_id: int,
     user_update: UserUpdate,
@@ -220,7 +238,7 @@ def update_user(
     return user
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}", tags=["Auth - Admin"], summary="[Admin] Delete user")
 def delete_user(
     user_id: int,
     session: Session = Depends(get_session),

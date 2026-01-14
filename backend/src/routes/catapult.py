@@ -1,4 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from ..models.user import User
+from ..middleware.security import require_coach_or_admin
 from fastapi.responses import Response
 from sqlmodel import Session, select
 from typing import List, Dict, Any
@@ -19,7 +21,8 @@ router = APIRouter(prefix="/catapult", tags=["Catapult GPS Data"])
 @router.post("/upload", response_model=Dict[str, Any])
 async def upload_catapult_csv(
     file: UploadFile = File(...),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Upload and process a Catapult CSV file
@@ -64,14 +67,18 @@ async def upload_catapult_csv(
 
 
 @router.get("/sessions", response_model=List[CatapultSession])
-def get_all_sessions(session: Session = Depends(get_session)):
+def get_all_sessions(session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     """Get all Catapult training sessions"""
     sessions = session.exec(select(CatapultSession)).all()
     return sessions
 
 
 @router.get("/sessions/title")
-def get_sessions_by_title(session_title: str, session: Session = Depends(get_session)):
+def get_sessions_by_title(session_title: str, session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     """Get all sessions with a specific title"""
     statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
     sessions = session.exec(statement).all()
@@ -79,7 +86,9 @@ def get_sessions_by_title(session_title: str, session: Session = Depends(get_ses
 
 
 @router.get("/sessions/player/{player_name}")
-def get_player_sessions(player_name: str, session: Session = Depends(get_session)):
+def get_player_sessions(player_name: str, session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     """Get all sessions for a specific player"""
     statement = select(CatapultSession).where(CatapultSession.player_name == player_name)
     sessions = session.exec(statement).all()
@@ -87,7 +96,9 @@ def get_player_sessions(player_name: str, session: Session = Depends(get_session
 
 
 @router.get("/sessions/{session_id}", response_model=CatapultSession)
-def get_session_by_id(session_id: int, session: Session = Depends(get_session)):
+def get_session_by_id(session_id: int, session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     """Get a specific Catapult training session by ID"""
     db_session = session.get(CatapultSession, session_id)
     if not db_session:
@@ -96,7 +107,9 @@ def get_session_by_id(session_id: int, session: Session = Depends(get_session)):
 
 
 @router.post("/analyze/session")
-def analyze_session(session_title: str, session: Session = Depends(get_session)):
+def analyze_session(session_title: str, session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     """
     Analyze a training session with split detection and player comparison
     
@@ -139,7 +152,8 @@ def analyze_session(session_title: str, session: Session = Depends(get_session))
 def analyze_player(
     player_name: str,
     session_title: str = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Analyze a player's performance across all splits
@@ -168,7 +182,8 @@ def analyze_player(
 @router.delete("/sessions/title")
 def delete_sessions_by_title(
     session_title: str = Query(..., description="Session title to delete"),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """Delete all sessions with a specific title"""
     statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
@@ -187,7 +202,9 @@ def delete_sessions_by_title(
 
 
 @router.delete("/sessions/{session_id}")
-def delete_session(session_id: int, session: Session = Depends(get_session)):
+def delete_session(session_id: int, session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     """Delete a Catapult session"""
     db_session = session.get(CatapultSession, session_id)
     if not db_session:
@@ -203,7 +220,8 @@ def delete_session(session_id: int, session: Session = Depends(get_session)):
 def generate_player_graphs(
     player_name: str,
     session_title: str = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Generate all graphs for a specific player
@@ -249,7 +267,8 @@ def generate_player_graphs(
 @router.post("/graphs/session")
 def generate_session_graphs(
     session_title: str,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Generate comparison graphs for all players in a session
@@ -283,7 +302,8 @@ def generate_session_graphs(
 def get_session_graph_image(
     session_title: str,
     metric: str,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Get a specific comparison graph as PNG image
@@ -319,7 +339,8 @@ def get_session_graph_image(
 def get_player_speed_zones_image(
     player_name: str,
     session_title: str = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Get player's speed zones distribution as PNG image
@@ -353,7 +374,8 @@ def get_player_speed_zones_image(
 def get_player_distance_breakdown_image(
     player_name: str,
     session_title: str = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Get player's distance breakdown as PNG image
@@ -384,7 +406,8 @@ def get_player_distance_breakdown_image(
 def get_player_intensity_timeline_image(
     player_name: str,
     session_title: str = None,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Get player's intensity timeline as PNG image (requires multiple splits)
@@ -421,7 +444,8 @@ def get_player_intensity_timeline_image(
 @router.post("/reports/session")
 def generate_session_report(
     session_title: str,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Generate complete professional session report
@@ -474,7 +498,8 @@ def generate_session_report(
 @router.get("/reports/session.png")
 def get_session_report_image(
     session_title: str,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Get session report as PNG image (directly viewable in browser)

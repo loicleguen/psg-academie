@@ -9,7 +9,6 @@ class UserRole(str, Enum):
     """Rôles utilisateurs disponibles"""
     ADMIN = "admin"
     COACH = "coach"
-    ANALYST = "analyst"
     PLAYER = "player"
 
 
@@ -18,7 +17,7 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: EmailStr = Field(unique=True, index=True, max_length=255)
     hashed_password: str = Field(max_length=255)
-    role: UserRole = Field(default=UserRole.ANALYST)
+    role: UserRole = Field(default=UserRole.PLAYER)
     is_active: bool = Field(default=True)
     full_name: Optional[str] = Field(default=None, max_length=255)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -32,7 +31,7 @@ class UserCreate(SQLModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
-    role: UserRole = UserRole.ANALYST
+    role: UserRole = UserRole.PLAYER
 
 
 class UserRead(SQLModel):
@@ -71,3 +70,9 @@ class UserUpdate(SQLModel):
     full_name: Optional[str] = None
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
+
+
+class UserUpdateMe(SQLModel):
+    """Schéma pour mettre à jour son propre profil (sans email ni role)"""
+    password: Optional[str] = None
+    full_name: Optional[str] = None

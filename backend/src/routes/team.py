@@ -2,11 +2,17 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
 from ..db.database import get_session
 from ..models.team import Team, TeamCreate, TeamUpdate
+from ..models.user import User
+from ..middleware.security import require_coach_or_admin
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
 @router.post("/", response_model=Team, status_code=status.HTTP_201_CREATED)
-def create_team(team: TeamCreate, session: Session = Depends(get_session)):
+def create_team(
+    team: TeamCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     db_team = Team(**team.model_dump())
     session.add(db_team)
     session.commit()
@@ -14,19 +20,31 @@ def create_team(team: TeamCreate, session: Session = Depends(get_session)):
     return db_team
 
 @router.get("/", response_model=list[Team])
-def read_teams(session: Session = Depends(get_session)):
+def read_teams(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     teams = session.exec(select(Team)).all()
     return teams
 
 
 # Nouvelle route : GET teams par academy_id
 @router.get("/academy/{academy_id}", response_model=list[Team])
-def read_teams_by_academy(academy_id: int, session: Session = Depends(get_session)):
+def read_teams_by_academy(
+    academy_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     teams = session.exec(select(Team).where(Team.academy_id == academy_id)).all()
     return teams
 
 @router.put("/{team_id}", response_model=Team)
-def update_team(team_id: int, team_update: TeamUpdate, session: Session = Depends(get_session)):
+def update_team(
+    team_id: int,
+    team_update: TeamUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     team = session.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
@@ -37,7 +55,11 @@ def update_team(team_id: int, team_update: TeamUpdate, session: Session = Depend
     return team
 
 @router.delete("/{team_id}", status_code=status.HTTP_200_OK)
-def delete_team(team_id: int, session: Session = Depends(get_session)):
+def delete_team(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
     team = session.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
