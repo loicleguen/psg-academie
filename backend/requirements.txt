@@ -29,3 +29,9 @@ matplotlib==3.10.8
 seaborn==0.13.2
 # Manipulation d'images (création de rapports PDF, redimensionnement, etc.)
 pillow==12.0.0
+
+# === AUTHENTIFICATION & SÉCURITÉ ===
+# Création et vérification de JSON Web Tokens (JWT) pour l'authentification
+python-jose[cryptography]==3.3.0
+# Hash sécurisé des mots de passe avec bcrypt (protection contre les attaques)
+passlib[bcrypt]==1.7.4

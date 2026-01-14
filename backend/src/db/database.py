@@ -7,6 +7,7 @@ from ..models.academy import Academy
 from ..models.team import Team
 from ..models.player import Player
 from ..models.catapult import CatapultSession
+from ..models.user import User  # NOUVEAU : Import du modèle User
 
 # Paramètres de connexion PostgreSQL (doivent correspondre à docker-compose.yml)
 POSTGRES_USER = os.getenv("POSTGRES_USER", "psguser")
