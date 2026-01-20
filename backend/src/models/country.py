@@ -1,16 +1,24 @@
-from sqlmodel import SQLModel, Field
-from typing import Optional
-from pydantic import BaseModel
+from typing import Optional, List, TYPE_CHECKING
+from sqlmodel import SQLModel, Field, Relationship
 
-class Country(SQLModel, table=True):
+if TYPE_CHECKING:
+    from .academy import AcademyRead
+
+class CountryBase(SQLModel):
+    name: str
+
+class Country(CountryBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    academies: List["Academy"] = Relationship(back_populates="country")
+
+class CountryCreate(SQLModel):
     name: str
 
-    class Config:
-        from_attributes = True
+class CountryUpdate(SQLModel):
+    name: Optional[str] = None
 
-class CountryCreate(BaseModel):
+class CountryRead(SQLModel):
+    id: int
     name: str
 
-class CountryUpdate(BaseModel):
-    name: str
+    model_config = {"from_attributes": True}

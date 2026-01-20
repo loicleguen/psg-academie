@@ -1,13 +1,16 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 from ..db.database import get_session
-from ..models.player import Player, PlayerCreate, PlayerUpdate
+from ..models.player import Player, PlayerCreate, PlayerUpdate, PlayerRead
+from ..models.academy import Academy
+from ..models.team import Team
 from ..models.user import User
 from ..middleware.security import require_coach_or_admin
 
 router = APIRouter(prefix="/players", tags=["players"])
 
-@router.post("/", response_model=Player, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=PlayerRead, status_code=status.HTTP_201_CREATED)
 def create_player(
     player: PlayerCreate,
     session: Session = Depends(get_session),
@@ -19,48 +22,69 @@ def create_player(
     session.refresh(db_player)
     return db_player
 
-@router.get("/", response_model=list[Player])
-def read_player(
+@router.get("/", response_model=list[PlayerRead])
+def read_players(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    player = session.exec(select(Player)).all()
-    return player
+    statement = select(Player).options(
+        selectinload(Player.team).selectinload(Team.academy).selectinload(Academy.country)
+    )
+    players = session.exec(statement).all()
+    return players
 
-# GET player par team_id
-@router.get("/team/{team_id}", response_model=list[Player])
-def read_player_by_team(
-    team_id: int,
+@router.get("/team/{team_name}", response_model=list[PlayerRead])
+def read_players_by_team_name(
+    team_name: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    player = session.exec(select(Player).where(Player.team_id == team_id)).all()
-    return player
+    team = session.exec(select(Team).where(Team.name == team_name)).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    statement = select(Player).where(Player.team_id == team.id).options(
+        selectinload(Player.team).selectinload(Team.academy).selectinload(Academy.country)
+    )
+    players = session.exec(statement).all()
+    return players
 
-@router.put("/{player_id}", response_model=Player)
-def update_player(
+@router.get("/{player_name}", response_model=list[PlayerRead])
+def read_player_by_name(
+    player_name: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    statement = select(Player).where(Player.name == player_name).options(
+        selectinload(Player.team).selectinload(Team.academy).selectinload(Academy.country)
+    )
+    players = session.exec(statement).all()
+    if not players:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return players
+
+@router.put("/{player_id}", response_model=PlayerRead)
+def update_player_by_id(
     player_id: int,
     player_update: PlayerUpdate,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    player = session.get(Player, player_id)
+    player = session.exec(select(Player).where(Player.id == player_id)).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     player.name = player_update.name
     player.age = player_update.age
-    # player.team_id n'est pas modifié
     session.commit()
     session.refresh(player)
     return player
 
 @router.delete("/{player_id}", status_code=status.HTTP_200_OK)
-def delete_player(
+def delete_player_by_id(
     player_id: int,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    player = session.get(Player, player_id)
+    player = session.exec(select(Player).where(Player.id == player_id)).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     session.delete(player)

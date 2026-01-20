@@ -1,4 +1,4 @@
-
+import src.models
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from src.routes.country import router as country_router
@@ -9,6 +9,7 @@ from src.routes.catapult import router as catapult_router
 from src.routes.auth import router as auth_router
 from src.db.database import init_db
 from contextlib import asynccontextmanager
+
 
 @asynccontextmanager
 async def lifespan(app):

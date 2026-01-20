@@ -1,18 +1,31 @@
-from sqlmodel import SQLModel, Field
-from typing import Optional
-from pydantic import BaseModel
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .academy import AcademyRead
+    from .player import PlayerRead
 
 class Team(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     academy_id: int = Field(foreign_key="academy.id", ondelete="CASCADE")
+    academy: Optional["Academy"] = Relationship(back_populates="teams")
+    players: List["Player"] = Relationship(back_populates="team")
 
-    class Config:
-        from_attributes = True
-
-class TeamCreate(BaseModel):
+class TeamCreate(SQLModel):
     name: str
     academy_id: int
 
-class TeamUpdate(BaseModel):
+class TeamCreateByName(SQLModel):
     name: str
+    academy_name: str
+
+class TeamUpdate(SQLModel):
+    name: Optional[str] = None
+
+class TeamRead(SQLModel):
+    id: int
+    name: str
+    academy: Optional["AcademyRead"] = None
+
+    model_config = {"from_attributes": True}
