@@ -7,6 +7,7 @@ from ..models.academy import Academy
 from ..models.team import Team
 from ..models.user import User
 from ..middleware.security import require_coach_or_admin
+from sqlalchemy import func
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -39,10 +40,14 @@ def read_players_by_team_name(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    team = session.exec(select(Team).where(Team.name == team_name)).first()
-    if not team:
+    teams = session.exec(
+        select(Team).where(func.lower(Team.name) == team_name.lower())
+    ).all()
+    if not teams:
         raise HTTPException(status_code=404, detail="Team not found")
-    statement = select(Player).where(Player.team_id == team.id).options(
+    team_ids = [t.id for t in teams]
+
+    statement = select(Player).where(Player.team_id.in_(team_ids)).options(
         selectinload(Player.team).selectinload(Team.academy).selectinload(Academy.country)
     )
     players = session.exec(statement).all()

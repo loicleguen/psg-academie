@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from ..models.user import User
+from ..models.player import Player
 from ..middleware.security import require_coach_or_admin
 from fastapi.responses import Response
 from sqlmodel import Session, select
@@ -7,6 +8,7 @@ from typing import List, Dict, Any
 import pandas as pd
 import base64
 from fastapi import Query
+from sqlalchemy import func
 
 from ..db.database import get_session
 from ..models.catapult import CatapultSession, CatapultSessionCreate
@@ -48,6 +50,23 @@ async def upload_catapult_csv(
     if not parsed_data:
         raise HTTPException(status_code=400, detail="No data found in CSV")
     
+    for data in parsed_data:
+        player_fullname = data.get("player_name", "").strip()
+        if player_fullname:
+            normalized = player_fullname.strip()
+            existing = session.exec(
+                select(Player).where(func.lower(Player.name) == normalized.lower())
+            ).first()
+            if not existing:
+                player = Player(
+                    name=player_fullname,
+                    email="",
+                    password=player_fullname.split(" ", 1)[0] or "",
+                    team_id=13
+                )
+                session.add(player)
+    session.commit()
+
     # Store in database
     stored_sessions = []
     for data in parsed_data:
