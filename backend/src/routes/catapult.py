@@ -54,14 +54,41 @@ async def upload_catapult_csv(
         player_fullname = data.get("player_name", "").strip()
         if player_fullname:
             normalized = player_fullname.strip()
+
+            # chercher doublon player (même nom dans la même équipe)
             existing = session.exec(
-                select(Player).where(func.lower(Player.name) == normalized.lower())
+                select(Player).where(
+                    func.lower(Player.name) == normalized.lower(),
+                    Player.team_id == 13
+                )
             ).first()
             if not existing:
+                import re
+                from ..models.user import User
+                from ..services.auth import AuthService
+
+                # extraire et sécuriser le prénom (first_name)
+                first = player_fullname.split()[0].lower() if player_fullname.split() else "player"
+                safe = re.sub(r'[^a-z0-9]', '', first)
+                if not safe:
+                    safe = "player"
+
+                # construire email first@first.first
+                email = f"{safe}@{safe}.{safe}"
+
+                # créer User si nécessaire (mot de passe = first_name)
+                user_exists = session.exec(select(User).where(User.email == email)).first()
+                if not user_exists:
+                    hashed = AuthService.get_password_hash(first)
+                    db_user = User(email=email, hashed_password=hashed, full_name=player_fullname, role="player")
+                    session.add(db_user)
+                    session.flush()
+
+                # créer le Player avec team_id = 13 et password = first_name (non haché pour Player table)
                 player = Player(
                     name=player_fullname,
-                    email="",
-                    password=player_fullname.split(" ", 1)[0] or "",
+                    email=email,
+                    password=first,
                     team_id=13
                 )
                 session.add(player)
@@ -85,13 +112,14 @@ async def upload_catapult_csv(
     return summary
 
 
-@router.get("/sessions", response_model=List[CatapultSession])
+@router.get("/sessions", response_model=List[str])
 def get_all_sessions(session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    """Get all Catapult training sessions"""
-    sessions = session.exec(select(CatapultSession)).all()
-    return sessions
+    """Get all Catapult training session titles"""
+    statement = select(CatapultSession.session_title).distinct()
+    titles = session.exec(statement).all()
+    return titles
 
 
 @router.get("/sessions/title")
