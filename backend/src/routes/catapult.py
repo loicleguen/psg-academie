@@ -116,9 +116,15 @@ async def upload_catapult_csv(
 def get_all_sessions(session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    """Get all Catapult training session titles"""
-    statement = select(CatapultSession.session_title).distinct()
-    titles = session.exec(statement).all()
+    """Get all Catapult training session titles ordered by stored date (newest first)."""
+    # Aggregate by title and order by the maximum parsed date for that title.
+    statement = (
+    select(CatapultSession.session_title, func.max(CatapultSession.session_date).label("d"))
+    .group_by(CatapultSession.session_title)
+    .order_by(func.max(CatapultSession.session_date).desc())
+    )
+    rows = session.exec(statement).all()
+    titles = [r[0] if isinstance(r, (list, tuple)) else r.session_title for r in rows]
     return titles
 
 
