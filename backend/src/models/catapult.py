@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlmodel import SQLModel, Field
-from datetime import datetime
+from datetime import datetime, date
 
 
 class CatapultSession(SQLModel, table=True):
@@ -56,6 +56,7 @@ class CatapultSession(SQLModel, table=True):
     work_ratio: float
     
     # Metadata
+    session_date: Optional[date] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:

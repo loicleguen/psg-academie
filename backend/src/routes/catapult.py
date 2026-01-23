@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 import pandas as pd
 import base64
 from fastapi import Query
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 from ..db.database import get_session
 from ..models.catapult import CatapultSession, CatapultSessionCreate
@@ -113,19 +113,11 @@ async def upload_catapult_csv(
 
 
 @router.get("/sessions", response_model=List[str])
-def get_all_sessions(session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
-):
-    """Get all Catapult training session titles ordered by stored date (newest first)."""
-    # Aggregate by title and order by the maximum parsed date for that title.
-    statement = (
-    select(CatapultSession.session_title, func.max(CatapultSession.session_date).label("d"))
-    .group_by(CatapultSession.session_title)
-    .order_by(func.max(CatapultSession.session_date).desc())
-    )
-    rows = session.exec(statement).all()
-    titles = [r[0] if isinstance(r, (list, tuple)) else r.session_title for r in rows]
-    return titles
+def get_sessions(db: Session = Depends(get_session)):
+    # Return unique session titles ordered by the most recent session_date per title
+    stmt = select(CatapultSession.session_title).group_by(CatapultSession.session_title).order_by(desc(func.max(CatapultSession.session_date)))
+    rows = db.execute(stmt).all()
+    return [r[0] for r in rows]
 
 
 @router.get("/sessions/title")
