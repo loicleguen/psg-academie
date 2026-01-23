@@ -9,6 +9,10 @@ import pandas as pd
 import base64
 from fastapi import Query
 from sqlalchemy import func, desc
+from datetime import datetime, timedelta
+from dateutil import parser as dateutil_parser
+import re
+from ..services.auth import AuthService
 
 from ..db.database import get_session
 from ..models.catapult import CatapultSession, CatapultSessionCreate
@@ -18,6 +22,28 @@ from ..services.graph_generator import CatapultGraphGenerator
 from ..services.report_generator import SessionReportGenerator
 
 router = APIRouter(prefix="/catapult", tags=["Catapult GPS Data"])
+
+def _parse_mixed_date(val):
+    if val is None or val == "":
+        return None
+    s = str(val).strip()
+    # Heuristique pour numéros Excel -> date (partie entière)
+    try:
+        f = float(s)
+        if f > 59:
+            serial = int(f)
+            base = datetime(1899, 12, 30)
+            return (base + timedelta(days=serial)).date()
+    except Exception:
+        pass
+    # Parsing robuste de texte
+    try:
+        return dateutil_parser.parse(s, dayfirst=True).date()
+    except Exception:
+        try:
+            return pd.to_datetime(s, dayfirst=True).date()
+        except Exception:
+            return None
 
 
 @router.post("/upload", response_model=Dict[str, Any])
@@ -56,8 +82,39 @@ async def upload_catapult_csv(
         if not player_fullname:
             continue
 
+        # Normaliser le nom complet
         normalized = player_fullname.strip()
-        # chercher doublon player (même nom dans la même équipe)
+
+        # --- 1) Toujours tenter de créer un User (si absent) ---
+        parts = re.split(r"\s+", player_fullname.strip())
+        first = parts[0] if parts else "player"
+        last = parts[-1] if len(parts) > 1 else first
+
+        def _normalize(s: str) -> str:
+            s2 = re.sub(r'[^a-z0-9]', '', s.lower())
+            return s2 or "user"
+
+        safe_first = _normalize(first)
+        safe_last = _normalize(last)
+
+        # construire email prenom.nom@import.local
+        email = f"{safe_first}.{safe_last}@import.local"
+
+        # créer le User uniquement si l'email n'existe pas (ne PAS écraser)
+        user_exists = session.exec(select(User).where(User.email == email)).first()
+        if not user_exists:
+            try:
+                hashed = AuthService.get_password_hash(first)
+                db_user = User(email=email, hashed_password=hashed, full_name=player_fullname, role="player")
+                session.add(db_user)
+                session.flush()
+                session.refresh(db_user)
+            except Exception:
+                # ne pas bloquer l'import si le hash ou la création échoue
+                session.rollback()
+                session.begin()
+
+        # --- 2) Ensuite créer le Player seulement si absent ---
         existing = session.exec(
             select(Player).where(
                 func.lower(Player.name) == normalized.lower(),
@@ -67,29 +124,6 @@ async def upload_catapult_csv(
         if existing:
             continue
 
-        import re
-        from ..services.auth import AuthService
-
-        # extraire et sécuriser le prénom (first_name)
-        first = player_fullname.split()[0].lower() if player_fullname.split() else "player"
-        safe = re.sub(r'[^a-z0-9]', '', first)
-        if not safe:
-            safe = "player"
-
-        # construire email first@first.first
-        email = f"{safe}@{safe}.{safe}"
-
-        # créer User si nécessaire (mot de passe haché)
-        user_exists = session.exec(select(User).where(User.email == email)).first()
-        if not user_exists:
-            hashed = AuthService.get_password_hash(first)
-            db_user = User(email=email, hashed_password=hashed, full_name=player_fullname, role="player")
-            session.add(db_user)
-            session.flush()
-            session.refresh(db_user)
-
-        # créer le Player uniquement avec les champs du modèle et forcer team_id = 13
-        player_age = data.get("age")
         player = Player(
             name=player_fullname,
             team_id=13,
@@ -98,18 +132,27 @@ async def upload_catapult_csv(
         session.add(player)
         session.flush()
         session.refresh(player)
-
+        
     # commit des Users/Players créés
     session.commit()
 
-    # Stocker les sessions Catapult
+    # Store Catapult sessions (ensure session_date is provided)
     stored_sessions = []
     for data in parsed_data:
-        session_create = CatapultSessionCreate(**data)
-        db_session = CatapultSession(**session_create.model_dump())
+        parsed_date = _parse_mixed_date(data.get("date"))
+        session_date = parsed_date or datetime.utcnow().date()
+
+        try:
+            session_create = CatapultSessionCreate(**data)
+            payload = session_create.model_dump()
+        except Exception:
+            allowed = set(CatapultSessionCreate.__annotations__.keys())
+            payload = {k: v for k, v in data.items() if k in allowed}
+
+        db_session = CatapultSession(**payload, session_date=session_date)
         session.add(db_session)
         stored_sessions.append(db_session)
-    
+
     session.commit()
     
     # Generate summary
