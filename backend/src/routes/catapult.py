@@ -30,7 +30,7 @@ async def upload_catapult_csv(
     Upload and process a Catapult CSV file
     
     - Parses the CSV
-    - Stores data in database
+    - Stores data in database (creates User + Player when missing)
     - Returns summary statistics
     """
     # Validate file type
@@ -50,51 +50,59 @@ async def upload_catapult_csv(
     if not parsed_data:
         raise HTTPException(status_code=400, detail="No data found in CSV")
     
+    # Create missing Users and Players (force team_id = 13)
     for data in parsed_data:
         player_fullname = data.get("player_name", "").strip()
-        if player_fullname:
-            normalized = player_fullname.strip()
+        if not player_fullname:
+            continue
 
-            # chercher doublon player (même nom dans la même équipe)
-            existing = session.exec(
-                select(Player).where(
-                    func.lower(Player.name) == normalized.lower(),
-                    Player.team_id == 13
-                )
-            ).first()
-            if not existing:
-                import re
-                from ..models.user import User
-                from ..services.auth import AuthService
+        normalized = player_fullname.strip()
+        # chercher doublon player (même nom dans la même équipe)
+        existing = session.exec(
+            select(Player).where(
+                func.lower(Player.name) == normalized.lower(),
+                Player.team_id == 13
+            )
+        ).first()
+        if existing:
+            continue
 
-                # extraire et sécuriser le prénom (first_name)
-                first = player_fullname.split()[0].lower() if player_fullname.split() else "player"
-                safe = re.sub(r'[^a-z0-9]', '', first)
-                if not safe:
-                    safe = "player"
+        import re
+        from ..services.auth import AuthService
 
-                # construire email first@first.first
-                email = f"{safe}@{safe}.{safe}"
+        # extraire et sécuriser le prénom (first_name)
+        first = player_fullname.split()[0].lower() if player_fullname.split() else "player"
+        safe = re.sub(r'[^a-z0-9]', '', first)
+        if not safe:
+            safe = "player"
 
-                # créer User si nécessaire (mot de passe = first_name)
-                user_exists = session.exec(select(User).where(User.email == email)).first()
-                if not user_exists:
-                    hashed = AuthService.get_password_hash(first)
-                    db_user = User(email=email, hashed_password=hashed, full_name=player_fullname, role="player")
-                    session.add(db_user)
-                    session.flush()
+        # construire email first@first.first
+        email = f"{safe}@{safe}.{safe}"
 
-                # créer le Player avec team_id = 13 et password = first_name (non haché pour Player table)
-                player = Player(
-                    name=player_fullname,
-                    email=email,
-                    password=first,
-                    team_id=13
-                )
-                session.add(player)
+        # créer User si nécessaire (mot de passe haché)
+        user_exists = session.exec(select(User).where(User.email == email)).first()
+        if not user_exists:
+            hashed = AuthService.get_password_hash(first)
+            db_user = User(email=email, hashed_password=hashed, full_name=player_fullname, role="player")
+            session.add(db_user)
+            session.flush()
+            session.refresh(db_user)
+
+        # créer le Player uniquement avec les champs du modèle et forcer team_id = 13
+        player_age = data.get("age")
+        player = Player(
+            name=player_fullname,
+            team_id=13,
+            age=None
+        )
+        session.add(player)
+        session.flush()
+        session.refresh(player)
+
+    # commit des Users/Players créés
     session.commit()
 
-    # Store in database
+    # Stocker les sessions Catapult
     stored_sessions = []
     for data in parsed_data:
         session_create = CatapultSessionCreate(**data)
