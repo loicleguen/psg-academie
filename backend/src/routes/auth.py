@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session
+from sqlmodel import Session, select
 from datetime import timedelta
 
 from ..db.database import get_session
 from ..models.user import User, UserCreate, UserRead, UserLogin, Token, UserUpdate, UserUpdateMe
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from ..middleware.security import get_current_user, require_admin
+from ..models.player import Player
 
 router = APIRouter(prefix="/auth", )
 
@@ -27,7 +28,6 @@ def register(user_data: UserCreate, session: Session = Depends(get_session)):
         HTTPException 400: Si l'email existe déjà
     """
     # Vérifier si l'email existe déjà
-    from sqlmodel import select
     statement = select(User).where(User.email == user_data.email)
     existing_user = session.exec(statement).first()
     
@@ -186,23 +186,44 @@ def update_my_profile(
     session: Session = Depends(get_session)
 ):
     """
-    Modifier son propre profil (nom et mot de passe uniquement)
-    
-    Note: L'email ne peut pas être modifié par l'utilisateur lui-même
-    pour éviter l'invalidation du token JWT. Seul un admin peut modifier l'email.
-    
-    Args:
-        user_update: Nouvelles données (nom, mot de passe)
-        current_user: Utilisateur authentifié
-        
-    Returns:
-        UserRead: Utilisateur mis à jour
+    Modifier son propre profil (nom, mot de passe et champs joueur si applicable)
     """
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
     if user_update.password is not None:
         current_user.hashed_password = AuthService.get_password_hash(user_update.password)
-    
+
+    # Gérer les champs liés au joueur si l'utilisateur est un joueur
+    is_player = str(current_user.role).lower() == "player"
+    has_player_fields = any([
+        user_update.team_id is not None,
+        user_update.age is not None,
+        user_update.player_name is not None
+    ])
+
+    if is_player and has_player_fields:
+        stmt = select(Player).where(Player.user_id == current_user.id)
+        player = session.exec(stmt).first()
+        if player:
+            if user_update.player_name is not None:
+                player.name = user_update.player_name
+            if user_update.age is not None:
+                player.age = user_update.age
+            if user_update.team_id is not None:
+                player.team_id = user_update.team_id
+            session.add(player)
+        else:
+            # Créer un Player si l'admin n'en a pas encore créé et que team_id est fourni
+            if user_update.team_id is None:
+                raise HTTPException(status_code=400, detail="team_id required to create player profile")
+            new_player = Player(
+                name=user_update.player_name or current_user.full_name or "Player",
+                age=user_update.age,
+                team_id=user_update.team_id,
+                user_id=current_user.id
+            )
+            session.add(new_player)
+
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
@@ -216,12 +237,6 @@ def delete_my_account(
 ):
     """
     Supprimer son propre compte
-    
-    Args:
-        current_user: Utilisateur authentifié
-        
-    Returns:
-        Message de confirmation
     """
     email = current_user.email
     session.delete(current_user)
@@ -236,14 +251,7 @@ def get_all_users(
 ):
     """
     Lister tous les utilisateurs (admin uniquement)
-    
-    Args:
-        current_user: Admin authentifié
-        
-    Returns:
-        Liste de tous les utilisateurs
     """
-    from sqlmodel import select
     users = session.exec(select(User)).all()
     return users
 
@@ -257,23 +265,12 @@ def update_user(
 ):
     """
     Modifier un utilisateur (admin uniquement)
-    
-    Permet de changer le rôle et le statut actif
-    
-    Args:
-        user_id: ID de l'utilisateur à modifier
-        user_update: Nouvelles données
-        current_user: Admin authentifié
-        
-    Returns:
-        UserRead: Utilisateur mis à jour
+    Permet de changer le rôle et le statut actif. Gère aussi la création/mise à jour du Player lié.
     """
-    from ..models.user import UserUpdate
-    
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     if user_update.email is not None:
         user.email = user_update.email
     if user_update.full_name is not None:
@@ -284,7 +281,39 @@ def update_user(
         user.role = user_update.role
     if user_update.is_active is not None:
         user.is_active = user_update.is_active
-    
+
+    # Gérer les champs joueur fournis par l'admin
+    has_player_fields = any([
+        user_update.team_id is not None,
+        user_update.age is not None,
+        user_update.player_name is not None
+    ])
+
+    if has_player_fields or (user_update.role is not None and str(user_update.role).lower() == "player"):
+        stmt = select(Player).where(Player.user_id == user.id)
+        player = session.exec(stmt).first()
+        if player:
+            if user_update.player_name is not None:
+                player.name = user_update.player_name
+            if user_update.age is not None:
+                player.age = user_update.age
+            if user_update.team_id is not None:
+                player.team_id = user_update.team_id
+            session.add(player)
+        else:
+            # Pour créer un player, il faut un team_id
+            if user_update.team_id is None:
+                # si pas de team_id fourni, on ne crée pas automatiquement
+                pass
+            else:
+                new_player = Player(
+                    name=user_update.player_name or user.full_name or "Player",
+                    age=user_update.age,
+                    team_id=user_update.team_id,
+                    user_id=user.id
+                )
+                session.add(new_player)
+
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -299,13 +328,6 @@ def delete_user(
 ):
     """
     Supprimer un utilisateur (admin uniquement)
-    
-    Args:
-        user_id: ID de l'utilisateur à supprimer
-        current_user: Admin authentifié
-        
-    Returns:
-        Message de confirmation
     """
     user = session.get(User, user_id)
     if not user:

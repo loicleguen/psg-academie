@@ -54,7 +54,7 @@ class Token(SQLModel):
     """Schéma de réponse avec token JWT"""
     access_token: str
     token_type: str = "bearer"
-    expires_in: int  # secondes
+    expires_in: int
     refresh_token: str
 
 
@@ -65,18 +65,24 @@ class TokenData(SQLModel):
 
 
 class UserUpdate(SQLModel):
-    """Schéma pour mettre à jour un utilisateur"""
+    """Schéma pour mettre à jour un utilisateur (admin)"""
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     full_name: Optional[str] = None
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
+    team_id: Optional[int] = None
+    age: Optional[int] = None
+    player_name: Optional[str] = None
 
 
 class UserUpdateMe(SQLModel):
     """Schéma pour mettre à jour son propre profil (sans email ni role)"""
     password: Optional[str] = None
     full_name: Optional[str] = None
+    team_id: Optional[int] = None
+    age: Optional[int] = None
+    player_name: Optional[str] = None
 
 
 class RefreshToken(SQLModel, table=True):
