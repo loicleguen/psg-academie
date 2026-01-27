@@ -5,7 +5,7 @@ from ..db.database import get_session
 from ..models.player import Player, PlayerCreate, PlayerUpdate, PlayerRead
 from ..models.academy import Academy
 from ..models.team import Team
-from ..models.user import User
+from ..models.user import User, UserRead
 from ..middleware.security import require_coach_or_admin
 from sqlalchemy import func
 
@@ -53,15 +53,14 @@ def read_players_by_team_name(
     players = session.exec(statement).all()
     return players
 
-@router.get("/{player_name}", response_model=list[PlayerRead])
+# NOTE: this GET now reads from User (role='player') via User.player_name
+@router.get("/{player_name}", response_model=list[UserRead])
 def read_player_by_name(
     player_name: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    statement = select(Player).where(Player.name == player_name).options(
-        selectinload(Player.team).selectinload(Team.academy).selectinload(Academy.country)
-    )
+    statement = select(User).where(User.role == "player", User.player_name == player_name)
     players = session.exec(statement).all()
     if not players:
         raise HTTPException(status_code=404, detail="Player not found")

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlmodel import Session, select
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from ..db.database import get_session
 from ..models.team import Team, TeamCreate, TeamUpdate, TeamRead
 from ..models.academy import Academy
-from ..models.user import User
+from ..models.user import User, UserRead
+from ..models.player import Player
 from ..middleware.security import require_coach_or_admin
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -55,7 +57,7 @@ def read_team_by_name(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    statement = select(Team).where(Team.name == team_name).options(
+    statement = select(Team).where(func.lower(Team.name) == team_name.lower()).options(
         selectinload(Team.academy).selectinload(Academy.country),
         selectinload(Team.players)
     )
@@ -63,6 +65,23 @@ def read_team_by_name(
     if not teams:
         raise HTTPException(status_code=404, detail="Team not found")
     return teams
+
+@router.get("/{team_name}/players", response_model=list[UserRead])
+def get_players_by_team(
+    team_name: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    teams = session.exec(select(Team).where(func.lower(Team.name) == team_name.lower())).all()
+    if not teams:
+        raise HTTPException(status_code=404, detail="Team not found")
+    team_ids = [t.id for t in teams]
+
+    # Sélectionne les users via la table Player (player.user_id -> user.id)
+
+    stmt = select(User).join(Player, Player.user_id == User.id).where(Player.__table__.c.team_id.in_(team_ids))
+    players = session.exec(stmt).all()
+    return players
 
 @router.put("/{team_id}", response_model=TeamRead)
 def update_team_by_id(
