@@ -40,7 +40,19 @@ CREATE TABLE IF NOT EXISTS "user" (
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
 """)
-op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
+op.execute("""
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'ix_user_email' AND n.nspname = 'public'
+  ) THEN
+    CREATE UNIQUE INDEX ix_user_email ON "user" (email);
+  END IF;
+END
+$$;
+""")
 
 
 def downgrade() -> None:

@@ -18,30 +18,112 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Add nullable columns to `user`
-    op.add_column("user", sa.Column("player_name", sa.Text(), nullable=True))
-    op.add_column("user", sa.Column("age", sa.Integer(), nullable=True))
-    op.add_column("user", sa.Column("team_id", sa.Integer(), nullable=True))
+    # Add nullable columns to `user` only if they don't exist
+    op.execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user' AND column_name = 'player_name'
+      ) THEN
+        ALTER TABLE "user" ADD COLUMN player_name TEXT;
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user' AND column_name = 'age'
+      ) THEN
+        ALTER TABLE "user" ADD COLUMN age INTEGER;
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user' AND column_name = 'team_id'
+      ) THEN
+        ALTER TABLE "user" ADD COLUMN team_id INTEGER;
+      END IF;
+    END
+    $$;
+    """)
 
-    # Index for player_name (matches model index=True)
-    op.create_index(op.f("ix_user_player_name"), "user", ["player_name"], unique=False)
+    # Create index if not exists
+    op.execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relname = 'ix_user_player_name' AND n.nspname = 'public'
+      ) THEN
+        CREATE INDEX ix_user_player_name ON "user" (player_name);
+      END IF;
+    END
+    $$;
+    """)
 
-    # Foreign key from user.team_id -> team.id
-    op.create_foreign_key(
-        "fk_user_team",
-        "user",
-        "team",
-        ["team_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
+    # Create FK if not exists
+    op.execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_team'
+      ) THEN
+        ALTER TABLE "user"
+        ADD CONSTRAINT fk_user_team FOREIGN KEY (team_id) REFERENCES team(id) ON DELETE CASCADE;
+      END IF;
+    END
+    $$;
+    """)
 
 
 def downgrade() -> None:
-    # Drop FK, index and columns in reverse order
-    op.drop_constraint("fk_user_team", "user", type_="foreignkey")
-    op.drop_index(op.f("ix_user_player_name"), table_name="user")
-    op.drop_column("user", "team_id")
-    op.drop_column("user", "age")
-    op.drop_column("user", "player_name")
+    # Drop FK if exists
+    op.execute("""
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_team') THEN
+        ALTER TABLE "user" DROP CONSTRAINT fk_user_team;
+      END IF;
+    END
+    $$;
+    """)
+
+    # Drop index if exists
+    op.execute("""
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relname = 'ix_user_player_name' AND n.nspname = 'public'
+      ) THEN
+        DROP INDEX ix_user_player_name;
+      END IF;
+    END
+    $$;
+    """)
+
+    # Drop columns if they exist
+    op.execute("""
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user' AND column_name = 'team_id'
+      ) THEN
+        ALTER TABLE "user" DROP COLUMN team_id;
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user' AND column_name = 'age'
+      ) THEN
+        ALTER TABLE "user" DROP COLUMN age;
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user' AND column_name = 'player_name'
+      ) THEN
+        ALTER TABLE "user" DROP COLUMN player_name;
+      END IF;
+    END
+    $$;
+    """)
     
