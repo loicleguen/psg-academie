@@ -8,7 +8,7 @@ class CatapultSession(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     date: str
     session_title: str
-    player_id: Optional[int] = Field(default=None, foreign_key="player.id", ondelete="CASCADE")
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", ondelete="CASCADE")
     player_name: str
     split_name: str
     tags: str

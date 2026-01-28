@@ -6,7 +6,6 @@ from ..db.database import get_session
 from ..models.team import Team, TeamCreate, TeamUpdate, TeamRead
 from ..models.academy import Academy
 from ..models.user import User, UserRead
-from ..models.player import Player
 from ..middleware.security import require_coach_or_admin
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -77,9 +76,7 @@ def get_players_by_team(
         raise HTTPException(status_code=404, detail="Team not found")
     team_ids = [t.id for t in teams]
 
-    # Sélectionne les users via la table Player (player.user_id -> user.id)
-
-    stmt = select(User).join(Player, Player.user_id == User.id).where(Player.__table__.c.team_id.in_(team_ids))
+    stmt = select(User).where(User.team_id.in_(team_ids))
     players = session.exec(stmt).all()
     return players
 
