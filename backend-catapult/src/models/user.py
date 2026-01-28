@@ -20,6 +20,9 @@ class User(SQLModel, table=True):
     role: UserRole = Field(default=UserRole.PLAYER)
     is_active: bool = Field(default=True)
     full_name: Optional[str] = Field(default=None, max_length=255)
+    player_name: Optional[str] = Field(default=None, index=True)
+    age: Optional[int] = Field(default=None)
+    team_id: Optional[int] = Field(default=None, foreign_key="team.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
@@ -32,6 +35,9 @@ class UserCreate(SQLModel):
     password: str
     full_name: Optional[str] = None
     role: UserRole = UserRole.PLAYER
+    player_name: Optional[str] = None
+    age: Optional[int] = None
+    team_id: Optional[int] = None
 
 
 class UserRead(SQLModel):
@@ -41,6 +47,9 @@ class UserRead(SQLModel):
     role: UserRole
     is_active: bool
     full_name: Optional[str]
+    player_name: Optional[str] = None
+    age: Optional[int] = None
+    team_id: Optional[int] = None
     created_at: datetime
 
 
