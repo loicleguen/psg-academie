@@ -10,7 +10,7 @@ class Player(SQLModel, table=True):
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     name: str
     age: Optional[int]
-    team: Optional["Team"] = Relationship(back_populates="players")
+    team: Optional["Team"] = Relationship()
 
 class PlayerCreate(SQLModel):
     name: str
