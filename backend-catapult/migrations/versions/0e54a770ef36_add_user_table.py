@@ -29,18 +29,18 @@ BEGIN
   END IF;
 END$$;
 """)
-    op.create_table('user',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
-    sa.Column('hashed_password', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
-    sa.Column('role', sa.Enum('ADMIN', 'COACH', 'ANALYST', 'PLAYER', name='userrole', create_type=False), nullable=False),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('full_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
-    # ### end Alembic commands ###
+    op.execute("""
+CREATE TABLE IF NOT EXISTS "user" (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  hashed_password VARCHAR(255) NOT NULL,
+  role userrole NOT NULL,
+  is_active BOOLEAN NOT NULL,
+  full_name VARCHAR(255),
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
+);
+""")
+op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
 
 
 def downgrade() -> None:
