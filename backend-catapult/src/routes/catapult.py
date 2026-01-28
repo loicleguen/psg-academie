@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from ..models.user import User
-from ..models.player import Player
 from ..middleware.security import require_coach_or_admin
 from fastapi.responses import Response
 from sqlmodel import Session, select
@@ -113,27 +112,9 @@ async def upload_catapult_csv(
                 # ne pas bloquer l'import si le hash ou la création échoue
                 session.rollback()
                 session.begin()
-
-        # --- 2) Ensuite créer le Player seulement si absent ---
-        existing = session.exec(
-            select(Player).where(
-                func.lower(Player.name) == normalized.lower(),
-                Player.team_id == 13
-            )
-        ).first()
-        if existing:
-            continue
-
-        player = Player(
-            name=player_fullname,
-            team_id=13,
-            age=None
-        )
-        session.add(player)
-        session.flush()
-        session.refresh(player)
+        pass
         
-    # commit des Users/Players créés
+    # commit des Users créés
     session.commit()
 
     # Store Catapult sessions (ensure session_date is provided)
