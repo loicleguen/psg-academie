@@ -4,6 +4,9 @@ from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timedelta
 import pandas as pd
 from dateutil import parser as dateutil_parser
+from sqlmodel import Session, select
+from ..models.user import User
+from ..services.auth import AuthService
 
 # Mapping CSV header -> canonical model field
 COLUMN_MAPPING = {
@@ -350,3 +353,62 @@ class CatapultCSVParser:
         }
         return summary
     
+
+def create_or_update_users(session: Session, parsed_rows: List[Dict[str, Any]], default_team_id: int = 13) -> Dict[str, int]:
+    """
+    Crée ou met à jour des Users à partir de parsed_rows.
+    NE fait PAS de commit() — le caller (route) gère le commit.
+    Retourne mapping normalized_player_name -> user.id
+    """
+    name_to_user_id: Dict[str, int] = {}
+    for data in parsed_rows:
+        player_fullname = (data.get("player_name") or "").strip()
+        if not player_fullname:
+            continue
+
+        normalized = re.sub(r'\s+', ' ', player_fullname).strip().lower()
+        parts = re.split(r"\s+", player_fullname)
+        first = parts[0] if parts else "player"
+        last = parts[-1] if len(parts) > 1 else first
+
+        def _normalize_part(s: str) -> str:
+            return re.sub(r'[^a-z0-9]', '', s.lower()) or "user"
+
+        safe_first = _normalize_part(first)
+        safe_last = _normalize_part(last)
+        email = f"{safe_first}.{safe_last}@import.local"
+
+        existing = session.exec(select(User).where(User.email == email)).first()
+        if not existing:
+            hashed = AuthService.get_password_hash(first)
+            db_user = User(
+                email=email,
+                hashed_password=hashed,
+                full_name=player_fullname,
+                role="player",
+                player_name=player_fullname,
+                team_id=default_team_id
+            )
+            session.add(db_user)
+            try:
+                session.flush()
+                session.refresh(db_user)
+            except Exception:
+                session.rollback()
+                continue
+        else:
+            db_user = existing
+            changed = False
+            if not db_user.player_name and player_fullname:
+                db_user.player_name = player_fullname
+                changed = True
+            if not db_user.team_id:
+                db_user.team_id = default_team_id
+                changed = True
+            if changed:
+                session.add(db_user)
+
+        if db_user and getattr(db_user, "id", None):
+            name_to_user_id[normalized] = db_user.id
+
+    return name_to_user_id

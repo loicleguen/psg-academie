@@ -79,61 +79,10 @@ async def upload_catapult_csv(
     # Map normalized player name -> user.id (pour lier les sessions)
     name_to_user_id: dict[str, int] = {}
 
-    # Créer ou mettre à jour les Users importés
-    for data in parsed_data:
-        player_fullname = (data.get("player_name") or "").strip()
-        if not player_fullname:
-            continue
+    # Créer / mettre à jour les Users importés (utilise la fonction utilitaire)
+    from ..services.catapult_parser import create_or_update_users
+    name_to_user_id = create_or_update_users(session, parsed_data, default_team_id=13)
 
-        # normalisation pour clé de mapping
-        normalized = re.sub(r'\s+', ' ', player_fullname).strip().lower()
-
-        parts = re.split(r"\s+", player_fullname.strip())
-        first = parts[0] if parts else "player"
-        last = parts[-1] if len(parts) > 1 else first
-
-        def _normalize(s: str) -> str:
-            s2 = re.sub(r'[^a-z0-9]', '', s.lower())
-            return s2 or "user"
-
-        safe_first = _normalize(first)
-        safe_last = _normalize(last)
-
-        # construire email prenom.nom@import.local
-        email = f"{safe_first}.{safe_last}@import.local"
-
-        # créer le User uniquement si l'email n'existe pas (ne PAS écraser)
-        user_exists = session.exec(select(User).where(User.email == email)).first()
-        if not user_exists:
-            try:
-                hashed = AuthService.get_password_hash(first)
-                db_user = User(
-                    email=email,
-                    hashed_password=hashed,
-                    full_name=player_fullname,
-                    role="player",
-                    player_name=player_fullname,
-                    team_id=13
-                )
-                session.add(db_user)
-                session.flush()
-                session.refresh(db_user)
-            except Exception:
-                session.rollback()
-                session.begin()
-                continue
-        else:
-            # mettre à jour champs player si manquants
-            if not user_exists.player_name:
-                user_exists.player_name = player_fullname
-            if not user_exists.team_id:
-                user_exists.team_id = 13
-            db_user = user_exists
-
-        # enregistrer mapping
-        if db_user and db_user.id:
-            name_to_user_id[normalized] = db_user.id
-        
     # commit des Users créés / modifiés
     session.commit()
 
