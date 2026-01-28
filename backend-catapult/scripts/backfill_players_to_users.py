@@ -48,7 +48,7 @@ def backfill():
         # update catapult sessions: set user_id where player_id present
         for player_id, user_id in mapping.items():
             session.execute(
-                text("UPDATE catapult_session SET user_id = :uid WHERE player_id = :pid"),
+                text("UPDATE catapultsession SET user_id = :uid WHERE player_id = :pid"),
                 {"uid": user_id, "pid": player_id}
             )
 
