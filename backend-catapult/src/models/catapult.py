@@ -67,7 +67,7 @@ class CatapultSessionCreate(SQLModel):
     """Schema for creating a Catapult session entry"""
     date: str
     session_title: str
-    player_id: Optional[int] = None
+    user_id: Optional[int] = None
     player_name: str
     split_name: str
     tags: str

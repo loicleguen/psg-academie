@@ -76,7 +76,7 @@ def get_players_by_team(
         raise HTTPException(status_code=404, detail="Team not found")
     team_ids = [t.id for t in teams]
 
-    stmt = select(User).where(User.team_id.in_(team_ids))
+    stmt = select(User).where(User.team_id.in_(team_ids), User.role == "player")
     players = session.exec(stmt).all()
     return players
 

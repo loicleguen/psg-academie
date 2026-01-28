@@ -55,7 +55,8 @@ async def upload_catapult_csv(
     Upload and process a Catapult CSV file
     
     - Parses the CSV
-    - Stores data in database (creates User + Player when missing)
+    - Stores data in database (creates/updates User when missing)
+    - Links sessions to users via `user_id`
     - Returns summary statistics
     """
     # Validate file type
@@ -75,16 +76,18 @@ async def upload_catapult_csv(
     if not parsed_data:
         raise HTTPException(status_code=400, detail="No data found in CSV")
     
-    # Create missing Users and Players (force team_id = 13)
+    # Map normalized player name -> user.id (pour lier les sessions)
+    name_to_user_id: dict[str, int] = {}
+
+    # Créer ou mettre à jour les Users importés
     for data in parsed_data:
-        player_fullname = data.get("player_name", "").strip()
+        player_fullname = (data.get("player_name") or "").strip()
         if not player_fullname:
             continue
 
-        # Normaliser le nom complet
-        normalized = player_fullname.strip()
+        # normalisation pour clé de mapping
+        normalized = re.sub(r'\s+', ' ', player_fullname).strip().lower()
 
-        # --- 1) Toujours tenter de créer un User (si absent) ---
         parts = re.split(r"\s+", player_fullname.strip())
         first = parts[0] if parts else "player"
         last = parts[-1] if len(parts) > 1 else first
@@ -104,20 +107,37 @@ async def upload_catapult_csv(
         if not user_exists:
             try:
                 hashed = AuthService.get_password_hash(first)
-                db_user = User(email=email, hashed_password=hashed, full_name=player_fullname, role="player")
+                db_user = User(
+                    email=email,
+                    hashed_password=hashed,
+                    full_name=player_fullname,
+                    role="player",
+                    player_name=player_fullname,
+                    team_id=13
+                )
                 session.add(db_user)
                 session.flush()
                 session.refresh(db_user)
             except Exception:
-                # ne pas bloquer l'import si le hash ou la création échoue
                 session.rollback()
                 session.begin()
-        pass
+                continue
+        else:
+            # mettre à jour champs player si manquants
+            if not user_exists.player_name:
+                user_exists.player_name = player_fullname
+            if not user_exists.team_id:
+                user_exists.team_id = 13
+            db_user = user_exists
+
+        # enregistrer mapping
+        if db_user and db_user.id:
+            name_to_user_id[normalized] = db_user.id
         
-    # commit des Users créés
+    # commit des Users créés / modifiés
     session.commit()
 
-    # Store Catapult sessions (ensure session_date is provided)
+    # Store Catapult sessions
     stored_sessions = []
     for data in parsed_data:
         parsed_date = _parse_mixed_date(data.get("date"))
@@ -130,17 +150,26 @@ async def upload_catapult_csv(
             allowed = set(CatapultSessionCreate.__annotations__.keys())
             payload = {k: v for k, v in data.items() if k in allowed}
 
+        # normaliser le nom dans la ligne pour lookup
+        player_name_in_row = (data.get("player_name") or "").strip()
+        normalized_row = re.sub(r'\s+', ' ', player_name_in_row).strip().lower()
+        uid = name_to_user_id.get(normalized_row)
+        if uid:
+            payload["user_id"] = uid
+
+        # éviter conflit legacy
+        payload.pop("player_id", None)
+
         db_session = CatapultSession(**payload, session_date=session_date)
         session.add(db_session)
         stored_sessions.append(db_session)
 
     session.commit()
-    
-    # Generate summary
+
     summary = CatapultCSVParser.get_session_summary(parsed_data)
     summary["records_stored"] = len(stored_sessions)
     summary["filename"] = file.filename
-    
+
     return summary
 
 

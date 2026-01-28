@@ -2,15 +2,15 @@ from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .academy import AcademyRead
-    from .player import PlayerRead
+    from .academy import Academy, AcademyRead
+    from .user import User
 
 class Team(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     academy_id: int = Field(foreign_key="academy.id", ondelete="CASCADE")
     academy: Optional["Academy"] = Relationship(back_populates="teams")
-    players: List["Player"] = Relationship(back_populates="team")
+    players: List["User"] = Relationship(back_populates="team")
 
 class TeamCreate(SQLModel):
     name: str

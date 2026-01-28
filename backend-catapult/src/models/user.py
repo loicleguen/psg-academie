@@ -1,8 +1,11 @@
-from sqlmodel import SQLModel, Field
-from typing import Optional
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 from pydantic import EmailStr
+
+if TYPE_CHECKING:
+    from .team import Team
 
 
 class UserRole(str, Enum):
@@ -23,6 +26,7 @@ class User(SQLModel, table=True):
     player_name: Optional[str] = Field(default=None, index=True)
     age: Optional[int] = Field(default=None)
     team_id: Optional[int] = Field(default=None, foreign_key="team.id")
+    team: Optional["Team"] = Relationship(back_populates="players")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
