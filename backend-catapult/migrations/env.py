@@ -18,7 +18,7 @@ from sqlmodel import SQLModel
 from src.models.country import Country
 from src.models.academy import Academy
 from src.models.team import Team
-from src.models.player import Player
+from src.models.user import User
 from src.models.catapult import CatapultSession
 
 # this is the Alembic Config object, which provides
