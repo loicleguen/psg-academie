@@ -3,8 +3,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from datetime import timedelta
 
+from ..middleware.security import require_coach_or_admin
 from ..db.database import get_session
-from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe
+from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from ..middleware.security import get_current_user, require_admin
 
@@ -230,27 +231,45 @@ def delete_my_account(
     return {"message": f"Account {email} deleted successfully"}
 
 
-@router.get("/users", response_model=list[UserRead], tags=["Auth - Admin"], summary="[Admin] List all users")
+@router.get("/users", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List all users")
 def get_all_users(
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
-    Lister tous les utilisateurs (admin uniquement)
+    Lister tous les utilisateurs (coach or admin uniquement)
     """
     users = session.exec(select(User)).all()
     return users
 
 
-@router.put("/users/{user_id}", response_model=UserRead, tags=["Auth - Admin"], summary="[Admin] Update user")
+@router.get("/staff", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List admins and coaches")
+def get_admins_and_coaches(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    stmt = select(User).where(User.role.in_([UserRole.ADMIN, UserRole.COACH]))
+    return session.exec(stmt).all()
+
+
+@router.get("/players-list", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List all players")
+def get_players(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    stmt = select(User).where(User.role == UserRole.PLAYER)
+    return session.exec(stmt).all()
+
+
+@router.put("/users/{user_id}", response_model=UserRead, tags=["Auth - Coach/Admin"], summary="Update user")
 def update_user(
     user_id: int,
     user_update: UserUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
-    Modifier un utilisateur (admin uniquement)
+    Modifier un utilisateur (coach or admin uniquement)
     Permet de changer le rôle et le statut actif.
     """
     user = session.get(User, user_id)
@@ -294,14 +313,14 @@ def update_user(
     return user
 
 
-@router.delete("/users/{user_id}", tags=["Auth - Admin"], summary="[Admin] Delete user")
+@router.delete("/users/{user_id}", tags=["Auth - Coach/Admin"], summary="Delete user")
 def delete_user(
     user_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
-    Supprimer un utilisateur (admin uniquement)
+    Supprimer un utilisateur (coach or admin uniquement)
     """
     user = session.get(User, user_id)
     if not user:
