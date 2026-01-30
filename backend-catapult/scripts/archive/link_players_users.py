@@ -1,3 +1,6 @@
+# ARCHIVE: references legacy `player` table which has been dropped.
+# Keep for history; do not run without modification.
+
 # /app/scripts/link_players_users.py
 """
 Script de liaison Player -> User

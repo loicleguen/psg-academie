@@ -1,3 +1,6 @@
+# ARCHIVE: references legacy `player` table which has been dropped.
+# Keep for history; do not run without modification.
+
 # scripts/backfill_players_to_users.py
 from sqlmodel import Session, select
 from sqlalchemy import text
