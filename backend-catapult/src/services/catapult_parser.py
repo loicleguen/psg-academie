@@ -354,7 +354,7 @@ class CatapultCSVParser:
         return summary
     
 
-def create_or_update_users(session: Session, parsed_rows: List[Dict[str, Any]], default_team_id: int = 13) -> Dict[str, int]:
+def create_or_update_users(session: Session, parsed_rows: List[Dict[str, Any]], default_team_id: int = 1) -> Dict[str, int]:
     """
     Crée ou met à jour des Users à partir de parsed_rows.
     NE fait PAS de commit() — le caller (route) gère le commit.
