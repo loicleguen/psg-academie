@@ -24,13 +24,18 @@ export const authService = {
       email,
       password,
       full_name: fullName,
-      role: 'admin'  // Définir le rôle admin par défaut
+      role: 'admin'
     });
     return response.data;
   },
 
   async getMe() {
     const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  async getAllUsers() {
+    const response = await api.get('/auth/users');
     return response.data;
   },
 

@@ -1,7 +1,39 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { catapultService } from '../services/catapultService';
+import { authService } from '../services/authService';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [stats, setStats] = useState({
+    sessions: 0,
+    players: 0,
+    analyses: 0,
+    loading: true
+  });
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const [sessions, users] = await Promise.all([
+        catapultService.getSessions(),
+        authService.getAllUsers()
+      ]);
+      
+      setStats({
+        sessions: sessions.length,
+        players: users.length,
+        analyses: sessions.length,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Erreur lors du chargement des stats:', error);
+      setStats(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -17,73 +49,79 @@ export default function Dashboard() {
                 Bienvenue, {user?.full_name || user?.email}
               </h2>
               
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="bg-blue-50 overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Sessions Catapult
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            0
-                          </dd>
-                        </dl>
+              {stats.loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="bg-blue-50 overflow-hidden shadow rounded-lg">
+                    <div className="p-5">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <div className="ml-5 w-0 flex-1">
+                          <dl>
+                            <dt className="text-sm font-medium text-gray-500 truncate">
+                              Sessions Catapult
+                            </dt>
+                            <dd className="text-lg font-semibold text-gray-900">
+                              {stats.sessions}
+                            </dd>
+                          </dl>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-green-50 overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Joueurs
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            0
-                          </dd>
-                        </dl>
+                  <div className="bg-green-50 overflow-hidden shadow rounded-lg">
+                    <div className="p-5">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                        </div>
+                        <div className="ml-5 w-0 flex-1">
+                          <dl>
+                            <dt className="text-sm font-medium text-gray-500 truncate">
+                              Joueurs actifs
+                            </dt>
+                            <dd className="text-lg font-semibold text-gray-900">
+                              {stats.players}
+                            </dd>
+                          </dl>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-purple-50 overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Analyses
-                          </dt>
-                          <dd className="text-lg font-semibold text-gray-900">
-                            0
-                          </dd>
-                        </dl>
+                  <div className="bg-purple-50 overflow-hidden shadow rounded-lg">
+                    <div className="p-5">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                          </svg>
+                        </div>
+                        <div className="ml-5 w-0 flex-1">
+                          <dl>
+                            <dt className="text-sm font-medium text-gray-500 truncate">
+                              Analyses
+                            </dt>
+                            <dd className="text-lg font-semibold text-gray-900">
+                              {stats.analyses}
+                            </dd>
+                          </dl>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

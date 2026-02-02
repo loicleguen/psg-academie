@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import CatapultUpload from './pages/CatapultUpload';
+import SessionsList from './pages/SessionsList';
 
 function App() {
   return (
@@ -32,6 +33,17 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <CatapultUpload />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/catapult/sessions"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <SessionsList />
                 </Layout>
               </ProtectedRoute>
             }

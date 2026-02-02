@@ -122,12 +122,31 @@ async def upload_catapult_csv(
     return summary
 
 
-@router.get("/sessions", response_model=List[str])
+@router.get("/sessions")
 def get_sessions(db: Session = Depends(get_session)):
-    # Return unique session titles ordered by the most recent session_date per title
-    stmt = select(CatapultSession.session_title).group_by(CatapultSession.session_title).order_by(desc(func.max(CatapultSession.session_date)))
-    rows = db.execute(stmt).all()
-    return [r[0] for r in rows]
+    """Get list of all sessions with summary info"""
+    
+    # Get session summaries with title, latest date, and player count
+    stmt = select(
+        CatapultSession.session_title,
+        func.max(CatapultSession.session_date).label('session_date'),
+        func.count(func.distinct(CatapultSession.user_id)).label('player_count')
+    ).group_by(
+        CatapultSession.session_title
+    ).order_by(
+        desc(func.max(CatapultSession.session_date))
+    )
+    
+    results = db.execute(stmt).all()
+    
+    return [
+        {
+            "session_title": row[0],
+            "session_date": row[1],
+            "player_count": row[2]
+        }
+        for row in results
+    ]
 
 
 @router.get("/sessions/title")
