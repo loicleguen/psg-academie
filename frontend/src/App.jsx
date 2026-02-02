@@ -10,6 +10,7 @@ import SessionsList from './pages/SessionsList';
 import Country from './pages/Country';
 import Academies from './pages/Academies';
 import Teams from './pages/Teams';
+import TeamDetail from './pages/TeamDetail';
 
 function App() {
   return (
@@ -19,7 +20,6 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
-          {/* Redirection de / vers /country */}
           <Route
             path="/"
             element={<Navigate to="/country" replace />}
@@ -64,6 +64,17 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Teams />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/teams/:teamName"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <TeamDetail />
                 </Layout>
               </ProtectedRoute>
             }

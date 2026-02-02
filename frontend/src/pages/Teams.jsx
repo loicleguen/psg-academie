@@ -39,6 +39,10 @@ export default function Teams() {
     }
   };
 
+  const handleTeamClick = (teamName) => {
+    navigate(`/teams/${encodeURIComponent(teamName)}`);
+  };
+
   const openCreateModal = () => {
     setModalMode('create');
     setFormData({ name: '', academy_id: '' });
@@ -84,7 +88,6 @@ export default function Teams() {
     }
   };
 
-  // Séparer équipes masculines et féminines
   const maleTeams = teams.filter(team => 
     team.name.includes(' H') || team.name.includes('Hommes')
   );
@@ -115,9 +118,12 @@ export default function Teams() {
             key={team.id}
             className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
           >
-            <div className="flex items-center flex-1">
+            <div 
+              onClick={() => handleTeamClick(team.name)}
+              className="flex items-center flex-1 cursor-pointer"
+            >
               <span className="mr-4 text-blue-600 text-xl">•</span>
-              <span className="text-2xl font-medium text-gray-900">
+              <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
                 {team.name}
               </span>
               {team.players && team.players.length > 0 && (
@@ -130,13 +136,19 @@ export default function Teams() {
             {isAdminOrCoach && (
               <div className="flex space-x-2 ml-4">
                 <button
-                  onClick={() => openEditModal(team)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEditModal(team);
+                  }}
                   className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1"
                 >
                   Modifier
                 </button>
                 <button
-                  onClick={() => handleDelete(team)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(team);
+                  }}
                   className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1"
                 >
                   Supprimer
