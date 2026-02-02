@@ -7,6 +7,9 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import CatapultUpload from './pages/CatapultUpload';
 import SessionsList from './pages/SessionsList';
+import Country from './pages/Country';
+import Academies from './pages/Academies';
+import Teams from './pages/Teams';
 
 function App() {
   return (
@@ -16,12 +19,51 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
+          {/* Redirection de / vers /country */}
           <Route
             path="/"
+            element={<Navigate to="/country" replace />}
+          />
+
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Layout>
                   <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/country"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Country />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/academies"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Academies />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/teams"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Teams />
                 </Layout>
               </ProtectedRoute>
             }
@@ -49,7 +91,7 @@ function App() {
             }
           />
           
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/country" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

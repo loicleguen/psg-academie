@@ -17,7 +17,7 @@ export default function Login() {
 
     try {
       await login(email, password);
-      navigate('/');
+      navigate('/country');
     } catch (err) {
       setError(err.response?.data?.detail || 'Échec de la connexion');
     } finally {
