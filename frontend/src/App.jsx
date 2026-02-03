@@ -4,7 +4,6 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
 import CatapultUpload from './pages/CatapultUpload';
 import SessionsList from './pages/SessionsList';
 import Country from './pages/Country';
@@ -24,17 +23,6 @@ function App() {
           <Route
             path="/"
             element={<Navigate to="/country" replace />}
-          />
-
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
-            }
           />
           
           <Route
