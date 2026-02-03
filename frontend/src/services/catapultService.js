@@ -30,6 +30,13 @@ export const catapultService = {
     return response.data;
   },
 
+  async generateSessionReport(sessionTitle) {
+    const response = await api.post('/catapult/reports/session', null, {
+      params: { session_title: sessionTitle }
+    });
+    return response.data;
+  },
+
   async generatePlayerGraphs(playerName) {
     const response = await api.post(`/catapult/graphs/player/${encodeURIComponent(playerName)}`);
     return response.data;

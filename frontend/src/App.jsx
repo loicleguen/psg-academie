@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import CatapultUpload from './pages/CatapultUpload';
 import SessionsList from './pages/SessionsList';
+import SessionDetail from './pages/SessionDetail';
 import Country from './pages/Country';
 import Academies from './pages/Academies';
 import Teams from './pages/Teams';
@@ -96,6 +97,17 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <SessionsList />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/catapult/sessions/:sessionId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <SessionDetail />
                 </Layout>
               </ProtectedRoute>
             }
