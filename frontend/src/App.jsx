@@ -11,6 +11,7 @@ import Country from './pages/Country';
 import Academies from './pages/Academies';
 import Teams from './pages/Teams';
 import TeamDetail from './pages/TeamDetail';
+import Veo from './pages/Veo';
 
 function App() {
   return (
@@ -75,6 +76,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <TeamDetail />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/veo"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Veo />
                 </Layout>
               </ProtectedRoute>
             }
