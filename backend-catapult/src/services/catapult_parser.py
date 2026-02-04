@@ -1,3 +1,4 @@
+import logging
 import re
 from io import StringIO
 from typing import List, Dict, Any, Tuple, Optional
@@ -18,7 +19,6 @@ COLUMN_MAPPING = {
     "tags": "tags",
     "split start time": "split_start_time",
     "split end time": "split_end_time",
-    "duration": "duration",
     "distance (km)": "distance_km",
     "sprint distance (m)": "sprint_distance_m",
     "distance per min (m/min)": "distance_per_min",
@@ -47,7 +47,6 @@ COLUMN_MAPPING = {
 }
 
 NUMERIC_FIELDS_INT = {
-    "duration",
     "impacts",
     "power_plays",
     "hr_load",
@@ -278,9 +277,12 @@ class CatapultCSVParser:
 
             # Duration -> seconds
             # Recalculer depuis split_start_time et split_end_time si disponible (plus fiable)
+            logger = logging.getLogger(__name__)
             start_time = row.get("split_start_time")
             end_time = row.get("split_end_time")
-            if start_time is not None and end_time is not None:
+            
+            duration_calculated = False
+            if start_time is not None and end_time is not None and start_time != "" and end_time != "":
                 try:
                     start = float(start_time)
                     end = float(end_time)
@@ -289,14 +291,18 @@ class CatapultCSVParser:
                     calculated_duration = int((end - start) * 86400)
                     if calculated_duration > 0:
                         parsed["duration"] = calculated_duration
+                        duration_calculated = True
+                        logger.warning(f"✅ Calculated duration for {row.get('player_name')}: {calculated_duration}s")
                     else:
-                        # Fallback au CSV si calcul échoue
-                        parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
-                except:
-                    # Fallback au CSV
-                    parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
+                        logger.warning(f"Negative duration calculated: {calculated_duration}s for {row.get('player_name')}")
+                except Exception as e:
+                    logger.error(f"ERROR calculating duration for {row.get('player_name')}: {e}")
+                    logger.error(f"  start_time={start_time}, end_time={end_time}")
             else:
-                # Pas de split times, utiliser la valeur CSV
+                logger.warning(f"No split times for {row.get('player_name')}, using CSV duration")
+            
+            if not duration_calculated:
+                # Fallback au CSV
                 parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
 
             # Numeric int fields
@@ -319,7 +325,6 @@ class CatapultCSVParser:
             for original_col, model_field in rename_map.items():
                 if model_field in parsed:
                     continue
-                if model_field in ("date", "duration",) or model_field in NUMERIC_FIELDS_INT or model_field in NUMERIC_FIELDS_FLOAT:
                     continue
                 parsed[model_field] = row.get(model_field, None)
 
