@@ -12,10 +12,11 @@ function getAlpha2FromName(name) {
   return entry ? entry[0] : null;
 }
 
-export default function CountryBadge({ countryName, size = '3.5rem', showLabel = false }) {
+export default function CountryBadge({ countryName, size = '48px', showLabel = true }) {
   const alpha2 = getAlpha2FromName(countryName);
   const containerStyle = { width: size, display: 'flex', flexDirection: 'column', alignItems: 'center' };
-  const nameStyle = { marginTop: '0.35rem', textAlign: 'center', lineHeight: 1 };
+  const nameStyle = { marginTop: '0.45rem', textAlign: 'center', lineHeight: 1 };
+  const flagStyle = { width: size, height: size };
 
   return (
     <div style={containerStyle}>
@@ -23,14 +24,14 @@ export default function CountryBadge({ countryName, size = '3.5rem', showLabel =
         <ReactCountryFlag
           countryCode={alpha2}
           svg
-          style={{ width: size, height: size }}
+          style={flagStyle}
           title={countryName}
           aria-label={countryName}
         />
       ) : (
         <div
           className="rounded-full bg-gray-100 text-gray-800 flex items-center justify-center font-semibold"
-          style={{ width: size, height: size }}
+          style={{ ...flagStyle, display: 'flex' }}
         >
           {countryName ? countryName.slice(0, 2).toUpperCase() : 'NA'}
         </div>

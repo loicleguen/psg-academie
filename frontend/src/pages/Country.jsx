@@ -107,7 +107,7 @@ export default function Country() {
               <p className="text-xl">Aucun pays enregistré</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5 max-w-2xl mx-auto justify-items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10 max-w-2xl mx-auto justify-items-center">
               {countries.map((country) => (
                 <div
                   key={country.id}
@@ -117,10 +117,10 @@ export default function Country() {
                     onClick={() => handleCountryClick(country.name)}
                     className="py-2 px-4 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform"
                   >
-                    <div className="mb-2">
-                      <CountryBadge countryName={country.name} size="100px" />
+                    <div className="mb-1">
+                      <CountryBadge countryName={country.name} size="150px" showLabel={false} />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 text-center">
+                    <h2 className="text-xl font-bold text-gray-900 text-center">
                       {country.name}
                     </h2>
                     {country.academies && country.academies.length > 0 && (
@@ -131,7 +131,7 @@ export default function Country() {
                   </div>
                   
                   {isAdminOrCoach && (
-                    <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 flex justify-end space-x-2">
+                    <div className="border-t border-gray-300 bg-gray-50 px-4 py-1 flex justify-end space-x-22">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
