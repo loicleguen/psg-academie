@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { catapultService } from '../services/catapultService';
+import { useAuth } from '../context/AuthContext';
 
 export default function SessionsList() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user } = useAuth();
+
+  const isAdminOrCoach = user?.role === 'admin' || user?.role === 'coach';
 
   useEffect(() => {
     loadSessions();
@@ -21,6 +25,23 @@ export default function SessionsList() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteSession = async (sessionTitle, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer la session "${sessionTitle}" ?`)) {
+      return;
+    }
+
+    try {
+      await catapultService.deleteSession(sessionTitle);
+      await loadSessions();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Erreur lors de la suppression');
+      console.error(err);
     }
   };
 
@@ -90,14 +111,14 @@ export default function SessionsList() {
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <ul className="divide-y divide-gray-200">
               {sessions.map((session, index) => (
-                <li key={index}>
+                <li key={index} className="relative">
                   <Link
                     to={`/catapult/sessions/${encodeURIComponent(session.session_title)}`}
                     className="block hover:bg-gray-50 transition duration-150"
                   >
                     <div className="px-4 py-4 sm:px-6">
                       <div className="flex items-center justify-between">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0 pr-4">
                           <p className="text-lg font-medium text-blue-600 truncate">
                             {session.session_title}
                           </p>
@@ -138,7 +159,28 @@ export default function SessionsList() {
                             {session.player_count || 0} joueurs
                           </div>
                         </div>
-                        <div className="ml-2 flex-shrink-0">
+                        <div className="flex items-center space-x-2">
+                          {isAdminOrCoach && (
+                            <button
+                              onClick={(e) => handleDeleteSession(session.session_title, e)}
+                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                              title="Supprimer la session"
+                            >
+                              <svg
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          )}
                           <svg
                             className="h-5 w-5 text-gray-400"
                             fill="none"

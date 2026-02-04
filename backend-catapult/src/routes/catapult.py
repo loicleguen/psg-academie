@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from ..models.user import User
 from ..middleware.security import require_coach_or_admin
@@ -206,7 +207,7 @@ def delete_sessions_by_title(
 def delete_session(session_id: int, session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
-    """Delete a Catapult session"""
+    """Delete a Catapult session by ID"""
     db_session = session.get(CatapultSession, session_id)
     if not db_session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -215,6 +216,34 @@ def delete_session(session_id: int, session: Session = Depends(get_session),
     session.commit()
     
     return {"message": "Session deleted successfully"}
+
+
+@router.delete("/sessions/by-title/{session_title:path}")
+def delete_session_by_title(
+    session_title: str,
+    current_user: User = Depends(require_coach_or_admin),
+    db: Session = Depends(get_session)
+):
+    """Delete all records for a session by title"""
+    logger = logging.getLogger(__name__)
+    logger.info(f"DELETE request received for session_title: {session_title}")
+    logger.info(f"Current user: {current_user.email}, role: {current_user.role}")
+    
+    statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
+    sessions = db.exec(statement).all()
+    
+    logger.info(f"Found {len(sessions)} sessions to delete")
+    
+    if not sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    for db_session in sessions:
+        db.delete(db_session)
+    
+    db.commit()
+    
+    logger.info(f"Successfully deleted {len(sessions)} sessions")
+    return {"message": f"Session '{session_title}' deleted successfully", "deleted_count": len(sessions)}
 
 
 # ============================================================================

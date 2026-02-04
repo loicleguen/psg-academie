@@ -25,6 +25,11 @@ export const catapultService = {
     return response.data;
   },
 
+  async deleteSession(sessionTitle) {
+    const response = await api.delete(`/catapult/sessions/by-title/${encodeURIComponent(sessionTitle)}`);
+    return response.data;
+  },
+
   async analyzeSession(title) {
     const response = await api.post(`/catapult/analyze/session/${encodeURIComponent(title)}`);
     return response.data;

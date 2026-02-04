@@ -277,7 +277,27 @@ class CatapultCSVParser:
             parsed["date"] = parsed_date or (str(row.get("date")).strip() or "")
 
             # Duration -> seconds
-            parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
+            # Recalculer depuis split_start_time et split_end_time si disponible (plus fiable)
+            start_time = row.get("split_start_time")
+            end_time = row.get("split_end_time")
+            if start_time is not None and end_time is not None:
+                try:
+                    start = float(start_time)
+                    end = float(end_time)
+                    # Les times sont en format Excel (jours depuis 1900)
+                    # Convertir en secondes: (diff en jours) * 86400
+                    calculated_duration = int((end - start) * 86400)
+                    if calculated_duration > 0:
+                        parsed["duration"] = calculated_duration
+                    else:
+                        # Fallback au CSV si calcul échoue
+                        parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
+                except:
+                    # Fallback au CSV
+                    parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
+            else:
+                # Pas de split times, utiliser la valeur CSV
+                parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
 
             # Numeric int fields
             for f in NUMERIC_FIELDS_INT:
