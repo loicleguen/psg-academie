@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import CountryBadge from '../components/CountryBadge';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { organizationService } from '../services/organizationService';
@@ -76,16 +77,6 @@ export default function Country() {
     }
   };
 
-  const countryFlags = {
-    'France': '🇫🇷',
-    'Sénégal': '🇸🇳',
-    'Allemagne': '🇩🇪',
-    'Belgique': '🇧🇪',
-    'Portugal': '🇵🇹',
-    'Suisse': '🇨🇭',
-    'Espagne': '🇪🇸',
-    'Italie': '🇮🇹',
-  };
 
   if (loading) {
     return (
@@ -116,18 +107,18 @@ export default function Country() {
               <p className="text-xl">Aucun pays enregistré</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5 max-w-2xl mx-auto justify-items-center">
               {countries.map((country) => (
                 <div
                   key={country.id}
-                  className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden"
+                  className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60"
                 >
                   <div 
                     onClick={() => handleCountryClick(country.name)}
-                    className="p-8 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform"
+                    className="py-2 px-4 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform"
                   >
-                    <div className="text-8xl mb-4">
-                      {countryFlags[country.name] || '🏳️'}
+                    <div className="mb-2">
+                      <CountryBadge countryName={country.name} size="100px" />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 text-center">
                       {country.name}
