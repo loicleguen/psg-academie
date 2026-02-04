@@ -65,7 +65,7 @@ export default function Country() {
     }
   };
 
-  const handleDelete = async (countryId) => {
+  const handleDelete = async (country) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce pays ?')) return;
     
     try {
