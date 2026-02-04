@@ -277,28 +277,12 @@ def generate_session_report(
 
     all_sessions_data = [s.model_dump() for s in all_sessions_db]
     
-    # Generate report (metadata extracted automatically)
-    # Prefer player-specific splits if present (client-side crops).
-    from ..services.split_detector import SplitDetector
-
-    has_non_all = any((s.get('split_name') or '').lower() != 'all' for s in session_data)
-    if has_non_all:
-        relevant = [s for s in session_data if (s.get('split_name') or '').lower() != 'all']
-    else:
-        # Automatic filtering: keep only splits that look like real effort
-        relevant = [s for s in session_data if SplitDetector.is_real_effort(s)]
-        if not relevant:
-            # fallback to aggregated 'all' split
-            relevant = [s for s in session_data if (s.get('split_name') or '').lower() == 'all']
-        if not relevant:
-            relevant = session_data
-
     img_base64 = SessionReportGenerator.generate_session_report(
         session_data=relevant,
         all_sessions=all_sessions_data,
         session_title=session_title
     )
-    
+
     return {
         "session_title": session_title,
         "total_players": len(session_data),
