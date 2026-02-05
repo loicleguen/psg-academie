@@ -2,7 +2,6 @@ from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
-from pydantic import EmailStr
 
 if TYPE_CHECKING:
     from .team import Team
@@ -18,7 +17,7 @@ class UserRole(str, Enum):
 class User(SQLModel, table=True):
     """Modèle utilisateur pour l'authentification"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: EmailStr = Field(unique=True, index=True, max_length=255)
+    email: str = Field(unique=True, index=True, max_length=255)
     hashed_password: str = Field(max_length=255)
     role: UserRole = Field(default=UserRole.PLAYER)
     is_active: bool = Field(default=True)
@@ -35,7 +34,7 @@ class User(SQLModel, table=True):
 
 class UserCreate(SQLModel):
     """Schéma pour créer un utilisateur"""
-    email: EmailStr
+    email: str
     password: str
     full_name: Optional[str] = None
     role: UserRole = UserRole.PLAYER
@@ -79,7 +78,7 @@ class TokenData(SQLModel):
 
 class UserUpdate(SQLModel):
     """Schéma pour mettre à jour un utilisateur (admin)"""
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     password: Optional[str] = None
     full_name: Optional[str] = None
     role: Optional[UserRole] = None

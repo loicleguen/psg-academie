@@ -102,8 +102,23 @@ export default function AdminPannel() {
       setUsers(users.map(u => u.id === editingUser.id ? response.data : u));
       setEditingUser(null);
     } catch (err) {
-      alert('Erreur lors de la mise à jour: ' + (err.response?.data?.detail || err.message));
-      console.error(err);
+      console.error('Full error:', err);
+      console.error('Error response:', err.response);
+      
+      let errorMessage = 'Erreur inconnue';
+      if (err.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          errorMessage = err.response.data.detail;
+        } else {
+          errorMessage = JSON.stringify(err.response.data.detail);
+        }
+      } else if (err.response?.data) {
+        errorMessage = JSON.stringify(err.response.data);
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      alert('Erreur lors de la mise à jour: ' + errorMessage);
     }
   };
 

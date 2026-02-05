@@ -287,7 +287,7 @@ def get_players(
     return session.exec(stmt).all()
 
 
-@router.put("/users/{user_id}", response_model=UserRead, tags=["Auth - Coach/Admin"], summary="Update user")
+@router.put("/users/{user_id}", tags=["Auth - Coach/Admin"], summary="Update user")
 def update_user(
     user_id: int,
     user_update: UserUpdate,
@@ -336,7 +336,29 @@ def update_user(
     session.add(user)
     session.commit()
     session.refresh(user)
-    return user
+    
+    # Retourner avec le team_name complet
+    from .team import get_team_full_path
+    
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "is_active": user.is_active,
+        "full_name": user.full_name,
+        "player_name": user.player_name,
+        "age": user.age,
+        "team_id": user.team_id,
+        "created_at": user.created_at,
+        "team_name": None
+    }
+    
+    if user.team_id:
+        team_path = get_team_full_path(session, user.team_id)
+        if team_path:
+            user_dict["team_name"] = team_path
+    
+    return user_dict
 
 
 @router.delete("/users/{user_id}", tags=["Auth - Coach/Admin"], summary="Delete user")
