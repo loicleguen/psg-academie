@@ -47,8 +47,6 @@ COLUMN_MAPPING = {
 }
 
 NUMERIC_FIELDS_INT = {
-    "impacts",
-    "power_plays",
     "hr_load",
     "speed_zone_1_secs",
     "speed_zone_2_secs",
@@ -232,6 +230,9 @@ class CatapultCSVParser:
         """
         # Use pandas for robust CSV support
         df = pd.read_csv(StringIO(csv_content), dtype=object, keep_default_na=False)
+        logger = logging.getLogger(__name__)
+        logger.warning(f"📋 CSV Columns detected: {list(df.columns)}")
+
 
         # Map raw columns to canonical CSV column names
         rename_map = {}
@@ -258,8 +259,25 @@ class CatapultCSVParser:
                 elif "distance" in k:
                     rename_map[col] = "distance_km"
 
+        logger.warning(f"🔄 Column rename_map: {rename_map}")
+        impacts_cols = [col for col in df.columns if "impact" in col.lower() or "power" in col.lower()]
+        logger.warning(f"🔍 Columns with impact/power: {impacts_cols}")
+
+        # Calculate totals from zones BEFORE renaming columns
+        impact_zone_cols = [col for col in df.columns if "impact zones:" in col.lower() and "(impacts)" in col.lower()]
+        power_zone_cols = [col for col in df.columns if "power play duration zones:" in col.lower() and "(power plays)" in col.lower()]
+        logger.warning(f"🔍 Found {len(impact_zone_cols)} impact zones, {len(power_zone_cols)} power play zones")
+        
+        # Add calculated total columns to dataframe BEFORE renaming
+        df['_calculated_total_impacts'] = df[impact_zone_cols].apply(lambda x: sum(pd.to_numeric(x, errors='coerce').fillna(0)), axis=1).astype(int) if len(impact_zone_cols) > 0 else 0
+        df['_calculated_total_power_plays'] = df[power_zone_cols].apply(lambda x: sum(pd.to_numeric(x, errors='coerce').fillna(0)), axis=1).astype(int) if len(power_zone_cols) > 0 else 0
+        
+        logger.warning(f"📊 Sample impacts total: {df['_calculated_total_impacts'].iloc[0] if len(df) > 0 else 'N/A'}")
+        logger.warning(f"📊 Sample power plays total: {df['_calculated_total_power_plays'].iloc[0] if len(df) > 0 else 'N/A'}")
+
         # Rename df to use model field names
         df = df.rename(columns=rename_map)
+
 
         parsed_rows: List[Dict[str, Any]] = []
         for _, raw_row in df.iterrows():
@@ -305,6 +323,12 @@ class CatapultCSVParser:
                 # Fallback au CSV
                 parsed["duration"] = _parse_duration_to_seconds(row.get("duration"))
 
+            # Use pre-calculated totals from dataframe
+            parsed["impacts"] = int(row.get("_calculated_total_impacts", 0))
+            parsed["power_plays"] = int(row.get("_calculated_total_power_plays", 0))
+            if parsed["impacts"] > 0 or parsed["power_plays"] > 0:
+                logger.warning(f"📊 {row.get('player_name')}: impacts={parsed['impacts']}, power_plays={parsed['power_plays']}")
+
             # Numeric int fields
             for f in NUMERIC_FIELDS_INT:
                 val = row.get(f, None)
@@ -312,6 +336,10 @@ class CatapultCSVParser:
                     parsed[f] = int(float(val)) if val not in [None, ""] else 0
                 except Exception:
                     parsed[f] = 0
+
+
+            # Debug log
+            logger.warning(f"Player {row.get('player_name')}: parsed impacts={parsed.get('impacts', 0)}, power_plays={parsed.get('power_plays', 0)} | raw: i={row.get('impacts')}, pp={row.get('power_plays')}")
 
             # Numeric float fields
             for f in NUMERIC_FIELDS_FLOAT:
@@ -324,7 +352,6 @@ class CatapultCSVParser:
             # Copy over remaining mapped fields (strings, tags, titles...)
             for original_col, model_field in rename_map.items():
                 if model_field in parsed:
-                    continue
                     continue
                 parsed[model_field] = row.get(model_field, None)
 
