@@ -12,6 +12,7 @@ import Academies from './pages/Academies';
 import Teams from './pages/Teams';
 import TeamDetail from './pages/TeamDetail';
 import Veo from './pages/Veo';
+import AdminPannel from './pages/AdminPannel';
 
 function App() {
   return (
@@ -108,6 +109,17 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <SessionDetail />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <Layout>
+                  <AdminPannel />
                 </Layout>
               </ProtectedRoute>
             }

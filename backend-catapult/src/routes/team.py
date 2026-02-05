@@ -8,6 +8,33 @@ from ..models.academy import Academy
 from ..models.user import User, UserRead
 from ..middleware.security import require_coach_or_admin
 
+
+def get_team_full_path(session: Session, team_id: int) -> str:
+    """
+    Retourne le chemin complet d'une équipe au format: Country / Academy / Team
+    """
+    from ..models.country import Country
+    
+    team = session.get(Team, team_id)
+    if not team:
+        return None
+    
+    # Charger l'academy avec le country
+    academy = session.exec(
+        select(Academy)
+        .where(Academy.id == team.academy_id)
+        .options(selectinload(Academy.country))
+    ).first()
+    
+    if not academy:
+        return team.name
+    
+    if academy.country:
+        return f"{academy.country.name} / {academy.name} / {team.name}"
+    else:
+        return f"{academy.name} / {team.name}"
+
+
 router = APIRouter(prefix="/teams", tags=["teams"])
 
 @router.post("/", response_model=TeamRead, status_code=status.HTTP_201_CREATED)

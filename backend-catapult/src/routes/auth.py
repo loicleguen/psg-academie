@@ -231,16 +231,42 @@ def delete_my_account(
     return {"message": f"Account {email} deleted successfully"}
 
 
-@router.get("/users", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List all users")
+@router.get("/users", tags=["Auth - Coach/Admin"], summary="List all users")
 def get_all_users(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
     """
-    Lister tous les utilisateurs (coach or admin uniquement)
+    Lister tous les utilisateurs avec leurs équipes complètes (coach or admin uniquement)
     """
+    from .team import get_team_full_path
+    
     users = session.exec(select(User)).all()
-    return users
+    result = []
+    
+    for user in users:
+        user_dict = {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "is_active": user.is_active,
+            "full_name": user.full_name,
+            "player_name": user.player_name,
+            "age": user.age,
+            "team_id": user.team_id,
+            "created_at": user.created_at,
+            "team_name": None
+        }
+        
+        # Ajouter le chemin complet de l'équipe pour les joueurs
+        if user.team_id:
+            team_path = get_team_full_path(session, user.team_id)
+            if team_path:
+                user_dict["team_name"] = team_path
+        
+        result.append(user_dict)
+    
+    return result
 
 
 @router.get("/staff", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List admins and coaches")
