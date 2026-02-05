@@ -89,7 +89,7 @@ class SessionReportGenerator:
         if 'match' in tags or 'game' in tags:
             # Try to extract opponent from session title
             session_title = first_session.get('session_title', '')
-            match_info = session_title.split('/')[-1].strip() if '/' in session_title else 'MATCH'
+            match_info = 'MATCH'
         elif 'training' in tags or 'entrainement' in tags:
             match_info = 'ENTRAINEMENT'
         else:
@@ -319,7 +319,7 @@ class SessionReportGenerator:
                       ha='center', va='center', fontsize=11, fontweight='bold',
                       color='#1a2332', zorder=10)
         
-        header_ax.text(0.9, info_y + 0.15, 'MATCH',
+        header_ax.text(0.9, info_y + 0.15, 'TYPE',
                       ha='center', va='center', fontsize=9,
                       color='#718096', zorder=10)
         header_ax.text(0.9, info_y - 0.15, match,

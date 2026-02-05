@@ -289,19 +289,20 @@ def generate_session_report(
     session_data = [s.model_dump() for s in db_sessions]
 
     # Determine if CSV contains per-player splits (non-'all') — trust client splits if present
+    # Keep all sessions with 'all' split, plus any specific splits
+    # Only filter out 'all' if ALL players have specific splits
     split_names = set((row.get('split_name') or '').lower() for row in session_data)
-    has_non_all = any(name and name != 'all' for name in split_names)
-    if has_non_all:
-        # Trust client's splits: prefer non-'all' entries
-        relevant = [r for r in session_data if (r.get('split_name') or '').lower() != 'all']
-    else:
-        # Apply automatic filtering to remove warmup/cooldown/rest
-        relevant = [r for r in session_data if SplitDetector.is_real_effort(r)]
-    # Fallbacks
-    if not relevant:
-        # If no relevant rows found, prefer 'all' rows if present
+    all_count = sum(1 for row in session_data if (row.get('split_name') or '').lower() == 'all')
+    non_all_count = len(session_data) - all_count
+    
+    if all_count == 0 and non_all_count > 0:
+        # No 'all' splits, only specific splits - use them all
+        relevant = session_data
+    elif all_count > 0:
+        # We have 'all' splits - use them (most reliable)
         relevant = [r for r in session_data if (r.get('split_name') or '').lower() == 'all']
-    if not relevant:
+    else:
+        # Fallback
         relevant = session_data
 
     all_sessions_data = [s.model_dump() for s in all_sessions_db]
@@ -351,19 +352,20 @@ def get_session_report_image(
     session_data = [s.model_dump() for s in db_sessions]
 
     # Determine if CSV contains per-player splits (non-'all') — trust client splits if present
+    # Keep all sessions with 'all' split, plus any specific splits
+    # Only filter out 'all' if ALL players have specific splits
     split_names = set((row.get('split_name') or '').lower() for row in session_data)
-    has_non_all = any(name and name != 'all' for name in split_names)
-    if has_non_all:
-        # Trust client's splits: prefer non-'all' entries
-        relevant = [r for r in session_data if (r.get('split_name') or '').lower() != 'all']
-    else:
-        # Apply automatic filtering to remove warmup/cooldown/rest
-        relevant = [r for r in session_data if SplitDetector.is_real_effort(r)]
-    # Fallbacks
-    if not relevant:
-        # If no relevant rows found, prefer 'all' rows if present
+    all_count = sum(1 for row in session_data if (row.get('split_name') or '').lower() == 'all')
+    non_all_count = len(session_data) - all_count
+    
+    if all_count == 0 and non_all_count > 0:
+        # No 'all' splits, only specific splits - use them all
+        relevant = session_data
+    elif all_count > 0:
+        # We have 'all' splits - use them (most reliable)
         relevant = [r for r in session_data if (r.get('split_name') or '').lower() == 'all']
-    if not relevant:
+    else:
+        # Fallback
         relevant = session_data
 
     all_sessions_data = [s.model_dump() for s in all_sessions_db]
