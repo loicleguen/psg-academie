@@ -517,22 +517,23 @@ class WeeklyReportGenerator:
             if player not in player_totals:
                 player_totals[player] = {
                     'player_name': player,
-                    'player_name': session.get('player_name', player),
                     'duration': 0,
-                    'distance': 0,
-                    'hsr': 0,
+                    'distance_km': 0,
+                    'sprint_distance_m': 0,
+                    'power_score': 0,
                     'impacts': 0,
                     'power_plays': 0,
-                    'vmax': 0,
+                    'top_speed': 0,
                     'session_count': 0
                 }
             
             player_totals[player]['duration'] += session.get('duration', 0)
-            player_totals[player]['distance'] += session.get('distance', 0)
-            player_totals[player]['hsr'] += session.get('hsr', 0)
+            player_totals[player]['distance_km'] += session.get('distance_km', 0)
+            player_totals[player]['sprint_distance_m'] += session.get('sprint_distance_m', 0)
+            player_totals[player]['power_score'] = max(player_totals[player]['power_score'], session.get('power_score', 0))
             player_totals[player]['impacts'] += session.get('impacts', 0)
             player_totals[player]['power_plays'] += session.get('power_plays', 0)
-            player_totals[player]['vmax'] = max(player_totals[player]['vmax'], session.get('vmax', 0))
+            player_totals[player]['top_speed'] = max(player_totals[player]['top_speed'], session.get('top_speed', 0))
             player_totals[player]['session_count'] += 1
         
         return list(player_totals.values())
@@ -544,11 +545,11 @@ class WeeklyReportGenerator:
         
         day_totals = defaultdict(lambda: {
             'duration': 0,
-            'distance': 0,
-            'hsr': 0,
+            'distance_km': 0,
+            'sprint_distance_m': 0,
             'impacts': 0,
             'power_plays': 0,
-            'vmax': 0,
+            'top_speed': 0,
             'player_count': set()
         })
         
@@ -560,11 +561,11 @@ class WeeklyReportGenerator:
             day_name = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'][date.weekday()]
             
             day_totals[day_name]['duration'] += session.get('duration', 0)
-            day_totals[day_name]['distance'] += session.get('distance', 0)
-            day_totals[day_name]['hsr'] += session.get('hsr', 0)
+            day_totals[day_name]['distance_km'] += session.get('distance_km', 0)
+            day_totals[day_name]['sprint_distance_m'] += session.get('sprint_distance_m', 0)
             day_totals[day_name]['impacts'] += session.get('impacts', 0)
             day_totals[day_name]['power_plays'] += session.get('power_plays', 0)
-            day_totals[day_name]['vmax'] = max(day_totals[day_name]['vmax'], session.get('vmax', 0))
+            day_totals[day_name]['top_speed'] = max(day_totals[day_name]['top_speed'], session.get('top_speed', 0))
             day_totals[day_name]['player_count'].add(session['player_name'])
         
         # Convert sets to counts
@@ -594,33 +595,27 @@ class WeeklyReportGenerator:
         # Calculate benchmarks
         benchmarks = SessionReportGenerator.calculate_benchmarks(all_sessions)
         
-        # Create figure with two sections
+        # Create figure
         fig = plt.figure(figsize=(16, 20), facecolor=WeeklyReportGenerator.COLORS['background'])
         
-        # Top section (same as session report)
-        top_section = fig.add_gridspec(3, 1, height_ratios=[0.8, 1, 5], hspace=0.15, top=0.65, bottom=0.35)
-        
-        # Bottom section (daily breakdown + graph)
-        bottom_section = fig.add_gridspec(1, 2, width_ratios=[2, 1], hspace=0.1, top=0.30, bottom=0.05, left=0.05, right=0.95)
-        
-        # === TOP SECTION: Header ===
-        header_ax = fig.add_subplot(top_section[0])
+        # === HEADER === (use plt.axes like session report)
+        header_ax = plt.axes([0.05, 0.83, 0.9, 0.15])
         WeeklyReportGenerator._draw_header(header_ax, team_name, week_number, year, len(session_data))
         
-        # === TOP SECTION: Gauges ===
-        gauge_ax = fig.add_subplot(top_section[1])
+        # === GAUGES === (below header)
+        gauge_ax = plt.axes([0.05, 0.68, 0.9, 0.12])
         WeeklyReportGenerator._draw_gauges(gauge_ax, player_data, benchmarks)
         
-        # === TOP SECTION: Player Table ===
-        table_ax = fig.add_subplot(top_section[2])
+        # === PLAYER TABLE === (main table)
+        table_ax = plt.axes([0.05, 0.35, 0.9, 0.30])
         WeeklyReportGenerator._draw_player_table(table_ax, player_data, benchmarks)
         
-        # === BOTTOM SECTION: Daily Table ===
-        daily_table_ax = fig.add_subplot(bottom_section[0])
+        # === DAILY TABLE === (bottom left)
+        daily_table_ax = plt.axes([0.05, 0.05, 0.55, 0.25])
         WeeklyReportGenerator._draw_daily_table(daily_table_ax, day_data, benchmarks)
         
-        # === BOTTOM SECTION: Trend Graph ===
-        graph_ax = fig.add_subplot(bottom_section[1])
+        # === TREND GRAPH === (bottom right)
+        graph_ax = plt.axes([0.65, 0.05, 0.30, 0.25])
         WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data)
         
         # Save to bytes
@@ -635,41 +630,82 @@ class WeeklyReportGenerator:
     
     @staticmethod
     def _draw_header(ax, team_name, week_number, year, session_count):
-        """Draw report header"""
-        ax.axis('off')
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
+        """Draw header section - EXACT copy from session report"""
+        from matplotlib import patches
+        from PIL import Image
+        from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+        
+        # Keep background transparent to show dark background
+        ax.set_facecolor('none')
+        
+        # White rectangle starting after the logo (like session report style)
+        rect = patches.Rectangle((0, 0.25), 0.98, 0.5, linewidth=1, 
+                                edgecolor='none', facecolor='#ffffff', zorder=0)
+        ax.add_patch(rect)
+        
+        # Logo on the left
+        try:
+            logo_path = 'assets/logo.png'
+            logo = Image.open(logo_path)
+            # Place logo within header_ax coordinates (0-1)
+            imagebox = OffsetImage(logo, zoom=0.17)
+            ab = AnnotationBbox(imagebox, (0.12, 0.5), frameon=False, 
+                              xycoords='axes fraction', box_alignment=(0.5, 0.5))
+            ax.add_artist(ab)
+        except:
+            pass  # Logo optional
         
         # Title
-        ax.text(0.5, 0.7, f'RAPPORT HEBDOMADAIRE', ha='center', va='center',
-                fontsize=24, fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
+        ax.text(0.5, 0.5, 'RAPPORT HEBDOMADAIRE',
+                ha='center', va='center',
+                fontsize=20, fontweight='bold',
+                color='#1a2332', zorder=10)
         
-        # Team name
-        ax.text(0.5, 0.4, team_name, ha='center', va='center',
-                fontsize=16, color=WeeklyReportGenerator.COLORS['text_gray'])
+        # Info boxes (changed labels for weekly report)
+        info_y = 0.5
+        ax.text(0.75, info_y + 0.15, 'ÉQUIPE',
+                ha='center', va='center', fontsize=9,
+                color='#718096', zorder=10)
+        ax.text(0.75, info_y - 0.15, team_name,
+                ha='center', va='center', fontsize=11, fontweight='bold',
+                color='#1a2332', zorder=10)
         
-        # Week info
-        info_y = 0.1
-        ax.text(0.25, info_y, f'SEMAINE {week_number}', ha='center', va='center',
-                fontsize=12, fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
-        ax.text(0.5, info_y, f'{session_count} SÉANCES', ha='center', va='center',
-                fontsize=12, fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
-        ax.text(0.75, info_y, f'ANNÉE {year}', ha='center', va='center',
-                fontsize=12, fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
+        ax.text(0.85, info_y + 0.15, 'SEMAINE',
+                ha='center', va='center', fontsize=9,
+                color='#718096', zorder=10)
+        ax.text(0.85, info_y - 0.15, str(week_number),
+                ha='center', va='center', fontsize=11, fontweight='bold',
+                color='#1a2332', zorder=10)
+        
+        ax.text(0.95, info_y + 0.15, 'ANNÉE',
+                ha='center', va='center', fontsize=9,
+                color='#718096', zorder=10)
+        ax.text(0.95, info_y - 0.15, str(year),
+                ha='center', va='center', fontsize=11, fontweight='bold',
+                color='#1a2332', zorder=10)
+        
+        # SÉANCES instead of TYPE (4th info box like session report has TYPE)
+        # But we keep it at 0.9 position since we only have 3 boxes + 1 extra
+        # Actually, looking at the image, session report only has 3 boxes
+        # Let me add a 4th one for SÉANCES at the right position
+        
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
     
     @staticmethod
     def _draw_gauges(ax, player_data, benchmarks):
         """Draw the 4 gauges (reuse from SessionReportGenerator)"""
         # Calculate team totals
-        total_distance = sum(p['distance'] for p in player_data)
-        total_hsr = sum(p['hsr'] for p in player_data)
+        total_distance = sum(p['distance_km'] * 1000 for p in player_data)  # Convert km to meters
+        total_hsr = sum(p['sprint_distance_m'] for p in player_data)
         total_impacts = sum(p['impacts'] for p in player_data)
         total_power_plays = sum(p['power_plays'] for p in player_data)
         
         # Reuse the gauge drawing from SessionReportGenerator
         ax.axis('off')
         ax.set_xlim(0, 4)
-        ax.set_ylim(0, 1)
+        ax.set_ylim(0, 0.6)
         
         # Use total benchmarks for weekly report (not per minute)
         gauges = [
@@ -708,27 +744,130 @@ class WeeklyReportGenerator:
     
     @staticmethod
     def _draw_player_table(ax, player_data, benchmarks):
-        """Draw player summary table"""
+        """Draw complete player table with all columns and color coding"""
         ax.axis('off')
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
+        ax.set_xlim(0, 16)
+        ax.set_ylim(0, max(len(player_data) + 2, 10))
         
-        # Simple text display for now
-        ax.text(0.5, 0.5, f'{len(player_data)} joueurs - Rapport hebdomadaire détaillé',
-                ha='center', va='center', fontsize=16, 
-                color=WeeklyReportGenerator.COLORS['text_white'])
+        # Calculate percentiles for color coding
+        if player_data:
+            distances = [p['distance_km'] for p in player_data]
+            hsrs = [p['sprint_distance_m'] for p in player_data]
+            impacts_list = [p['impacts'] for p in player_data]
+            pp_list = [p['power_plays'] for p in player_data]
+            
+            import numpy as np
+            dist_p33, dist_p66 = np.percentile(distances, [33, 66]) if distances else (0, 0)
+            hsr_p33, hsr_p66 = np.percentile(hsrs, [33, 66]) if hsrs else (0, 0)
+            imp_p33, imp_p66 = np.percentile(impacts_list, [33, 66]) if impacts_list else (0, 0)
+            pp_p33, pp_p66 = np.percentile(pp_list, [33, 66]) if pp_list else (0, 0)
+        
+        # Headers
+        headers = ['JOUEUR', 'MIN', 'DIST', '%D', 'HSR', '%H', 'SPR', '%S', 'PMAX', '%PM', 'DEC', '%DC', 'PP', '%PP', 'VOL', 'INT']
+        col_widths = [2.5, 0.8, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.8, 0.8]
+        
+        x_pos = 0
+        y = len(player_data) + 1
+        for i, (header, width) in enumerate(zip(headers, col_widths)):
+            # Draw header cell background
+            from matplotlib.patches import Rectangle
+            rect = Rectangle((x_pos, y-0.4), width, 0.8,
+                           facecolor=WeeklyReportGenerator.COLORS['header_bg'], 
+                           edgecolor='white', linewidth=0.5)
+            ax.add_patch(rect)
+            
+            ax.text(x_pos + width/2, y, header, ha='center', va='center',
+                   fontsize=7, fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
+            x_pos += width
+        
+        # Sort players by distance
+        sorted_players = sorted(player_data, key=lambda p: p['distance_km'], reverse=True)
+        
+        # Player rows
+        for idx, player in enumerate(sorted_players):
+            y -= 1
+            minutes = player['duration'] // 60
+            distance = int(player['distance_km'] * 1000)  # Convert to meters
+            hsr = int(player['sprint_distance_m'])
+            impacts = player['impacts']
+            pp = player['power_plays']
+            pmax = player['power_score']
+            sessions = player['session_count']
+            
+            # Calculate percentages (simplified for now)
+            dist_pct = int((distance / benchmarks.get('distance_km', 10000)) * 100) if benchmarks.get('distance_km', 0) > 0 else 100
+            hsr_pct = int((hsr / benchmarks.get('hsr_total', 1000)) * 100) if benchmarks.get('hsr_total', 0) > 0 else 100
+            spr_pct = hsr_pct  # Same as HSR for sprint distance
+            pmax_pct = int((pmax / 10) * 100) if pmax > 0 else 0  # Simplified
+            dec_pct = int((impacts / benchmarks.get('dec_total', 100)) * 100) if benchmarks.get('dec_total', 0) > 0 else 100
+            pp_pct = int((pp / benchmarks.get('power_plays', 50)) * 100) if benchmarks.get('power_plays', 0) > 0 else 100
+            
+            vol = distance // 100
+            intensity = int((hsr + impacts + pp) / 10)
+            
+            # Get colors based on percentiles
+            dist_color = SessionReportGenerator.get_color_for_percentile(player['distance_km'], dist_p33, dist_p66)
+            hsr_color = SessionReportGenerator.get_color_for_percentile(player['sprint_distance_m'], hsr_p33, hsr_p66)
+            imp_color = SessionReportGenerator.get_color_for_percentile(impacts, imp_p33, imp_p66)
+            pp_color = SessionReportGenerator.get_color_for_percentile(pp, pp_p33, pp_p66)
+            
+            row_data = [
+                (player['player_name'][:20], None, 'left'),
+                (str(minutes), None, 'center'),
+                (str(distance), dist_color, 'center'),
+                (f'{dist_pct}%', None, 'center'),
+                (str(hsr), hsr_color, 'center'),
+                (f'{hsr_pct}%', None, 'center'),
+                (str(hsr), hsr_color, 'center'),
+                (f'{spr_pct}%', None, 'center'),
+                (f'{pmax:.1f}', None, 'center'),
+                (f'{pmax_pct}%', None, 'center'),
+                (str(impacts), imp_color, 'center'),
+                (f'{dec_pct}%', None, 'center'),
+                (str(pp), pp_color, 'center'),
+                (f'{pp_pct}%', None, 'center'),
+                (str(vol), None, 'center'),
+                (str(intensity), None, 'center')
+            ]
+            
+            x_pos = 0
+            for (value, bgcolor, align), width in zip(row_data, col_widths):
+                # Draw cell with border
+                from matplotlib.patches import Rectangle
+                if bgcolor:
+                    rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                                   facecolor=bgcolor, edgecolor='#4a5568', linewidth=0.5)
+                else:
+                    rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                                   facecolor=WeeklyReportGenerator.COLORS['background'], 
+                                   edgecolor='#4a5568', linewidth=0.5)
+                ax.add_patch(rect)
+                
+                # Draw text
+                text_color = WeeklyReportGenerator.COLORS['text_white'] if bgcolor else WeeklyReportGenerator.COLORS['text_white']
+                ax.text(x_pos + (0 if align == 'left' else width/2), y, value,
+                       ha=align, va='center', fontsize=6, color=text_color)
+                x_pos += width
     
     @staticmethod
     def _draw_daily_table(ax, day_data, benchmarks):
-        """Draw daily breakdown table"""
+        """Draw daily breakdown table with borders"""
         ax.axis('off')
-        ax.set_xlim(0, 13)
+        ax.set_xlim(0, 12)
         ax.set_ylim(0, 10)
+        
+        from matplotlib.patches import Rectangle
         
         # Header
         headers = ['JOUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'DEC', '%DEC', 'PP', '%PP', 'VOL', 'INT']
         for i, header in enumerate(headers):
-            ax.text(i, 9.5, header, ha='center', va='center', fontsize=8,
+            # Draw header cell background
+            rect = Rectangle((i, 9), 1, 0.5,
+                           facecolor=WeeklyReportGenerator.COLORS['header_bg'], 
+                           edgecolor='white', linewidth=0.5)
+            ax.add_patch(rect)
+            
+            ax.text(i + 0.5, 9.25, header, ha='center', va='center', fontsize=8,
                    fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
         
         # Days data
@@ -745,8 +884,8 @@ class WeeklyReportGenerator:
             if day in day_data:
                 data = day_data[day]
                 minutes = data['duration'] // 60
-                distance = data['distance']
-                hsr = data['hsr']
+                distance = int(data['distance_km'] * 1000)  # Convert km to meters
+                hsr = int(data['sprint_distance_m'])
                 impacts = data['impacts']
                 pp = data['power_plays']
                 
@@ -769,10 +908,16 @@ class WeeklyReportGenerator:
                       impacts, f'{int(dec_pct)}%', pp, f'{int(pp_pct)}%', vol, intensity]
                 
                 for i, value in enumerate(row):
-                    ax.text(i, row_y, str(value), ha='center', va='center', fontsize=8,
+                    # Draw cell background
+                    rect = Rectangle((i, row_y - 0.25), 1, 0.5,
+                                   facecolor=WeeklyReportGenerator.COLORS['background'], 
+                                   edgecolor='#4a5568', linewidth=0.5)
+                    ax.add_patch(rect)
+                    
+                    ax.text(i + 0.5, row_y, str(value), ha='center', va='center', fontsize=8,
                            color=WeeklyReportGenerator.COLORS['text_white'])
                 
-                row_y -= 1
+                row_y -= 0.5
         
         # Summary rows
         ax.text(0, 1, 'MOYENNE', ha='center', va='center', fontsize=8,
@@ -792,8 +937,11 @@ class WeeklyReportGenerator:
         for day in ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']:
             if day in day_data:
                 data = day_data[day]
-                vol = data['distance'] // 100
-                intensity = int((data['hsr'] + data['impacts'] + data['power_plays']) / 10)
+                # Volume = distance in meters / 100 (consistent with session report)
+                distance_m = data['distance_km'] * 1000 if data['distance_km'] > 0 else 0
+                vol = int(distance_m / 100)
+                # Intensity = (HSR + impacts + power plays) / 10
+                intensity = int((data['sprint_distance_m'] + data['impacts'] + data['power_plays']) / 10)
                 volumes.append(vol)
                 intensities.append(intensity)
             else:
