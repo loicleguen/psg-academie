@@ -1,6 +1,8 @@
 import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from ..models.user import User
+from ..models.team import Team
+from ..models.team import Team
 from ..middleware.security import require_coach_or_admin
 from fastapi.responses import Response
 from sqlmodel import Session, select
@@ -124,14 +126,62 @@ async def upload_catapult_csv(
 
 
 @router.get("/sessions")
-def get_sessions(db: Session = Depends(get_session)):
-    """Get list of all sessions with summary info"""
-    
-    # Get session summaries with title, latest date, and player count
+def get_sessions(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> List[Dict[str, Any]]:
+    """Get list of unique sessions with their counts"""
+    # Group by session_title and get count of players, plus team_id from User table
     stmt = select(
         CatapultSession.session_title,
         func.max(CatapultSession.session_date).label('session_date'),
-        func.count(func.distinct(CatapultSession.user_id)).label('player_count')
+        func.max(CatapultSession.date).label('date'),
+        func.count(func.distinct(CatapultSession.user_id)).label('player_count'),
+        func.max(User.team_id).label('team_id')
+    ).join(User, CatapultSession.user_id == User.id).group_by(CatapultSession.session_title).order_by(desc(func.max(CatapultSession.session_date)))
+    
+    results = session.exec(stmt).all()
+    
+    return [{
+        'session_title': r.session_title,
+        'session_date': r.session_date.isoformat() if hasattr(r.session_date, 'isoformat') else str(r.session_date) if r.session_date else None,
+        'date': r.date,
+        'player_count': r.player_count,
+        'team_id': r.team_id
+    } for r in results]
+def get_sessions(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> List[Dict[str, Any]]:
+    """Get list of unique sessions with their counts"""
+    # Group by session_title and get count of players, plus team_id from User table
+    stmt = select(
+        CatapultSession.session_title,
+        func.max(CatapultSession.session_date).label('session_date'),
+        func.max(CatapultSession.date).label('date'),
+        func.count(func.distinct(CatapultSession.user_id)).label('player_count'),
+        func.max(User.team_id).label('team_id')
+    ).join(User, CatapultSession.user_id == User.id).group_by(CatapultSession.session_title).order_by(desc(func.max(CatapultSession.session_date)))
+    
+    results = session.exec(stmt).all()
+    
+    return [{
+        'session_title': r.session_title,
+        'session_date': r.session_date.isoformat() if hasattr(r.session_date, 'isoformat') else str(r.session_date) if r.session_date else None,
+        'date': r.date,
+        'player_count': r.player_count,
+        'team_id': r.team_id
+    } for r in results]
+def get_sessions(db: Session = Depends(get_session)):
+    """Get list of all sessions with summary info"""
+    
+    # Get session summaries with title, latest date, player count, team_id
+    stmt = select(
+        CatapultSession.session_title,
+        func.max(CatapultSession.session_date).label('session_date'),
+        func.max(CatapultSession.date).label('date'),
+        func.count(func.distinct(CatapultSession.user_id)).label('player_count'),
+        func.max(CatapultSession.team_id).label('team_id')
     ).group_by(
         CatapultSession.session_title
     ).order_by(
@@ -144,7 +194,9 @@ def get_sessions(db: Session = Depends(get_session)):
         {
             "session_title": row[0],
             "session_date": row[1],
-            "player_count": row[2]
+            "date": row[2],
+            "player_count": row[3],
+            "team_id": row[4]
         }
         for row in results
     ]
@@ -396,3 +448,71 @@ def get_session_report_image(
     img_binary = base64.b64decode(img_base64)
     
     return Response(content=img_binary, media_type="image/png")
+
+
+@router.get("/reports/weekly.png", tags=["Reports"])
+def generate_weekly_report(
+    team_id: int,
+    week: int,
+    year: int = 2026,
+    session: Session = Depends(get_session)
+):
+    """
+    Générer un rapport hebdomadaire pour une équipe et une semaine donnée.
+    """
+    from datetime import datetime, timedelta
+    from ..services.report_generator import WeeklyReportGenerator
+    import base64
+    
+    # Calculer les dates de début et fin de la semaine
+    jan_4 = datetime(year, 1, 4)
+    week_1_monday = jan_4 - timedelta(days=jan_4.weekday())
+    target_monday = week_1_monday + timedelta(weeks=week - 1)
+    target_sunday = target_monday + timedelta(days=6)
+    
+    # Récupérer toutes les sessions de l'équipe
+    stmt = select(CatapultSession).join(
+        User, CatapultSession.user_id == User.id
+    ).where(
+        User.team_id == team_id
+    )
+    
+    all_sessions = session.exec(stmt).all()
+    
+    # Filtrer par date en Python (YYYY-MM-DD format)
+    sessions = []
+    for s in all_sessions:
+        try:
+            session_date = datetime.strptime(s.date, '%Y-%m-%d')
+            if target_monday <= session_date <= target_sunday:
+                sessions.append(s)
+        except (ValueError, AttributeError, TypeError):
+            continue
+    
+    if not sessions:
+        raise HTTPException(status_code=404, detail="No sessions found for this week")
+    
+    # Récupérer le nom de l'équipe
+    team = session.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    # Convertir en dictionnaires
+    session_data = [s.model_dump() for s in sessions]
+    all_sessions_data = [s.model_dump() for s in all_sessions]
+    
+    # Générer le rapport
+    img_base64 = WeeklyReportGenerator.generate_weekly_report(
+        session_data=session_data,
+        all_sessions=all_sessions_data,
+        team_name=team.name,
+        week_number=week,
+        year=year
+    )
+    
+    # Decode base64 to binary image
+    img_binary = base64.b64decode(img_base64)
+    
+    return Response(content=img_binary, media_type="image/png")
+
+

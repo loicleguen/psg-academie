@@ -13,6 +13,7 @@ import Teams from './pages/Teams';
 import TeamDetail from './pages/TeamDetail';
 import Veo from './pages/Veo';
 import AdminPannel from './pages/AdminPannel';
+import WeeklyReport from './pages/WeeklyReport';
 
 function App() {
   return (
@@ -120,6 +121,17 @@ function App() {
               <ProtectedRoute requiredRole="admin">
                 <Layout>
                   <AdminPannel />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/catapult/weekly-report"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <WeeklyReport />
                 </Layout>
               </ProtectedRoute>
             }
