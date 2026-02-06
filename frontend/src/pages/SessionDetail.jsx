@@ -87,23 +87,21 @@ export default function SessionDetail() {
       setShowReport(false);
       setShowWeeklyReport(false);
       
-      // Parser la date depuis le format YYYY-MM-DD
-      const sessionDate = new Date(sessionInfo.date);
-      
-      // Calculer le numéro de semaine ISO (même logique que le backend)
-      const jan4 = new Date(sessionDate.getFullYear(), 0, 4);
-      const week1Monday = new Date(jan4);
-      week1Monday.setDate(jan4.getDate() - jan4.getDay() + 1); // Get Monday
-      
-      const daysSinceWeek1 = Math.floor((sessionDate - week1Monday) / (1000 * 60 * 60 * 24));
-      const weekNumber = Math.floor(daysSinceWeek1 / 7) + 1;
+      // Utiliser directement le numéro de semaine ISO calculé par le backend
+      const weekNumber = sessionInfo.week;
+      const year = sessionInfo.year;
       
       console.log('Session date:', sessionInfo.date);
-      console.log('Parsed date:', sessionDate);
-      console.log('Year:', sessionDate.getFullYear());
-      console.log('Week number:', weekNumber);
+      console.log('Year (from backend):', year);
+      console.log('Week number (from backend):', weekNumber);
       
-      const url = `/catapult/reports/weekly.png?team_id=${sessionInfo.team_id}&week=${weekNumber}&year=${sessionDate.getFullYear()}`;
+      if (!weekNumber || !year) {
+        setError('Numéro de semaine manquant');
+        setLoading(false);
+        return;
+      }
+      
+      const url = `/catapult/reports/weekly.png?team_id=${sessionInfo.team_id}&week=${weekNumber}&year=${year}`;
       setWeeklyReportUrl(url);
       setShowWeeklyReport(true);
     } catch (err) {

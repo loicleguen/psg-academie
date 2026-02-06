@@ -142,13 +142,29 @@ def get_sessions(
     
     results = session.exec(stmt).all()
     
-    return [{
-        'session_title': r.session_title,
-        'session_date': r.session_date.isoformat() if hasattr(r.session_date, 'isoformat') else str(r.session_date) if r.session_date else None,
-        'date': r.date,
-        'player_count': r.player_count,
-        'team_id': r.team_id
-    } for r in results]
+    # Calculate week and year for each session
+    result_list = []
+    for r in results:
+        # Parse the date to get ISO week number
+        try:
+            session_date = datetime.strptime(r.date, '%Y-%m-%d')
+            iso_week = session_date.isocalendar()[1]
+            iso_year = session_date.year
+        except:
+            iso_week = None
+            iso_year = None
+        
+        result_list.append({
+            'session_title': r.session_title,
+            'session_date': r.session_date.isoformat() if hasattr(r.session_date, 'isoformat') else str(r.session_date) if r.session_date else None,
+            'date': r.date,
+            'player_count': r.player_count,
+            'team_id': r.team_id,
+            'week': iso_week,
+            'year': iso_year
+        })
+    
+    return result_list
 def get_sessions(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
@@ -165,13 +181,29 @@ def get_sessions(
     
     results = session.exec(stmt).all()
     
-    return [{
-        'session_title': r.session_title,
-        'session_date': r.session_date.isoformat() if hasattr(r.session_date, 'isoformat') else str(r.session_date) if r.session_date else None,
-        'date': r.date,
-        'player_count': r.player_count,
-        'team_id': r.team_id
-    } for r in results]
+    # Calculate week and year for each session
+    result_list = []
+    for r in results:
+        # Parse the date to get ISO week number
+        try:
+            session_date = datetime.strptime(r.date, '%Y-%m-%d')
+            iso_week = session_date.isocalendar()[1]
+            iso_year = session_date.year
+        except:
+            iso_week = None
+            iso_year = None
+        
+        result_list.append({
+            'session_title': r.session_title,
+            'session_date': r.session_date.isoformat() if hasattr(r.session_date, 'isoformat') else str(r.session_date) if r.session_date else None,
+            'date': r.date,
+            'player_count': r.player_count,
+            'team_id': r.team_id,
+            'week': iso_week,
+            'year': iso_year
+        })
+    
+    return result_list
 def get_sessions(db: Session = Depends(get_session)):
     """Get list of all sessions with summary info"""
     
