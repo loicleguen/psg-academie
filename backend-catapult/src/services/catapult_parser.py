@@ -93,7 +93,7 @@ def _map_columns(df_columns: List[str]) -> Dict[str, str]:
     Returns dict: original_col -> canonical_key (one of keys in COLUMN_MAPPING).
     """
     col_map = {}
-    lowercase_mapping = {k.lower(): k for k in COLUMN_MAPPING.keys()}
+    lowercase_mapping = {_col_key(k): k for k in COLUMN_MAPPING.keys()}
     for col in df_columns:
         k = _col_key(col)
         mapped = None
@@ -256,7 +256,7 @@ class CatapultCSVParser:
                     rename_map[col] = "date"
                 elif "duration" in k:
                     rename_map[col] = "duration"
-                elif "distance" in k:
+                elif k == "distance (km)" or (k.startswith("distance") and "zone" not in k and "speed" not in k):
                     rename_map[col] = "distance_km"
 
         logger.warning(f"🔄 Column rename_map: {rename_map}")

@@ -434,7 +434,7 @@ class SessionReportGenerator:
         # Distance gauge
         ax1 = plt.axes([0.05, gauge_y, gauge_width, gauge_height])
         SessionReportGenerator.draw_semi_gauge(
-            ax1, total_distance, benchmarks['distance_km'],
+            ax1, total_distance * 1000, benchmarks['distance_km'] * 1000,
             'DISTANCE ÉQUIPE', pct_distance
         )
         
@@ -513,7 +513,8 @@ class SessionReportGenerator:
             )
         
         # Draw data rows
-        for row_idx, player in enumerate(session_data):
+        sorted_session_data = sorted(session_data, key=lambda p: p.get('player_name', ''))
+        for row_idx, player in enumerate(sorted_session_data):
             y = 1 - (row_idx + 2) * row_height
             
             # Calculate player stats
@@ -538,7 +539,7 @@ class SessionReportGenerator:
             row_data = [
                 player.get('player_name', 'Unknown'),
                 f"{int(duration_min)}",
-                f"{int(distance * 1000)}",  # Convert to meters
+                f"{int(distance * 1000)}",  # Convert km to meters
                 f"{int(pct_dist)}%",
                 f"{int(hsr)}",
                 f"{int(pct_hsr)}%",
@@ -602,6 +603,78 @@ class WeeklyReportGenerator:
     """Generate weekly training reports with daily breakdown and trends"""
     
     COLORS = SessionReportGenerator.COLORS
+
+    @staticmethod
+    def calculate_weekly_benchmarks(all_sessions):
+        """
+        Calculate maximum values per week across all historical sessions.
+        Returns max per session (average) for fair comparison.
+        
+        Returns dict with max values in same units as calculate_benchmarks():
+        - distance_km: max average distance per session in a week (km)
+        - hsr_total: max average HSR per session in a week (meters)
+        - dec_total: max average impacts per session in a week
+        - power_plays: max average power plays per session in a week
+        """
+        from datetime import datetime
+        from collections import defaultdict
+        
+        # Group sessions by ISO week
+        weekly_data = defaultdict(lambda: {
+            'distance_km': 0,
+            'sprint_distance_m': 0,
+            'impacts': 0,
+            'power_plays': 0,
+            'session_count': 0,
+            'dates': set()
+        })
+        
+        for session in all_sessions:
+            # Get ISO week number
+            session_date = datetime.fromisoformat(str(session.get('session_date', session.get('date'))))
+            year, week, _ = session_date.isocalendar()
+            week_key = f"{year}-W{week:02d}"
+            
+            # Get date string for counting unique sessions
+            date_str = session_date.strftime('%Y-%m-%d')
+            
+            # Add totals
+            weekly_data[week_key]['distance_km'] += session.get('distance_km', 0)
+            weekly_data[week_key]['sprint_distance_m'] += session.get('sprint_distance_m', 0)
+            weekly_data[week_key]['impacts'] += session.get('impacts', 0)
+            weekly_data[week_key]['power_plays'] += session.get('power_plays', 0)
+            weekly_data[week_key]['dates'].add(date_str)
+        
+        # Calculate session count for each week (unique dates)
+        for week_key in weekly_data:
+            weekly_data[week_key]['session_count'] = len(weekly_data[week_key]['dates'])
+        
+        # Find max AVERAGE per session across all weeks
+        max_avg_distance = 0
+        max_avg_hsr = 0
+        max_avg_impacts = 0
+        max_avg_pp = 0
+        
+        for week_key, data in weekly_data.items():
+            session_count = data['session_count']
+            if session_count > 0:
+                avg_dist = data['distance_km'] / session_count
+                avg_hsr = data['sprint_distance_m'] / session_count
+                avg_imp = data['impacts'] / session_count
+                avg_pp = data['power_plays'] / session_count
+                
+                max_avg_distance = max(max_avg_distance, avg_dist)
+                max_avg_hsr = max(max_avg_hsr, avg_hsr)
+                max_avg_impacts = max(max_avg_impacts, avg_imp)
+                max_avg_pp = max(max_avg_pp, avg_pp)
+        
+        return {
+            'distance_km': max_avg_distance,
+            'hsr_total': max_avg_hsr,
+            'dec_total': max_avg_impacts,
+            'power_plays': max_avg_pp
+        }
+
     
     @staticmethod
     def aggregate_by_player(session_data: List[Dict]) -> List[Dict]:
@@ -696,8 +769,8 @@ class WeeklyReportGenerator:
         player_data = WeeklyReportGenerator.aggregate_by_player(session_data)
         day_data = WeeklyReportGenerator.aggregate_by_day(session_data)
         
-        # Calculate benchmarks and personal max
-        benchmarks = SessionReportGenerator.calculate_benchmarks(all_sessions)
+        # Calculate weekly_benchmarks and personal max
+        weekly_benchmarks = WeeklyReportGenerator.calculate_weekly_benchmarks(all_sessions)
         personal_max = SessionReportGenerator.calculate_personal_max_by_player(all_sessions)
         
         # Create figure
@@ -709,19 +782,21 @@ class WeeklyReportGenerator:
         
         # === GAUGES === (below header)
         gauge_ax = plt.axes([0.05, 0.68, 0.9, 0.12])
-        WeeklyReportGenerator._draw_gauges(gauge_ax, player_data, benchmarks)
-        
+        # Calculate number of unique sessions (dates)
+        unique_dates = set(s.get("session_date", s.get("date")) for s in session_data)
+        session_count = len(unique_dates)
+        WeeklyReportGenerator._draw_gauges(gauge_ax, player_data, weekly_benchmarks, session_count)
         # === PLAYER TABLE === (main table)
         table_ax = plt.axes([0.05, 0.35, 0.9, 0.30])
-        WeeklyReportGenerator._draw_player_table(table_ax, player_data, benchmarks, personal_max)
+        WeeklyReportGenerator._draw_player_table(table_ax, player_data, weekly_benchmarks, personal_max)
         
         # === DAILY TABLE === (bottom left)
         daily_table_ax = plt.axes([0.05, 0.05, 0.55, 0.25])
-        WeeklyReportGenerator._draw_daily_table(daily_table_ax, day_data, benchmarks)
+        WeeklyReportGenerator._draw_daily_table(daily_table_ax, day_data, weekly_benchmarks)
         
         # === TREND GRAPH === (bottom right)
         graph_ax = plt.axes([0.65, 0.05, 0.30, 0.25])
-        WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, benchmarks)
+        WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, weekly_benchmarks)
         
         # Save to bytes
         buf = BytesIO()
@@ -799,7 +874,7 @@ class WeeklyReportGenerator:
         ax.axis('off')
     
     @staticmethod
-    def _draw_gauges(ax, player_data, benchmarks):
+    def _draw_gauges(ax, player_data, benchmarks, session_count):
         """Draw the 4 gauges using SessionReportGenerator.draw_semi_gauge()"""
         # Calculate team totals (keep same units as benchmarks)
         total_distance = sum(p['distance_km'] for p in player_data)  # Keep in km
@@ -814,10 +889,17 @@ class WeeklyReportGenerator:
         benchmark_pp = benchmarks.get('power_plays', 200)
         
         # Calculate percentages
-        pct_distance = (total_distance / benchmark_distance * 100) if benchmark_distance > 0 else 0
-        pct_hsr = (total_hsr / benchmark_hsr * 100) if benchmark_hsr > 0 else 0
-        pct_dec = (total_impacts / benchmark_dec * 100) if benchmark_dec > 0 else 0
-        pct_pp = (total_power_plays / benchmark_pp * 100) if benchmark_pp > 0 else 0
+        # Calculate averages per session
+        avg_distance = total_distance / session_count if session_count > 0 else 0
+        avg_hsr = total_hsr / session_count if session_count > 0 else 0
+        avg_impacts = total_impacts / session_count if session_count > 0 else 0
+        avg_pp = total_power_plays / session_count if session_count > 0 else 0
+        
+        # Calculate percentages: (avg per session) / (max avg per session) * 100
+        pct_distance = (avg_distance / benchmark_distance * 100) if benchmark_distance > 0 else 0
+        pct_hsr = (avg_hsr / benchmark_hsr * 100) if benchmark_hsr > 0 else 0
+        pct_dec = (avg_impacts / benchmark_dec * 100) if benchmark_dec > 0 else 0
+        pct_pp = (avg_pp / benchmark_pp * 100) if benchmark_pp > 0 else 0
         
         # Draw 4 gauges using the same function as session report
         ax.axis('off')
@@ -875,7 +957,7 @@ class WeeklyReportGenerator:
             x_pos += width
         
         # Sort players by distance
-        sorted_players = sorted(player_data, key=lambda p: p['distance_km'], reverse=True)
+        sorted_players = sorted(player_data, key=lambda p: p['player_name'])
         
         # Player rows
         for idx, player in enumerate(sorted_players):
