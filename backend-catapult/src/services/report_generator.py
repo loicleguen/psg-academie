@@ -290,7 +290,8 @@ class SessionReportGenerator:
     def generate_session_report(
         session_data: List[Dict[str, Any]],
         all_sessions: List[Dict[str, Any]],
-        session_title: str
+        session_title: str,
+        raw_rows: List[Dict[str, Any]] = None
     ) -> str:
         """
         Generate complete session report with automatic metadata extraction
@@ -320,9 +321,25 @@ class SessionReportGenerator:
         # Get benchmarks
         benchmarks = SessionReportGenerator.calculate_benchmarks(all_sessions)
         personal_max_by_player = SessionReportGenerator.calculate_personal_max_by_player(all_sessions)
-        
-        
+
+        # Build sprint_by_player from raw_rows (sum sprint_distance_m where split_name == 0)
+        sprint_by_player = {}
+        if raw_rows:
+            for r in raw_rows:
+                player = r.get('player_name', 'Unknown')
+                split = str(r.get('split_name') or '').strip().lower()
+                is_zero = False
+                try:
+                    if split != '':
+                        if float(split) == 0:
+                            is_zero = True
+                except:
+                    is_zero = (split == '0' or split == 'zero')
+                if is_zero:
+                    sprint_by_player[player] = sprint_by_player.get(player, 0) + (r.get('sprint_distance_m') or 0)
+
         # Calculate percentages
+
         pct_distance = (total_distance / benchmarks['distance_km'] * 100) if benchmarks['distance_km'] > 0 else 0
         pct_hsr = (total_hsr / benchmarks['hsr_total'] * 100) if benchmarks['hsr_total'] > 0 else 0
         pct_dec = (total_dec / benchmarks['dec_total'] * 100) if benchmarks['dec_total'] > 0 else 0
@@ -478,7 +495,7 @@ class SessionReportGenerator:
             duration_min = player.get('duration', 0) / 60
             distance = player.get('distance_km', 0)
             hsr = (player.get('speed_zone_3_km', 0) + player.get('speed_zone_4_km', 0) + player.get('speed_zone_5_km', 0)) * 1000
-            sprint = hsr  # Using HSR as sprint for now
+            sprint = sprint_by_player.get(player.get('player_name', 'Unknown'), player.get('sprint_distance_m', hsr))
             vmax = player.get('top_speed', 0)
             dec = player.get('impacts', 0)
             pp = player.get('power_plays', 0)
@@ -491,7 +508,7 @@ class SessionReportGenerator:
             personal_max = personal_max_by_player.get(player_name, {})
             pct_dist = (distance / personal_max.get('max_distance_km', 1) * 100) if personal_max.get('max_distance_km', 0) > 0 else 0
             pct_hsr = (hsr / personal_max.get('max_hsr', 1) * 100) if personal_max.get('max_hsr', 0) > 0 else 0
-            pct_sprint = pct_hsr  # Same as HSR
+            pct_sprint = (sprint / personal_max.get('max_hsr', 1) * 100) if personal_max.get('max_hsr', 0) > 0 else 0
             pct_dec = (dec / personal_max.get('max_impacts', 1) * 100) if personal_max.get('max_impacts', 0) > 0 else 0
             pct_pp = (pp / personal_max.get('max_power_plays', 1) * 100) if personal_max.get('max_power_plays', 0) > 0 else 0
             

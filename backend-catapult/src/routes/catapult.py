@@ -394,7 +394,8 @@ def generate_session_report(
     img_base64 = SessionReportGenerator.generate_session_report(
         session_data=relevant,
         all_sessions=all_sessions_data,
-        session_title=session_title
+        session_title=session_title,
+        raw_rows=session_data
     )
 
     return {
@@ -473,7 +474,8 @@ def get_session_report_image(
     img_base64 = SessionReportGenerator.generate_session_report(
         session_data=relevant,
         all_sessions=all_sessions_data,
-        session_title=session_title
+        session_title=session_title,
+        raw_rows=session_data
     )
     
     # Decode base64 to binary image
