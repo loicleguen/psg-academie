@@ -269,10 +269,10 @@ class SessionReportGenerator:
         )
         ax.add_patch(wedge_bg)
         
-        # Value arc (darker gray)
+        # Value arc (darker gray) - fills from left (180°) to right (0°)
         angle = 180 * (value / max_value) if max_value > 0 else 0
         wedge_fill = Wedge(
-            (0.5, 0), 0.4, 0, angle,
+            (0.5, 0), 0.4, 180 - angle, 180,
             width=0.12,
             facecolor=SessionReportGenerator.COLORS['gauge_fill'],
             edgecolor='none'
