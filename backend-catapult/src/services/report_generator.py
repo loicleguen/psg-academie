@@ -152,6 +152,102 @@ class SessionReportGenerator:
         
         return benchmarks
     
+
+    @staticmethod
+    def calculate_personal_max_by_player(all_sessions: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+        """
+        Calculate personal maximum values for each player across all their sessions
+        
+        Args:
+            all_sessions: All sessions from database
+            
+        Returns:
+            Dictionary with player_name as key and their personal max values
+        """
+        if not all_sessions:
+            return {}
+        
+        # Group by player and calculate their personal max
+        player_max = {}
+        
+        for session in all_sessions:
+            player = session.get('player_name', 'Unknown')
+            if player not in player_max:
+                player_max[player] = {
+                    'max_distance_km': 0,
+                    'max_sprint_distance_m': 0,
+                    'max_impacts': 0,
+                    'max_power_plays': 0,
+                }
+            
+            # Update max values if current session is higher
+            player_max[player]['max_distance_km'] = max(
+                player_max[player]['max_distance_km'],
+                session.get('distance_km', 0)
+            )
+            player_max[player]['max_sprint_distance_m'] = max(
+                player_max[player]['max_sprint_distance_m'],
+                session.get('sprint_distance_m', 0)
+            )
+            player_max[player]['max_impacts'] = max(
+                player_max[player]['max_impacts'],
+                session.get('impacts', 0)
+            )
+            player_max[player]['max_power_plays'] = max(
+                player_max[player]['max_power_plays'],
+                session.get('power_plays', 0)
+            )
+        
+        return player_max
+
+
+    @staticmethod
+    def calculate_personal_max_by_player(all_sessions: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+        """
+        Calculate personal maximum values for each player across all their sessions
+        
+        Args:
+            all_sessions: All sessions from database
+            
+        Returns:
+            Dictionary with player_name as key and their personal max values
+        """
+        if not all_sessions:
+            return {}
+        
+        # Group by player and calculate their personal max
+        player_max = {}
+        
+        for session in all_sessions:
+            player = session.get('player_name', 'Unknown')
+            if player not in player_max:
+                player_max[player] = {
+                    'max_distance_km': 0,
+                    'max_sprint_distance_m': 0,
+                    'max_impacts': 0,
+                    'max_power_plays': 0,
+                }
+            
+            # Update max values if current session is higher
+            player_max[player]['max_distance_km'] = max(
+                player_max[player]['max_distance_km'],
+                session.get('distance_km', 0)
+            )
+            player_max[player]['max_sprint_distance_m'] = max(
+                player_max[player]['max_sprint_distance_m'],
+                session.get('sprint_distance_m', 0)
+            )
+            player_max[player]['max_impacts'] = max(
+                player_max[player]['max_impacts'],
+                session.get('impacts', 0)
+            )
+            player_max[player]['max_power_plays'] = max(
+                player_max[player]['max_power_plays'],
+                session.get('power_plays', 0)
+            )
+        
+        return player_max
+
     @staticmethod
     def draw_semi_gauge(ax, value: float, max_value: float, title: str, percentage: float):
         """
@@ -524,7 +620,7 @@ class WeeklyReportGenerator:
                     'impacts': 0,
                     'power_plays': 0,
                     'top_speed': 0,
-                    'session_count': 0
+                    'session_dates': set()  # Track unique dates
                 }
             
             player_totals[player]['duration'] += session.get('duration', 0)
@@ -534,9 +630,17 @@ class WeeklyReportGenerator:
             player_totals[player]['impacts'] += session.get('impacts', 0)
             player_totals[player]['power_plays'] += session.get('power_plays', 0)
             player_totals[player]['top_speed'] = max(player_totals[player]['top_speed'], session.get('top_speed', 0))
-            player_totals[player]['session_count'] += 1
+            # Add date to set (only unique dates will be counted)
+            player_totals[player]['session_dates'].add(session.get('date', ''))
         
-        return list(player_totals.values())
+        # Convert set of dates to count
+        result = []
+        for player_name, data in player_totals.items():
+            data['session_count'] = len(data['session_dates'])
+            del data['session_dates']  # Remove the set, keep only the count
+            result.append(data)
+        
+        return result
     
     @staticmethod
     def aggregate_by_day(session_data: List[Dict]) -> Dict[str, Dict]:
@@ -592,8 +696,9 @@ class WeeklyReportGenerator:
         player_data = WeeklyReportGenerator.aggregate_by_player(session_data)
         day_data = WeeklyReportGenerator.aggregate_by_day(session_data)
         
-        # Calculate benchmarks
+        # Calculate benchmarks and personal max
         benchmarks = SessionReportGenerator.calculate_benchmarks(all_sessions)
+        personal_max = SessionReportGenerator.calculate_personal_max_by_player(all_sessions)
         
         # Create figure
         fig = plt.figure(figsize=(16, 20), facecolor=WeeklyReportGenerator.COLORS['background'])
@@ -608,7 +713,7 @@ class WeeklyReportGenerator:
         
         # === PLAYER TABLE === (main table)
         table_ax = plt.axes([0.05, 0.35, 0.9, 0.30])
-        WeeklyReportGenerator._draw_player_table(table_ax, player_data, benchmarks)
+        WeeklyReportGenerator._draw_player_table(table_ax, player_data, benchmarks, personal_max)
         
         # === DAILY TABLE === (bottom left)
         daily_table_ax = plt.axes([0.05, 0.05, 0.55, 0.25])
@@ -616,7 +721,7 @@ class WeeklyReportGenerator:
         
         # === TREND GRAPH === (bottom right)
         graph_ax = plt.axes([0.65, 0.05, 0.30, 0.25])
-        WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data)
+        WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, benchmarks)
         
         # Save to bytes
         buf = BytesIO()
@@ -639,7 +744,7 @@ class WeeklyReportGenerator:
         ax.set_facecolor('none')
         
         # White rectangle starting after the logo (like session report style)
-        rect = patches.Rectangle((0, 0.25), 0.98, 0.5, linewidth=1, 
+        rect = patches.Rectangle((0, 0.25), 0.99, 0.5, linewidth=1, 
                                 edgecolor='none', facecolor='#ffffff', zorder=0)
         ax.add_patch(rect)
         
@@ -695,58 +800,47 @@ class WeeklyReportGenerator:
     
     @staticmethod
     def _draw_gauges(ax, player_data, benchmarks):
-        """Draw the 4 gauges (reuse from SessionReportGenerator)"""
-        # Calculate team totals
-        total_distance = sum(p['distance_km'] * 1000 for p in player_data)  # Convert km to meters
-        total_hsr = sum(p['sprint_distance_m'] for p in player_data)
+        """Draw the 4 gauges using SessionReportGenerator.draw_semi_gauge()"""
+        # Calculate team totals (keep same units as benchmarks)
+        total_distance = sum(p['distance_km'] for p in player_data)  # Keep in km
+        total_hsr = sum(p['sprint_distance_m'] for p in player_data)  # Keep in meters
         total_impacts = sum(p['impacts'] for p in player_data)
         total_power_plays = sum(p['power_plays'] for p in player_data)
         
-        # Reuse the gauge drawing from SessionReportGenerator
-        ax.axis('off')
-        ax.set_xlim(0, 4)
-        ax.set_ylim(0, 0.6)
+        # Get benchmarks
+        benchmark_distance = benchmarks.get('distance_km', 100)
+        benchmark_hsr = benchmarks.get('hsr_total', 5000)
+        benchmark_dec = benchmarks.get('dec_total', 100)
+        benchmark_pp = benchmarks.get('power_plays', 200)
         
-        # Use total benchmarks for weekly report (not per minute)
+        # Calculate percentages
+        pct_distance = (total_distance / benchmark_distance * 100) if benchmark_distance > 0 else 0
+        pct_hsr = (total_hsr / benchmark_hsr * 100) if benchmark_hsr > 0 else 0
+        pct_dec = (total_impacts / benchmark_dec * 100) if benchmark_dec > 0 else 0
+        pct_pp = (total_power_plays / benchmark_pp * 100) if benchmark_pp > 0 else 0
+        
+        # Draw 4 gauges using the same function as session report
+        ax.axis('off')
+        
         gauges = [
-            ('DISTANCE ÉQUIPE', total_distance, benchmarks.get('distance_km', 10000), 'm'),
-            ('HSR ÉQUIPE', total_hsr, benchmarks.get('hsr_total', 1000), 'm'),
-            ('DEC ÉQUIPE', total_impacts, benchmarks.get('dec_total', 100), ''),
-            ('POWERPLAY ÉQUIPE', total_power_plays, benchmarks.get('power_plays', 50), '')
+            ('DISTANCE ÉQUIPE', total_distance, benchmark_distance, pct_distance),
+            ('HSR ÉQUIPE', total_hsr, benchmark_hsr, pct_hsr),
+            ('DEC ÉQUIPE', total_impacts, benchmark_dec, pct_dec),
+            ('POWERPLAY ÉQUIPE', total_power_plays, benchmark_pp, pct_pp)
         ]
         
-        for i, (title, value, benchmark, unit) in enumerate(gauges):
-            x = i
-            pct = min(value / benchmark * 100, 200) if benchmark > 0 else 0
-            
-            # Draw gauge background
-            wedge = Wedge((x + 0.5, 0.3), 0.25, 180, 0, width=0.05, 
-                         facecolor=WeeklyReportGenerator.COLORS['gauge_bg'], edgecolor='none')
-            ax.add_patch(wedge)
-            
-            # Draw gauge fill
-            angle = 180 - (pct / 100 * 180)
-            wedge_fill = Wedge((x + 0.5, 0.3), 0.25, 180, angle, width=0.05,
-                              facecolor=WeeklyReportGenerator.COLORS['green'], edgecolor='none')
-            ax.add_patch(wedge_fill)
-            
-            # Draw value
-            ax.text(x + 0.5, 0.35, f'{int(value)}', ha='center', va='center',
-                   fontsize=14, fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
-            
-            # Draw title
-            ax.text(x + 0.5, 0.05, title, ha='center', va='center',
-                   fontsize=8, color=WeeklyReportGenerator.COLORS['text_gray'])
-            
-            # Draw percentage
-            ax.text(x + 0.5, 0.75, f'{int(pct)}%', ha='center', va='center',
-                   fontsize=10, fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
+        for i, (title, value, max_value, percentage) in enumerate(gauges):
+            # Create a sub-axis for each gauge
+            gauge_ax = ax.inset_axes([i * 0.25, 0.3, 0.25, 1])
+            # Use the same draw_semi_gauge function as session report
+            SessionReportGenerator.draw_semi_gauge(gauge_ax, value, max_value, title, percentage)
     
+
     @staticmethod
-    def _draw_player_table(ax, player_data, benchmarks):
+    def _draw_player_table(ax, player_data, benchmarks, personal_max):
         """Draw complete player table with all columns and color coding"""
         ax.axis('off')
-        ax.set_xlim(0, 16)
+        ax.set_xlim(0, 15)
         ax.set_ylim(0, max(len(player_data) + 2, 10))
         
         # Calculate percentiles for color coding
@@ -763,8 +857,8 @@ class WeeklyReportGenerator:
             pp_p33, pp_p66 = np.percentile(pp_list, [33, 66]) if pp_list else (0, 0)
         
         # Headers
-        headers = ['JOUEUR', 'MIN', 'DIST', '%D', 'HSR', '%H', 'SPR', '%S', 'PMAX', '%PM', 'DEC', '%DC', 'PP', '%PP', 'VOL', 'INT']
-        col_widths = [2.5, 0.8, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.9, 0.7, 0.8, 0.8]
+        headers = ['JOUEUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'SPRINT', '%SPRINT', 'TMAX', '%TMAX', 'DEC', '%DEC', 'POWER PLAT', '%PP', 'VOL', 'INT', 'NB SEANCES']
+        col_widths = [2.5, 0.8, 0.8, 0.8, 0.9, 0.7, 0.9, 0.7, 0.7, 0.7, 0.7, 0.7, 0.9, 0.7, 0.7, 0.7, 0.9]
         
         x_pos = 0
         y = len(player_data) + 1
@@ -795,15 +889,40 @@ class WeeklyReportGenerator:
             sessions = player['session_count']
             
             # Calculate percentages (simplified for now)
-            dist_pct = int((distance / benchmarks.get('distance_km', 10000)) * 100) if benchmarks.get('distance_km', 0) > 0 else 100
-            hsr_pct = int((hsr / benchmarks.get('hsr_total', 1000)) * 100) if benchmarks.get('hsr_total', 0) > 0 else 100
+            # Get personal max for this player
+            player_name = player['player_name']
+            player_personal_max = personal_max.get(player_name, {})
+            personal_max_dist = player_personal_max.get('max_distance_km', 1) * 1000  # Convert to meters
+            personal_max_hsr = player_personal_max.get('max_sprint_distance_m', 1)
+            personal_max_impacts = player_personal_max.get('max_impacts', 1)
+            personal_max_pp = player_personal_max.get('max_power_plays', 1)
+            
+            # Calculate average per session
+            avg_dist_per_session = distance / sessions if sessions > 0 else 0
+            avg_hsr_per_session = hsr / sessions if sessions > 0 else 0
+            avg_impacts_per_session = impacts / sessions if sessions > 0 else 0
+            avg_pp_per_session = pp / sessions if sessions > 0 else 0
+            
+            # Calculate percentages: (Average per session) / (Personal max) * 100
+            dist_pct = int((avg_dist_per_session / personal_max_dist) * 100) if personal_max_dist > 0 else 0
+            hsr_pct = int((avg_hsr_per_session / personal_max_hsr) * 100) if personal_max_hsr > 0 else 0
             spr_pct = hsr_pct  # Same as HSR for sprint distance
             pmax_pct = int((pmax / 10) * 100) if pmax > 0 else 0  # Simplified
-            dec_pct = int((impacts / benchmarks.get('dec_total', 100)) * 100) if benchmarks.get('dec_total', 0) > 0 else 100
-            pp_pct = int((pp / benchmarks.get('power_plays', 50)) * 100) if benchmarks.get('power_plays', 0) > 0 else 100
+            dec_pct = int((avg_impacts_per_session / personal_max_impacts) * 100) if personal_max_impacts > 0 else 0
+            pp_pct = int((avg_pp_per_session / personal_max_pp) * 100) if personal_max_pp > 0 else 0
             
-            vol = distance // 100
-            intensity = int((hsr + impacts + pp) / 10)
+            # Calculate VOL and INT as percentages (like Excel)
+            # VOL% = average distance per session as percentage of benchmark distance
+            avg_distance_per_session = player['distance_km'] / sessions if sessions > 0 else 0
+            vol_pct = int((avg_distance_per_session / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
+            
+            # INT% = average intensity per session as percentage of benchmark
+            avg_hsr_per_session = player['sprint_distance_m'] / sessions if sessions > 0 else 0
+            avg_impacts_per_session = impacts / sessions if sessions > 0 else 0
+            avg_pp_per_session = pp / sessions if sessions > 0 else 0
+            intensity_pct = int((avg_hsr_per_session / benchmarks.get('hsr_total', 5000) + 
+                                avg_impacts_per_session / benchmarks.get('dec_total', 100) + 
+                                avg_pp_per_session / benchmarks.get('power_plays', 200)) / 3 * 100)
             
             # Get colors based on percentiles
             dist_color = SessionReportGenerator.get_color_for_percentile(player['distance_km'], dist_p33, dist_p66)
@@ -826,8 +945,9 @@ class WeeklyReportGenerator:
                 (f'{dec_pct}%', None, 'center'),
                 (str(pp), pp_color, 'center'),
                 (f'{pp_pct}%', None, 'center'),
-                (str(vol), None, 'center'),
-                (str(intensity), None, 'center')
+                (f'{vol_pct}%', None, 'center'),
+                (f'{intensity_pct}%', None, 'center'),
+                (str(sessions), None, 'center')
             ]
             
             x_pos = 0
@@ -862,12 +982,12 @@ class WeeklyReportGenerator:
         headers = ['JOUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'DEC', '%DEC', 'PP', '%PP', 'VOL', 'INT']
         for i, header in enumerate(headers):
             # Draw header cell background
-            rect = Rectangle((i, 9), 1, 0.5,
+            rect = Rectangle((i, 9), 0.9, 0.5,
                            facecolor=WeeklyReportGenerator.COLORS['header_bg'], 
                            edgecolor='white', linewidth=0.5)
             ax.add_patch(rect)
             
-            ax.text(i + 0.5, 9.25, header, ha='center', va='center', fontsize=8,
+            ax.text(i + 0.45, 9.25, header, ha='center', va='center', fontsize=8,
                    fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
         
         # Days data
@@ -901,15 +1021,21 @@ class WeeklyReportGenerator:
                 dec_pct = 100
                 pp_pct = 100
                 
-                vol = distance // 100  # Simplified
-                intensity = int((hsr + impacts + pp) / 10)  # Simplified
+                # Calculate VOL and INT as percentages
+                # VOL% = (distance / benchmark_distance) * 100
+                vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
+                # INT% = average of (HSR%, DEC%, PP%)
+                hsr_bench_pct = (hsr / benchmarks.get('hsr_total', 5000)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
+                dec_bench_pct = (impacts / benchmarks.get('dec_total', 100)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
+                pp_bench_pct = (pp / benchmarks.get('power_plays', 200)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
+                intensity_pct = int((hsr_bench_pct + dec_bench_pct + pp_bench_pct) / 3)
                 
                 row = [day[:3], minutes, distance, f'{int(dist_pct)}%', hsr, f'{int(hsr_pct)}%',
-                      impacts, f'{int(dec_pct)}%', pp, f'{int(pp_pct)}%', vol, intensity]
+                      impacts, f'{int(dec_pct)}%', pp, f'{int(pp_pct)}%', f'{vol_pct}%', f'{intensity_pct}%']
                 
                 for i, value in enumerate(row):
                     # Draw cell background
-                    rect = Rectangle((i, row_y - 0.25), 1, 0.5,
+                    rect = Rectangle((i, row_y - 0.2), 0.9, 0.4,
                                    facecolor=WeeklyReportGenerator.COLORS['background'], 
                                    edgecolor='#4a5568', linewidth=0.5)
                     ax.add_patch(rect)
@@ -926,8 +1052,8 @@ class WeeklyReportGenerator:
                fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
     
     @staticmethod
-    def _draw_trend_graph(ax, day_data):
-        """Draw volume/intensity trend graph"""
+    def _draw_trend_graph(ax, day_data, benchmarks):
+        """Draw volume/intensity trend graph with percentages"""
         ax.set_facecolor(WeeklyReportGenerator.COLORS['background'])
         
         days_order = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
@@ -937,13 +1063,15 @@ class WeeklyReportGenerator:
         for day in ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']:
             if day in day_data:
                 data = day_data[day]
-                # Volume = distance in meters / 100 (consistent with session report)
-                distance_m = data['distance_km'] * 1000 if data['distance_km'] > 0 else 0
-                vol = int(distance_m / 100)
-                # Intensity = (HSR + impacts + power plays) / 10
-                intensity = int((data['sprint_distance_m'] + data['impacts'] + data['power_plays']) / 10)
-                volumes.append(vol)
-                intensities.append(intensity)
+                # VOL% = (distance / benchmark_distance) * 100
+                vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
+                # INT% = combined intensity percentage
+                hsr_pct = (data['sprint_distance_m'] / benchmarks.get('hsr_total', 5000)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
+                dec_pct = (data['impacts'] / benchmarks.get('dec_total', 100)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
+                pp_pct = (data['power_plays'] / benchmarks.get('power_plays', 200)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
+                intensity_pct = int((hsr_pct + dec_pct + pp_pct) / 3)
+                volumes.append(vol_pct)
+                intensities.append(intensity_pct)
             else:
                 volumes.append(0)
                 intensities.append(0)
