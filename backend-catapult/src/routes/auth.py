@@ -3,11 +3,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from datetime import timedelta
 
+from ..middleware.security import require_coach_or_admin
 from ..db.database import get_session
-from ..models.user import User, UserCreate, UserRead, UserLogin, Token, UserUpdate, UserUpdateMe
+from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from ..middleware.security import get_current_user, require_admin
-from ..models.player import Player
 
 router = APIRouter(prefix="/auth", )
 
@@ -194,35 +194,22 @@ def update_my_profile(
         current_user.hashed_password = AuthService.get_password_hash(user_update.password)
 
     # Gérer les champs liés au joueur si l'utilisateur est un joueur
-    is_player = str(current_user.role).lower() == "player"
     has_player_fields = any([
         user_update.team_id is not None,
         user_update.age is not None,
         user_update.player_name is not None
     ])
 
-    if is_player and has_player_fields:
-        stmt = select(Player).where(Player.user_id == current_user.id)
-        player = session.exec(stmt).first()
-        if player:
-            if user_update.player_name is not None:
-                player.name = user_update.player_name
-            if user_update.age is not None:
-                player.age = user_update.age
-            if user_update.team_id is not None:
-                player.team_id = user_update.team_id
-            session.add(player)
-        else:
-            # Créer un Player si l'admin n'en a pas encore créé et que team_id est fourni
-            if user_update.team_id is None:
-                raise HTTPException(status_code=400, detail="team_id required to create player profile")
-            new_player = Player(
-                name=user_update.player_name or current_user.full_name or "Player",
-                age=user_update.age,
-                team_id=user_update.team_id,
-                user_id=current_user.id
-            )
-            session.add(new_player)
+    if has_player_fields:
+        is_player = str(current_user.role).lower() == "player"
+        if not is_player:
+            raise HTTPException(status_code=400, detail="Only users with role 'player' can update player fields")
+        if user_update.player_name is not None:
+            current_user.player_name = user_update.player_name
+        if user_update.age is not None:
+            current_user.age = user_update.age
+        if user_update.team_id is not None:
+            current_user.team_id = user_update.team_id
 
     session.add(current_user)
     session.commit()
@@ -244,28 +231,72 @@ def delete_my_account(
     return {"message": f"Account {email} deleted successfully"}
 
 
-@router.get("/users", response_model=list[UserRead], tags=["Auth - Admin"], summary="[Admin] List all users")
+@router.get("/users", tags=["Auth - Coach/Admin"], summary="List all users")
 def get_all_users(
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
-    Lister tous les utilisateurs (admin uniquement)
+    Lister tous les utilisateurs avec leurs équipes complètes (coach or admin uniquement)
     """
+    from .team import get_team_full_path
+    
     users = session.exec(select(User)).all()
-    return users
+    result = []
+    
+    for user in users:
+        user_dict = {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "is_active": user.is_active,
+            "full_name": user.full_name,
+            "player_name": user.player_name,
+            "age": user.age,
+            "team_id": user.team_id,
+            "created_at": user.created_at,
+            "team_name": None
+        }
+        
+        # Ajouter le chemin complet de l'équipe pour les joueurs
+        if user.team_id:
+            team_path = get_team_full_path(session, user.team_id)
+            if team_path:
+                user_dict["team_name"] = team_path
+        
+        result.append(user_dict)
+    
+    return result
 
 
-@router.put("/users/{user_id}", response_model=UserRead, tags=["Auth - Admin"], summary="[Admin] Update user")
+@router.get("/staff", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List admins and coaches")
+def get_admins_and_coaches(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    stmt = select(User).where(User.role.in_([UserRole.ADMIN, UserRole.COACH]))
+    return session.exec(stmt).all()
+
+
+@router.get("/players-list", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List all players")
+def get_players(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    stmt = select(User).where(User.role == UserRole.PLAYER)
+    return session.exec(stmt).all()
+
+
+@router.put("/users/{user_id}", tags=["Auth - Coach/Admin"], summary="Update user")
 def update_user(
     user_id: int,
     user_update: UserUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
-    Modifier un utilisateur (admin uniquement)
-    Permet de changer le rôle et le statut actif. Gère aussi la création/mise à jour du Player lié.
+    Modifier un utilisateur (coach or admin uniquement)
+    Permet de changer le rôle et le statut actif.
     """
     user = session.get(User, user_id)
     if not user:
@@ -289,45 +320,55 @@ def update_user(
         user_update.player_name is not None
     ])
 
-    if has_player_fields or (user_update.role is not None and str(user_update.role).lower() == "player"):
-        stmt = select(Player).where(Player.user_id == user.id)
-        player = session.exec(stmt).first()
-        if player:
-            if user_update.player_name is not None:
-                player.name = user_update.player_name
-            if user_update.age is not None:
-                player.age = user_update.age
-            if user_update.team_id is not None:
-                player.team_id = user_update.team_id
-            session.add(player)
-        else:
-            # Pour créer un player, il faut un team_id
-            if user_update.team_id is None:
-                # si pas de team_id fourni, on ne crée pas automatiquement
-                pass
-            else:
-                new_player = Player(
-                    name=user_update.player_name or user.full_name or "Player",
-                    age=user_update.age,
-                    team_id=user_update.team_id,
-                    user_id=user.id
-                )
-                session.add(new_player)
+    # Si le rôle est défini à 'player', exiger un team_id (soit fourni, soit déjà présent)
+    if user_update.role is not None and str(user_update.role).lower() == "player":
+        if (user_update.team_id is None) and (user.team_id is None) and not has_player_fields:
+            raise HTTPException(status_code=400, detail="team_id required when assigning role 'player'")
+
+    if has_player_fields:
+        if user_update.player_name is not None:
+            user.player_name = user_update.player_name
+        if user_update.age is not None:
+            user.age = user_update.age
+        if user_update.team_id is not None:
+            user.team_id = user_update.team_id
 
     session.add(user)
     session.commit()
     session.refresh(user)
-    return user
+    
+    # Retourner avec le team_name complet
+    from .team import get_team_full_path
+    
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "is_active": user.is_active,
+        "full_name": user.full_name,
+        "player_name": user.player_name,
+        "age": user.age,
+        "team_id": user.team_id,
+        "created_at": user.created_at,
+        "team_name": None
+    }
+    
+    if user.team_id:
+        team_path = get_team_full_path(session, user.team_id)
+        if team_path:
+            user_dict["team_name"] = team_path
+    
+    return user_dict
 
 
-@router.delete("/users/{user_id}", tags=["Auth - Admin"], summary="[Admin] Delete user")
+@router.delete("/users/{user_id}", tags=["Auth - Coach/Admin"], summary="Delete user")
 def delete_user(
     user_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
-    Supprimer un utilisateur (admin uniquement)
+    Supprimer un utilisateur (coach or admin uniquement)
     """
     user = session.get(User, user_id)
     if not user:

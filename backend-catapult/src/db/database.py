@@ -5,7 +5,6 @@ import os
 from ..models.country import Country
 from ..models.academy import Academy
 from ..models.team import Team
-from ..models.player import Player
 from ..models.catapult import CatapultSession
 from ..models.user import User
 

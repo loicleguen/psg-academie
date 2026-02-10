@@ -37,6 +37,7 @@ services:
   backend-catapult:
     build: ./backend-catapult
     container_name: psg_backend_catapult
+    restart: always
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend-catapult:/app
@@ -46,6 +47,8 @@ services:
     environment:
       - ENV=prod
       - DATABASE_URL=postgresql://psguser:psgpass@db-catapult:5432/psgdb
+    ports:
+      - "8000:8000"
 
   # Backend Veo (données tactiques: buts, passes, stats...)
   backend-veo:
@@ -74,6 +77,8 @@ services:
         python -m app.seed &&
         uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
       "
+    ports:
+      - "8001:8001"
 
   # Nginx reverse proxy
   nginx:

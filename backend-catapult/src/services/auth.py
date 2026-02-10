@@ -129,7 +129,7 @@ class AuthService:
         # Générer un token aléatoire sécurisé
         token = secrets.token_urlsafe(64)
         
-        # Expiration dans 7 jours
+        # Expiration dans 1 jours
         expires_at = datetime.utcnow() + timedelta(days=1)
         
         # Stocker en base

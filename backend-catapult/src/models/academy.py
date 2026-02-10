@@ -2,7 +2,8 @@ from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
-    from .country import CountryRead
+    from .country import Country, CountryRead
+    from .team import Team
 
 class AcademyBase(SQLModel):
     name: str
