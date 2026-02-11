@@ -508,7 +508,8 @@ def generate_weekly_report(
     stmt = select(CatapultSession).join(
         User, CatapultSession.user_id == User.id
     ).where(
-        User.team_id == team_id
+        User.team_id == team_id,
+        CatapultSession.split_name == "all"
     )
     
     all_sessions = session.exec(stmt).all()
@@ -518,7 +519,7 @@ def generate_weekly_report(
     for s in all_sessions:
         try:
             session_date = datetime.strptime(s.date, '%Y-%m-%d')
-            if target_monday <= session_date <= target_sunday:
+            if target_monday <= session_date <= target_sunday and s.split_name == "all":
                 sessions.append(s)
         except (ValueError, AttributeError, TypeError):
             continue

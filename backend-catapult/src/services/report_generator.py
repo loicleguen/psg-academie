@@ -770,15 +770,15 @@ class WeeklyReportGenerator:
         session_count = len(unique_dates)
         WeeklyReportGenerator._draw_gauges(gauge_ax, player_data, weekly_benchmarks, session_count)
         # === PLAYER TABLE === (main table)
-        table_ax = plt.axes([0.05, 0.35, 0.9, 0.30])
+        table_ax = plt.axes([0.05, 0.4, 0.9, 0.3])
         WeeklyReportGenerator._draw_player_table(table_ax, player_data, weekly_benchmarks, personal_max)
         
         # === DAILY TABLE === (bottom left)
-        daily_table_ax = plt.axes([0.05, 0.05, 0.55, 0.25])
+        daily_table_ax = plt.axes([0.05, 0.12, 0.55, 0.25])
         WeeklyReportGenerator._draw_daily_table(daily_table_ax, day_data, weekly_benchmarks)
         
         # === TREND GRAPH === (bottom right)
-        graph_ax = plt.axes([0.65, 0.05, 0.30, 0.25])
+        graph_ax = plt.axes([0.65, 0.12, 0.30, 0.25])
         WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, weekly_benchmarks)
         
         # Save to bytes
@@ -889,10 +889,10 @@ class WeeklyReportGenerator:
         ax.axis('off')
         
         gauges = [
-            ('DISTANCE ÉQUIPE', total_distance, benchmark_distance, pct_distance),
-            ('HSR ÉQUIPE', total_hsr, benchmark_hsr, pct_hsr),
-            ('DEC ÉQUIPE', total_impacts, benchmark_dec, pct_dec),
-            ('POWERPLAY ÉQUIPE', total_power_plays, benchmark_pp, pct_pp)
+            ('DISTANCE ÉQUIPE', avg_distance, benchmark_distance, pct_distance),
+            ('HSR ÉQUIPE', avg_hsr, benchmark_hsr, pct_hsr),
+            ('DEC ÉQUIPE', avg_impacts, benchmark_dec, pct_dec),
+            ('POWERPLAY ÉQUIPE', avg_pp, benchmark_pp, pct_pp)
         ]
         
         for i, (title, value, max_value, percentage) in enumerate(gauges):
@@ -923,7 +923,7 @@ class WeeklyReportGenerator:
             pp_p33, pp_p66 = np.percentile(pp_list, [33, 66]) if pp_list else (0, 0)
         
         # Headers
-        headers = ['JOUEUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'SPRINT', '%SPRINT', 'TMAX', '%TMAX', 'DEC', '%DEC', 'POWER PLAT', '%PP', 'VOL', 'INT', 'NB SEANCES']
+        headers = ['JOUEUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'SPRINT', '%SPRINT', 'VMAX', '%VMAX', 'DEC', '%DEC', 'POWER PLAT', '%PP', 'VOL', 'INT', 'NB SEANCES']
         col_widths = [2.5, 0.8, 0.8, 0.8, 0.9, 0.7, 0.9, 0.7, 0.7, 0.7, 0.7, 0.7, 0.9, 0.7, 0.7, 0.7, 0.9]
         
         x_pos = 0
@@ -997,7 +997,7 @@ class WeeklyReportGenerator:
             pp_color = SessionReportGenerator.get_color_for_percentile(pp, pp_p33, pp_p66)
             
             row_data = [
-                (player['player_name'][:20], None, 'left'),
+                (player['player_name'][:20], None, 'center'),
                 (str(minutes), None, 'center'),
                 (str(distance), dist_color, 'center'),
                 (f'{dist_pct}%', None, 'center'),
