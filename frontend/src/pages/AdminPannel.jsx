@@ -48,9 +48,9 @@ export default function AdminPannel() {
 
   const filterUsers = () => {
     if (filter === 'all') {
-      setFilteredUsers(users);
+      setFilteredUsers([...users].sort((a, b) => a.full_name.localeCompare(b.full_name)));
     } else {
-      setFilteredUsers(users.filter(u => u.role.toLowerCase() === filter));
+      setFilteredUsers(users.filter(u => u.role.toLowerCase() === filter).sort((a, b) => a.full_name.localeCompare(b.full_name)));
     }
   };
 
