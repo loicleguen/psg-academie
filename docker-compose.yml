@@ -84,6 +84,15 @@ services:
     ports:
       - "8001:8001"
 
+  # Frontend React + Vite
+frontend:
+  build:
+    context: ./frontend
+    dockerfile: Dockerfile
+  container_name: psg_frontend
+  volumes:
+    - frontend_dist:/app/dist
+
   # Nginx reverse proxy
   nginx:
     image: nginx:latest
@@ -98,7 +107,9 @@ services:
     depends_on:
       - backend-catapult
       - backend-veo
+      - frontend
 
 volumes:
   postgres_catapult_data:
   postgres_veo_data:
+  frontend_dist:
