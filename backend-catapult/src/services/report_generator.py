@@ -670,12 +670,18 @@ class WeeklyReportGenerator:
                     'impacts': 0,
                     'power_plays': 0,
                     'top_speed': 0,
-                    'session_dates': set()  # Track unique dates
+                    'session_dates': set(),  # Track unique dates
+                    'speed_zone_3_km': 0,
+                    'speed_zone_4_km': 0,
+                    'speed_zone_5_km': 0
                 }
             
             player_totals[player]['duration'] += session.get('duration', 0)
             player_totals[player]['distance_km'] += session.get('distance_km', 0)
             player_totals[player]['sprint_distance_m'] += session.get('sprint_distance_m', 0)
+            player_totals[player]['speed_zone_3_km'] += session.get('speed_zone_3_km', 0)
+            player_totals[player]['speed_zone_4_km'] += session.get('speed_zone_4_km', 0)
+            player_totals[player]['speed_zone_5_km'] += session.get('speed_zone_5_km', 0)
             player_totals[player]['power_score'] = max(player_totals[player]['power_score'], session.get('power_score', 0))
             player_totals[player]['impacts'] += session.get('impacts', 0)
             player_totals[player]['power_plays'] += session.get('power_plays', 0)
