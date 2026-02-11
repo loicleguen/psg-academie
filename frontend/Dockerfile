@@ -5,5 +5,6 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM scratch
+FROM alpine:latest
 COPY --from=builder /app/dist /app/dist
+CMD ["tail", "-f", "/dev/null"]
