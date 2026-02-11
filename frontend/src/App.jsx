@@ -11,6 +11,7 @@ import Country from './pages/Country';
 import Academies from './pages/Academies';
 import Teams from './pages/Teams';
 import TeamDetail from './pages/TeamDetail';
+import PlayerDetail from './pages/PlayerDetail';
 import Veo from './pages/Veo';
 import AdminPannel from './pages/AdminPannel';
 import WeeklyReport from './pages/WeeklyReport';
@@ -71,6 +72,18 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route
+            path="/players/:playerName"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <PlayerDetail />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/veo"
             element={

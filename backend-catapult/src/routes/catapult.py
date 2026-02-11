@@ -550,3 +550,53 @@ def generate_weekly_report(
     return Response(content=img_binary, media_type="image/png")
 
 
+
+
+@router.get("/players/{player_name}/stats")
+def get_player_stats(
+    player_name: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    """Get player statistics over the last 3 months"""
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    
+    # Calculate date 3 months ago
+    three_months_ago = datetime.now() - timedelta(days=90)
+    
+    # Get all sessions for this player in the last 3 months
+    statement = select(CatapultSession).where(
+        CatapultSession.player_name == player_name,
+        CatapultSession.created_at >= three_months_ago
+    )
+    sessions = session.exec(statement).all()
+    
+    if not sessions:
+        raise HTTPException(status_code=404, detail="No sessions found for this player")
+    
+    # Calculate statistics
+    sessions_count = len(sessions)
+    
+    # Calculate HSR (speed zones 3+4+5) for each session
+    hsr_values = [(s.speed_zone_3_km + s.speed_zone_4_km + s.speed_zone_5_km) * 1000 for s in sessions]
+    
+    stats = {
+        "player_name": player_name,
+        "sessions_count": sessions_count,
+        "vitesse_max": max([s.top_speed for s in sessions]),
+        "vitesse_avg": sum([s.top_speed for s in sessions]) / sessions_count,
+        "hsr_max": max(hsr_values),
+        "hsr_avg": sum(hsr_values) / sessions_count,
+        "sprint_max": max([s.sprint_distance_m for s in sessions]),
+        "sprint_avg": sum([s.sprint_distance_m for s in sessions]) / sessions_count,
+        "distance_max": max([s.distance_km for s in sessions]),
+        "distance_avg": sum([s.distance_km for s in sessions]) / sessions_count,
+        "dec_max": max([s.impacts for s in sessions]),
+        "dec_avg": sum([s.impacts for s in sessions]) / sessions_count,
+        "pp_max": max([s.power_plays for s in sessions]),
+        "pp_avg": sum([s.power_plays for s in sessions]) / sessions_count,
+    }
+    
+    return stats
+
