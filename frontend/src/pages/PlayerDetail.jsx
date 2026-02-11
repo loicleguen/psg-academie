@@ -50,9 +50,8 @@ export default function PlayerDetail() {
 
   const loadAllPlayers = async () => {
     try {
-      const sessions = await catapultService.getSessions();
-      const uniquePlayers = [...new Set(sessions.map(s => s.player_name))].filter(Boolean);
-      setAllPlayers(uniquePlayers);
+      const players = await catapultService.getAllPlayers();
+      setAllPlayers(players);
     } catch (error) {
       console.error('Erreur chargement joueurs:', error);
     }
@@ -95,42 +94,31 @@ export default function PlayerDetail() {
     );
   }
 
-  const StatCard = ({ title, stats, playerName }) => (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">{playerName}</h3>
-      <div className="space-y-3">
-        {Object.entries(stats).map(([key, value]) => (
-          <div key={key} className="flex justify-between items-center border-b pb-2">
-            <span className="text-gray-600 font-medium">{title[key] || key}:</span>
-            <span className="text-gray-900 font-bold">{value}</span>
+  const StatRow = ({ label, value1, value2, color }) => (
+    <div className="border-b pb-4">
+      <p className="text-sm text-gray-600 font-medium mb-2">{label}</p>
+      <div className={comparePlayerStats ? "grid grid-cols-2 gap-4" : "flex"}>
+        <div>
+          <p className="text-xs text-gray-500 mb-1">{playerStats.player_name}</p>
+          <p className={`text-2xl font-bold ${color}`}>{value1}</p>
+        </div>
+        {comparePlayerStats && (
+          <div>
+            <p className="text-xs text-gray-500 mb-1">{comparePlayerStats.player_name}</p>
+            <p className={`text-2xl font-bold ${color}`}>{value2}</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
 
-  const statLabels = {
-    sessions_count: 'Sessions',
-    vitesse_max: 'Vitesse max (km/h)',
-    vitesse_avg: 'Vitesse moyenne (km/h)',
-    hsr_max: 'HSR max (m)',
-    hsr_avg: 'HSR moyen (m)',
-    sprint_max: 'Sprint max (m)',
-    sprint_avg: 'Sprint moyen (m)',
-    distance_max: 'Distance max (km)',
-    distance_avg: 'Distance moyenne (km)',
-    dec_max: 'Décélérations max',
-    dec_avg: 'Décélérations moy',
-    pp_max: 'Power Plays max',
-    pp_avg: 'Power Plays moy'
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-6 text-blue-600 hover:text-blue-800 flex items-center"
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header avec bouton retour */}
+        <button 
+          onClick={() => navigate(-1)} 
+          className="mb-6 text-blue-600 hover:text-blue-800 flex items-center transition-colors"
         >
           <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -138,14 +126,17 @@ export default function PlayerDetail() {
           Retour
         </button>
 
+        {/* Titre de la page */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            {decodeURIComponent(playerName)}
+            Statistiques de {playerStats.player_name}
+            {comparePlayerStats && ` vs ${comparePlayerStats.player_name}`}
           </h1>
-          <p className="text-gray-600">Analyse sur les 3 derniers mois ({playerStats.sessions_count} sessions)</p>
+          <p className="text-gray-600">Données des 3 derniers mois</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
+        {/* Section de comparaison */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
           <div className="flex gap-4 items-end">
             <div className="flex-1">
@@ -159,73 +150,131 @@ export default function PlayerDetail() {
               >
                 <option value="">-- Choisir un joueur --</option>
                 {allPlayers
-                  .filter(p => p !== playerName)
-                  .map(player => (
-                    <option key={player} value={player}>{player}</option>
-                  ))
-                }
+                  .filter(name => name !== playerName)
+                  .map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
               </select>
             </div>
             <button
               onClick={handleCompare}
               disabled={!selectedPlayer}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               Comparer
             </button>
-            {compareWith && (
+            {comparePlayerStats && (
               <button
                 onClick={clearComparison}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
-                Annuler
+                Effacer
               </button>
             )}
           </div>
         </div>
 
-        <div className={`grid gap-8 ${comparePlayerStats ? 'md:grid-cols-2' : 'md:grid-cols-1 max-w-2xl mx-auto'}`}>
-          <StatCard
-            title={statLabels}
-            stats={{
-              sessions_count: playerStats.sessions_count,
-              vitesse_max: playerStats.vitesse_max?.toFixed(2),
-              vitesse_avg: playerStats.vitesse_avg?.toFixed(2),
-              hsr_max: Math.round(playerStats.hsr_max),
-              hsr_avg: Math.round(playerStats.hsr_avg),
-              sprint_max: Math.round(playerStats.sprint_max),
-              sprint_avg: Math.round(playerStats.sprint_avg),
-              distance_max: playerStats.distance_max?.toFixed(2),
-              distance_avg: playerStats.distance_avg?.toFixed(2),
-              dec_max: Math.round(playerStats.dec_max),
-              dec_avg: Math.round(playerStats.dec_avg),
-              pp_max: Math.round(playerStats.pp_max),
-              pp_avg: Math.round(playerStats.pp_avg),
-            }}
-            playerName={playerName}
+        {/* Statistiques en une seule colonne */}
+        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+          <div className="border-b pb-3">
+            <p className="text-sm text-gray-600 font-medium mb-2">Nombre de sessions</p>
+            <div className={comparePlayerStats ? "grid grid-cols-2 gap-4" : "flex"}>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">{playerStats.player_name}</p>
+                <p className="text-2xl font-bold text-blue-600">{playerStats.sessions_count}</p>
+              </div>
+              {comparePlayerStats && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">{comparePlayerStats.player_name}</p>
+                  <p className="text-2xl font-bold text-blue-600">{comparePlayerStats.sessions_count}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <StatRow 
+            label="Vitesse Max (m/s)" 
+            value1={playerStats.vitesse_max?.toFixed(2)} 
+            value2={comparePlayerStats?.vitesse_max?.toFixed(2)}
+            color="text-gray-900"
           />
 
-          {comparePlayerStats && (
-            <StatCard
-              title={statLabels}
-              stats={{
-                sessions_count: comparePlayerStats.sessions_count,
-                vitesse_max: comparePlayerStats.vitesse_max?.toFixed(2),
-                vitesse_avg: comparePlayerStats.vitesse_avg?.toFixed(2),
-                hsr_max: Math.round(comparePlayerStats.hsr_max),
-                hsr_avg: Math.round(comparePlayerStats.hsr_avg),
-                sprint_max: Math.round(comparePlayerStats.sprint_max),
-                sprint_avg: Math.round(comparePlayerStats.sprint_avg),
-                distance_max: comparePlayerStats.distance_max?.toFixed(2),
-                distance_avg: comparePlayerStats.distance_avg?.toFixed(2),
-                dec_max: Math.round(comparePlayerStats.dec_max),
-                dec_avg: Math.round(comparePlayerStats.dec_avg),
-                pp_max: Math.round(comparePlayerStats.pp_max),
-                pp_avg: Math.round(comparePlayerStats.pp_avg),
-              }}
-              playerName={compareWith}
-            />
-          )}
+          <StatRow 
+            label="Vitesse Moyenne (m/s)" 
+            value1={playerStats.vitesse_avg?.toFixed(2)} 
+            value2={comparePlayerStats?.vitesse_avg?.toFixed(2)}
+            color="text-gray-900"
+          />
+
+          <StatRow 
+            label="HSR Max (m)" 
+            value1={playerStats.hsr_max?.toFixed(0)} 
+            value2={comparePlayerStats?.hsr_max?.toFixed(0)}
+            color="text-orange-600"
+          />
+
+          <StatRow 
+            label="HSR Moyen (m)" 
+            value1={playerStats.hsr_avg?.toFixed(0)} 
+            value2={comparePlayerStats?.hsr_avg?.toFixed(0)}
+            color="text-orange-600"
+          />
+
+          <StatRow 
+            label="Sprint Max (m)" 
+            value1={playerStats.sprint_max?.toFixed(0)} 
+            value2={comparePlayerStats?.sprint_max?.toFixed(0)}
+            color="text-red-600"
+          />
+
+          <StatRow 
+            label="Sprint Moyen (m)" 
+            value1={playerStats.sprint_avg?.toFixed(0)} 
+            value2={comparePlayerStats?.sprint_avg?.toFixed(0)}
+            color="text-red-600"
+          />
+
+          <StatRow 
+            label="Distance Max (m)" 
+            value1={playerStats.distance_max?.toFixed(0)} 
+            value2={comparePlayerStats?.distance_max?.toFixed(0)}
+            color="text-green-600"
+          />
+
+          <StatRow 
+            label="Distance Moyenne (m)" 
+            value1={playerStats.distance_avg?.toFixed(0)} 
+            value2={comparePlayerStats?.distance_avg?.toFixed(0)}
+            color="text-green-600"
+          />
+
+          <StatRow 
+            label="DEC Max" 
+            value1={playerStats.dec_max?.toFixed(0)} 
+            value2={comparePlayerStats?.dec_max?.toFixed(0)}
+            color="text-purple-600"
+          />
+
+          <StatRow 
+            label="DEC Moyen" 
+            value1={playerStats.dec_avg?.toFixed(0)} 
+            value2={comparePlayerStats?.dec_avg?.toFixed(0)}
+            color="text-purple-600"
+          />
+
+          <StatRow 
+            label="PP Max" 
+            value1={playerStats.pp_max?.toFixed(2)} 
+            value2={comparePlayerStats?.pp_max?.toFixed(2)}
+            color="text-indigo-600"
+          />
+
+          <StatRow 
+            label="PP Moyen" 
+            value1={playerStats.pp_avg?.toFixed(2)} 
+            value2={comparePlayerStats?.pp_avg?.toFixed(2)}
+            color="text-indigo-600"
+          />
         </div>
       </div>
     </div>

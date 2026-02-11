@@ -10,7 +10,7 @@ from typing import List, Dict, Any
 import pandas as pd
 import base64
 from fastapi import Query
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, distinct
 from datetime import datetime, timedelta
 from dateutil import parser as dateutil_parser
 import re
@@ -600,3 +600,21 @@ def get_player_stats(
     
     return stats
 
+
+@router.get("/players")
+async def get_all_players(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    """
+    Retourne la liste unique de tous les joueurs ayant des données Catapult
+    """
+    # Récupérer tous les noms de joueurs uniques
+    query = select(distinct(CatapultSession.player_name)).where(
+        CatapultSession.player_name.is_not(None),
+        CatapultSession.player_name != ""
+    ).order_by(CatapultSession.player_name)
+    
+    result = session.exec(query).all()
+    
+    return [name for name in result if name]

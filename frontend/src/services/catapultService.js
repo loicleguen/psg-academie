@@ -51,4 +51,9 @@ export const catapultService = {
     const response = await api.get(`/catapult/players/${encodeURIComponent(playerName)}/stats`);
     return response.data;
   },
+
+  async getAllPlayers() {
+    const response = await api.get('/catapult/players');
+    return response.data;
+  },
 };
