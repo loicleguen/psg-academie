@@ -675,9 +675,32 @@ def generate_individual_week_report(
     
     team_sessions = [s.model_dump() for s in team_sessions_db]
     
-    # Get same position sessions for the week
-    # Note: User.position field may not exist yet; fallback to team sessions
-    same_position_sessions = team_sessions
+    # Get same position sessions for the week (same position as player)
+    if position and position != "Joueur":
+        # Filter team sessions to only include players with the same position
+        stmt_same_position = select(CatapultSession).join(
+            User, CatapultSession.user_id == User.id
+        ).where(
+            User.team_id == team_id,
+            User.position == position,
+            CatapultSession.split_name == "all"
+        )
+        same_position_all = session.exec(stmt_same_position).all()
+        
+        # Filter by date
+        same_position_db = []
+        for s in same_position_all:
+            try:
+                session_date = datetime.strptime(s.date, '%Y-%m-%d')
+                if target_monday <= session_date <= target_sunday:
+                    same_position_db.append(s)
+            except (ValueError, AttributeError, TypeError):
+                continue
+        
+        same_position_sessions = [s.model_dump() for s in same_position_db]
+    else:
+        # Fallback to team sessions if position not defined
+        same_position_sessions = team_sessions
     
     # Generate report
     img_base64 = IndividualWeekReportGenerator.generate_individual_week_report(

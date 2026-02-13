@@ -75,7 +75,7 @@ export default function TeamDetail() {
                         Email
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Âge
+                        Poste
                       </th>
                     </tr>
                   </thead>
@@ -97,9 +97,7 @@ export default function TeamDetail() {
                           <div className="text-sm text-gray-500">{player.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {player.age ? `${player.age} ans` : 'N/A'}
-                          </div>
+                          <div className="text-sm text-gray-500">{player.position || 'N/A'}</div>
                         </td>
                       </tr>
                     ))}

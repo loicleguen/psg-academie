@@ -197,7 +197,8 @@ def update_my_profile(
     has_player_fields = any([
         user_update.team_id is not None,
         user_update.age is not None,
-        user_update.player_name is not None
+        user_update.player_name is not None,
+        user_update.position is not None
     ])
 
     if has_player_fields:
@@ -254,6 +255,7 @@ def get_all_users(
             "player_name": user.player_name,
             "age": user.age,
             "team_id": user.team_id,
+            "position": user.position,
             "created_at": user.created_at,
             "team_name": None
         }
@@ -317,7 +319,8 @@ def update_user(
     has_player_fields = any([
         user_update.team_id is not None,
         user_update.age is not None,
-        user_update.player_name is not None
+        user_update.player_name is not None,
+        user_update.position is not None
     ])
 
     # Si le rôle est défini à 'player', exiger un team_id (soit fourni, soit déjà présent)
@@ -332,6 +335,8 @@ def update_user(
             user.age = user_update.age
         if user_update.team_id is not None:
             user.team_id = user_update.team_id
+        if user_update.position is not None:
+            user.position = user_update.position
 
     session.add(user)
     session.commit()
@@ -349,6 +354,7 @@ def update_user(
         "player_name": user.player_name,
         "age": user.age,
         "team_id": user.team_id,
+        "position": user.position,
         "created_at": user.created_at,
         "team_name": None
     }

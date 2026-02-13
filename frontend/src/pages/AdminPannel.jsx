@@ -96,6 +96,8 @@ export default function AdminPannel() {
         updateData.team_id = editingUser.team_id;
         updateData.player_name = editingUser.player_name;
         updateData.age = editingUser.age;
+
+        updateData.position = editingUser.position;
       }
 
       const response = await api.put(`/auth/users/${editingUser.id}`, updateData);
@@ -209,6 +211,9 @@ export default function AdminPannel() {
                 Rôle
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Poste
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Équipe
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -244,6 +249,9 @@ export default function AdminPannel() {
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(u.role)}`}>
                     {u.role.toUpperCase()}
                   </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {u.position || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {u.team_name || '-'}
@@ -363,6 +371,22 @@ export default function AdminPannel() {
                       {teams.map(team => (
                         <option key={team.id} value={team.id}>{team.name}</option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Poste</label>
+                    <select
+                      value={editingUser.position || ''}
+                      onChange={(e) => setEditingUser({...editingUser, position: e.target.value})}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 px-3 py-2 border"
+                    >
+                      <option value="">Sélectionner un poste</option>
+                      <option value="ATTAQUANT">ATTAQUANT</option>
+                      <option value="MILIEU">MILIEU</option>
+                      <option value="DEFENSEUR CENTRAL">DEFENSEUR CENTRAL</option>
+                      <option value="LATERAL">LATERAL</option>
+                      <option value="AILIER">AILIER</option>
                     </select>
                   </div>
                 </>
