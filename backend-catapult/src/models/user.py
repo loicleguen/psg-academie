@@ -1,10 +1,11 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List
 from datetime import datetime
 from enum import Enum
 
 if TYPE_CHECKING:
     from .team import Team
+    from .injury import Injury
 
 
 class UserRole(str, Enum):
@@ -27,6 +28,7 @@ class User(SQLModel, table=True):
     team_id: Optional[int] = Field(default=None, foreign_key="team.id")
     position: Optional[str] = Field(default=None, max_length=50)
     team: Optional["Team"] = Relationship(back_populates="players")
+    injuries: List["Injury"] = Relationship(back_populates="user")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
