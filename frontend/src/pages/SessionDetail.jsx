@@ -18,14 +18,12 @@ export default function SessionDetail() {
   const [availablePlayers, setAvailablePlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [sessionInfo, setSessionInfo] = useState(null);
-  const [loadingSessionInfo, setLoadingSessionInfo] = useState(true);
 
   const sessionTitle = decodeURIComponent(sessionId);
 
   // Récupérer les infos de la session pour le rapport hebdo
   useEffect(() => {
     const fetchSessionInfo = async () => {
-      setLoadingSessionInfo(true);
       try {
         const response = await api.get('/catapult/sessions');
         console.log('All sessions:', response.data);
@@ -40,8 +38,6 @@ export default function SessionDetail() {
         }
       } catch (err) {
         console.error('Erreur récupération session:', err);
-      } finally {
-        setLoadingSessionInfo(false);
       }
     };
     fetchSessionInfo();
@@ -259,69 +255,116 @@ export default function SessionDetail() {
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
-        {/* Player selection for individual report */}
-        {availablePlayers.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <label htmlFor="player-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Sélectionner un joueur pour le rapport individuel
-            </label>
-            <select
-              id="player-select"
-              value={selectedPlayer}
-              onChange={(e) => setSelectedPlayer(e.target.value)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-            >
-              {availablePlayers.map((player) => (
-                <option key={player} value={player}>
-                  {player}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
-
-
-
-        {/* Report type cards */}
+        {/* Report type cards with player selection above individual report */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-          {reportTypes.map((report) => {
-            const Icon = report.icon;
-            return (
-              <button
-                key={report.id}
-                onClick={report.onClick}
-                disabled={!report.available || loading}
-                className={`
-                  relative rounded-lg border p-6 text-left transition-all
-                  ${report.available 
-                    ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
-                    : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
-                  ${loading && report.available ? 'opacity-50' : ''}
-                `}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <Icon className={`h-8 w-8 ${report.available ? 'text-blue-600' : 'text-gray-400'}`} />
-                  {!report.available && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
-                      Bientôt disponible
-                    </span>
-                  )}
+          {/* Première carte: Rapport de séance */}
+          <button
+            onClick={reportTypes[0].onClick}
+            disabled={!reportTypes[0].available || loading}
+            className={`
+              relative rounded-lg border p-6 text-left transition-all
+              ${reportTypes[0].available 
+                ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
+                : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
+              ${loading && reportTypes[0].available ? 'opacity-50' : ''}
+            `}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <ChartBarIcon className={`h-8 w-8 ${reportTypes[0].available ? 'text-blue-600' : 'text-gray-400'}`} />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {reportTypes[0].title}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {reportTypes[0].description}
+            </p>
+            {loading && reportTypes[0].available && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            )}
+          </button>
+
+          {/* Deuxième carte: Rapport Hebdomadaire */}
+          <button
+            onClick={reportTypes[1].onClick}
+            disabled={!reportTypes[1].available || loading}
+            className={`
+              relative rounded-lg border p-6 text-left transition-all
+              ${reportTypes[1].available 
+                ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
+                : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
+              ${loading && reportTypes[1].available ? 'opacity-50' : ''}
+            `}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <DocumentChartBarIcon className={`h-8 w-8 ${reportTypes[1].available ? 'text-blue-600' : 'text-gray-400'}`} />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {reportTypes[1].title}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {reportTypes[1].description}
+            </p>
+            {loading && reportTypes[1].available && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            )}
+          </button>
+
+          {/* Troisième colonne: Player selection + Rapport individuel */}
+          <div className="space-y-6">
+            {/* Player selection for individual report */}
+            {availablePlayers.length > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <label htmlFor="player-select" className="block text-sm font-medium text-gray-700 mb-2">
+                  Sélectionner un joueur pour le rapport individuel
+                </label>
+                <select
+                  id="player-select"
+                  value={selectedPlayer}
+                  onChange={(e) => setSelectedPlayer(e.target.value)}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                >
+                  {availablePlayers.map((player) => (
+                    <option key={player} value={player}>
+                      {player}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Troisième carte: Rapport semaine individuel */}
+            <button
+              onClick={reportTypes[2].onClick}
+              disabled={!reportTypes[2].available || loading}
+              className={`
+                relative rounded-lg border p-6 text-left transition-all w-full
+                ${reportTypes[2].available 
+                  ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
+                  : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
+                ${loading && reportTypes[2].available ? 'opacity-50' : ''}
+              `}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <UserGroupIcon className={`h-8 w-8 ${reportTypes[2].available ? 'text-blue-600' : 'text-gray-400'}`} />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {reportTypes[2].title}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {reportTypes[2].description}
+              </p>
+              {loading && reportTypes[2].available && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {report.title}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {report.description}
-                </p>
-                {loading && report.available && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Display session report image */}
