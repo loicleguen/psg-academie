@@ -73,12 +73,14 @@ def create_injury(
             detail="Player not found"
         )
     
-    # Create injury
+    # Create injury avec coordonnées
     db_injury = Injury(
         user_id=player_id,
         body_part=injury_data.body_part,
         injury_date=injury_data.injury_date,
-        comment=injury_data.comment
+        comment=injury_data.comment,
+        coord_x=injury_data.coord_x,
+        coord_y=injury_data.coord_y
     )
     
     session.add(db_injury)
@@ -102,7 +104,7 @@ def update_injury(
     Args:
         player_id: ID du joueur
         injury_id: ID de la blessure
-        injury_data: Nouvelles données
+        injury_data: Données mises à jour
         session: Session de base de données
         current_user: Utilisateur connecté
         
@@ -110,29 +112,41 @@ def update_injury(
         InjuryRead: Blessure mise à jour
         
     Raises:
-        HTTPException 404: Si la blessure n'existe pas ou n'appartient pas au joueur
+        HTTPException 404: Si le joueur ou la blessure n'existe pas
     """
-    # Get injury
-    injury = session.get(Injury, injury_id)
-    if not injury or injury.user_id != player_id:
+    # Verify player exists
+    player = session.get(User, player_id)
+    if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Injury not found"
+            detail="Player not found"
         )
     
-    # Update fields if provided
+    # Get injury
+    db_injury = session.get(Injury, injury_id)
+    if not db_injury or db_injury.user_id != player_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Injury not found for this player"
+        )
+    
+    # Update fields
     if injury_data.body_part is not None:
-        injury.body_part = injury_data.body_part
+        db_injury.body_part = injury_data.body_part
     if injury_data.injury_date is not None:
-        injury.injury_date = injury_data.injury_date
+        db_injury.injury_date = injury_data.injury_date
     if injury_data.comment is not None:
-        injury.comment = injury_data.comment
+        db_injury.comment = injury_data.comment
+    if injury_data.coord_x is not None:
+        db_injury.coord_x = injury_data.coord_x
+    if injury_data.coord_y is not None:
+        db_injury.coord_y = injury_data.coord_y
     
-    session.add(injury)
+    session.add(db_injury)
     session.commit()
-    session.refresh(injury)
+    session.refresh(db_injury)
     
-    return injury
+    return db_injury
 
 
 @router.delete("/{player_id}/injuries/{injury_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete player injury")
@@ -152,17 +166,25 @@ def delete_injury(
         current_user: Utilisateur connecté
         
     Raises:
-        HTTPException 404: Si la blessure n'existe pas ou n'appartient pas au joueur
+        HTTPException 404: Si le joueur ou la blessure n'existe pas
     """
-    # Get injury
-    injury = session.get(Injury, injury_id)
-    if not injury or injury.user_id != player_id:
+    # Verify player exists
+    player = session.get(User, player_id)
+    if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Injury not found"
+            detail="Player not found"
         )
     
-    session.delete(injury)
+    # Get injury
+    db_injury = session.get(Injury, injury_id)
+    if not db_injury or db_injury.user_id != player_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Injury not found for this player"
+        )
+    
+    session.delete(db_injury)
     session.commit()
     
     return None

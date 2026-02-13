@@ -51,7 +51,6 @@ export default function PlayerDetail() {
       const player = response.data.find(u => u.player_name === playerName || u.full_name === playerName);
       setPlayerInfo(player);
     } catch (error) {
-      console.error('Erreur chargement info joueur:', error);
     }
   };
 
@@ -61,7 +60,6 @@ export default function PlayerDetail() {
       const stats = await catapultService.getPlayerStats(playerName);
       setPlayerStats(stats);
     } catch (error) {
-      console.error('Erreur chargement stats joueur:', error);
     } finally {
       setLoading(false);
     }
@@ -72,7 +70,6 @@ export default function PlayerDetail() {
       const stats = await catapultService.getPlayerStats(name);
       setComparePlayerStats(stats);
     } catch (error) {
-      console.error('Erreur chargement stats comparaison:', error);
     }
   };
 
@@ -81,7 +78,6 @@ export default function PlayerDetail() {
       const players = await catapultService.getAllPlayers();
       setAllPlayers(players);
     } catch (error) {
-      console.error('Erreur chargement joueurs:', error);
     }
   };
 
@@ -124,7 +120,9 @@ export default function PlayerDetail() {
   };
 
   const addInjury = async () => {
-    if (!clickCoordinates) return;
+    if (!clickCoordinates) {
+      return;
+    }
     
     const payload = {
       coord_x: clickCoordinates.coord_x,
@@ -133,9 +131,10 @@ export default function PlayerDetail() {
       comment: injuryComment || ''
     };
 
+
     try {
       if (playerInfo?.id) {
-        await api.post(`/players/${playerInfo.id}/injuries`, payload);
+        const response = await api.post(`/players/${playerInfo.id}/injuries`, payload);
         await fetchInjuries();
       } else {
         throw new Error('no player id');
@@ -149,6 +148,19 @@ export default function PlayerDetail() {
       setClickCoordinates(null);
     }
   };
+
+  const deleteInjury = async (injuryId) => {
+    try {
+      if (playerInfo?.id) {
+        await api.delete(`/players/${playerInfo.id}/injuries/${injuryId}`);
+        await fetchInjuries();
+      }
+    } catch (err) {
+      // Fallback: supprimer localement
+      setInjuries(injuries.filter(inj => inj.id !== injuryId));
+    }
+  };
+
 
   if (loading) {
     return (
@@ -367,6 +379,7 @@ export default function PlayerDetail() {
                 <MedicalMap
                   injuries={injuries}
                   onCoordinatesClick={onCoordinatesClick}
+                  onDeleteInjury={deleteInjury}
                 />
 
                 {showAddModal && (
