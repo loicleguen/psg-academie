@@ -1266,23 +1266,23 @@ class IndividualWeekReportGenerator:
     
     @staticmethod
     def _draw_header(ax, player_name, position, week_start, week_end, week_number, tags=""):
-        """Draw header section"""
+        """Draw header section - same style as weekly report"""
         from matplotlib import patches
         from PIL import Image
         from matplotlib.offsetbox import OffsetImage, AnnotationBbox
         
         ax.set_facecolor('none')
         
-        # White rectangle
-        rect = patches.Rectangle((0, 0.25), 0.99, 0.5, linewidth=1, 
+        # White rectangle (same dimensions as weekly report)
+        rect = patches.Rectangle((0.01, 0.25), 0.97, 0.5, linewidth=1, 
                                 edgecolor='none', facecolor='#ffffff', zorder=0)
         ax.add_patch(rect)
         
-        # Logo
+        # Logo (same size as weekly report)
         try:
             logo = Image.open('assets/logo.png')
-            imagebox = OffsetImage(logo, zoom=0.17)
-            ab = AnnotationBbox(imagebox, (0.12, 0.5), frameon=False, 
+            imagebox = OffsetImage(logo, zoom=0.21)
+            ab = AnnotationBbox(imagebox, (0.13, 0.5), frameon=False, 
                               xycoords='axes fraction', box_alignment=(0.5, 0.5))
             ax.add_artist(ab)
         except:
@@ -1291,7 +1291,7 @@ class IndividualWeekReportGenerator:
         # Title
         ax.text(0.5, 0.5, 'MICROCYCLE JOUEUR',
                 ha='center', va='center',
-                fontsize=20, fontweight='bold',
+                fontsize=24, fontweight='bold',
                 color='#1a2332', zorder=10)
         
         # Info boxes
@@ -1707,7 +1707,7 @@ class IndividualWeekReportGenerator:
         fig = plt.figure(figsize=(20, 14), facecolor=IndividualWeekReportGenerator.COLORS['background'])
         
         # === HEADER ===
-        header_ax = plt.axes([0.05, 0.90, 0.9, 0.08])
+        header_ax = plt.axes([0.05, 0.90, 0.9, 0.27])
         IndividualWeekReportGenerator._draw_header(header_ax, player_name, position, week_start, week_end, week_number)
         
         # === MAIN TABLE ===
