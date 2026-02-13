@@ -15,7 +15,7 @@ export default function TeamDetail() {
   const loadPlayers = async () => {
     try {
       const data = await organizationService.getTeamPlayers(teamName);
-      setPlayers(data);
+      setPlayers(data.sort((a, b) => (a.player_name || a.full_name).localeCompare(b.player_name || b.full_name)));
     } catch (error) {
       console.error('Erreur lors du chargement des joueurs:', error);
     } finally {
@@ -86,9 +86,12 @@ export default function TeamDetail() {
                           {index + 1}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                          <button
+                            onClick={() => navigate(`/players/${encodeURIComponent(player.player_name || player.full_name)}`)}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                          >
                             {player.player_name || player.full_name || 'N/A'}
-                          </div>
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">{player.email}</div>

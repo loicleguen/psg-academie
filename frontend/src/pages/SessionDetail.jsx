@@ -13,6 +13,10 @@ export default function SessionDetail() {
   const [showReport, setShowReport] = useState(false);
   const [weeklyReportUrl, setWeeklyReportUrl] = useState(null);
   const [showWeeklyReport, setShowWeeklyReport] = useState(false);
+  const [individualReportUrl, setIndividualReportUrl] = useState(null);
+  const [showIndividualReport, setShowIndividualReport] = useState(false);
+  const [availablePlayers, setAvailablePlayers] = useState([]);
+  const [selectedPlayer, setSelectedPlayer] = useState('');
   const [sessionInfo, setSessionInfo] = useState(null);
   const [loadingSessionInfo, setLoadingSessionInfo] = useState(true);
 
@@ -42,6 +46,36 @@ export default function SessionDetail() {
     };
     fetchSessionInfo();
   }, [sessionTitle]);
+
+  // Récupérer la liste des joueurs de la semaine pour le rapport individuel
+  useEffect(() => {
+    const fetchWeekPlayers = async () => {
+      if (!sessionInfo || !sessionInfo.week || !sessionInfo.year) {
+        return;
+      }
+      
+      try {
+        const response = await api.get('/catapult/players-by-week', {
+          params: {
+            week: sessionInfo.week,
+            year: sessionInfo.year
+          }
+        });
+        console.log('Players for week:', response.data);
+        setAvailablePlayers(response.data);
+        
+        // Présélectionner le premier joueur si disponible
+        if (response.data.length > 0) {
+          setSelectedPlayer(response.data[0]);
+        }
+      } catch (err) {
+        console.error('Erreur récupération joueurs semaine:', err);
+      }
+    };
+    
+    fetchWeekPlayers();
+  }, [sessionInfo]);
+
 
   const handleGenerateSessionReport = async () => {
     try {
@@ -101,11 +135,71 @@ export default function SessionDetail() {
         return;
       }
       
-      const url = `/catapult/reports/weekly.png?team_id=${sessionInfo.team_id}&week=${weekNumber}&year=${year}`;
-      setWeeklyReportUrl(url);
+      // Fetch avec token d'authentification
+      const response = await api.get('/catapult/reports/weekly.png', {
+        params: {
+          team_id: sessionInfo.team_id,
+          week: weekNumber,
+          year: year
+        },
+        responseType: 'blob'
+      });
+      
+      // Créer un object URL à partir du blob
+      const imageUrl = URL.createObjectURL(response.data);
+      setWeeklyReportUrl(imageUrl);
       setShowWeeklyReport(true);
     } catch (err) {
       setError('Erreur lors de la génération du rapport hebdomadaire');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const handleGenerateIndividualReport = async () => {
+    if (!sessionInfo) {
+      setError('Informations de la session manquantes');
+      return;
+    }
+    if (!selectedPlayer) {
+      setError('Veuillez sélectionner un joueur');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      setShowReport(false);
+      setShowWeeklyReport(false);
+      setShowIndividualReport(false);
+      
+      const weekNumber = sessionInfo.week;
+      const year = sessionInfo.year;
+      
+      if (!weekNumber || !year) {
+        setError('Numéro de semaine manquant');
+        setLoading(false);
+        return;
+      }
+      
+      // Fetch avec token d'authentification
+      const response = await api.get('/catapult/reports/individual-week.png', {
+        params: {
+          player_name: selectedPlayer,
+          week: weekNumber,
+          year: year
+        },
+        responseType: 'blob'
+      });
+      
+      // Créer un object URL à partir du blob
+      const imageUrl = URL.createObjectURL(response.data);
+      setIndividualReportUrl(imageUrl);
+      setShowIndividualReport(true);
+    } catch (err) {
+      setError('Erreur lors de la génération du rapport individuel');
       console.error(err);
     } finally {
       setLoading(false);
@@ -132,10 +226,10 @@ export default function SessionDetail() {
     {
       id: 'individual',
       title: 'Rapport semaine individuel',
-      description: 'Analyse individuelle de chaque joueur sur la semaine',
+      description: 'Analyse individuelle du joueur sur la semaine',
       icon: UserGroupIcon,
-      available: false,
-      onClick: null
+      available: true,
+      onClick: handleGenerateIndividualReport
     }
   ];
 
@@ -165,6 +259,29 @@ export default function SessionDetail() {
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
+        {/* Player selection for individual report */}
+        {availablePlayers.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <label htmlFor="player-select" className="block text-sm font-medium text-gray-700 mb-2">
+              Sélectionner un joueur pour le rapport individuel
+            </label>
+            <select
+              id="player-select"
+              value={selectedPlayer}
+              onChange={(e) => setSelectedPlayer(e.target.value)}
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              {availablePlayers.map((player) => (
+                <option key={player} value={player}>
+                  {player}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+
+
 
         {/* Report type cards */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
@@ -239,7 +356,7 @@ export default function SessionDetail() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Rapport Hebdomadaire</h2>
               <a
-                href={`${api.defaults.baseURL}${weeklyReportUrl}`}
+                href={weeklyReportUrl}
                 download={`rapport-hebdo-${sessionTitle}.png`}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
               >
@@ -251,10 +368,36 @@ export default function SessionDetail() {
             </div>
             <div className="overflow-x-auto">
               <img
-                src={`${api.defaults.baseURL}${weeklyReportUrl}`}
+                src={weeklyReportUrl}
                 alt="Rapport hebdomadaire"
                 className="max-w-full h-auto rounded-lg"
                 onError={() => setError('Erreur lors du chargement du rapport. Aucune séance trouvée pour cette semaine.')}
+              />
+            </div>
+          </div>
+        )}
+        {/* Display individual report image */}
+        {showIndividualReport && individualReportUrl && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Rapport Semaine Individuel</h2>
+              <a
+                href={individualReportUrl}
+                download={`rapport-individuel-${sessionTitle}.png`}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+              >
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Télécharger
+              </a>
+            </div>
+            <div className="overflow-x-auto">
+              <img
+                src={individualReportUrl}
+                alt="Rapport semaine individuel"
+                className="max-w-full h-auto rounded-lg"
+                onError={() => setError('Erreur lors du chargement du rapport individuel.')}
               />
             </div>
           </div>

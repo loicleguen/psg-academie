@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminPannel() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -46,9 +48,9 @@ export default function AdminPannel() {
 
   const filterUsers = () => {
     if (filter === 'all') {
-      setFilteredUsers(users);
+      setFilteredUsers([...users].sort((a, b) => a.full_name.localeCompare(b.full_name)));
     } else {
-      setFilteredUsers(users.filter(u => u.role.toLowerCase() === filter));
+      setFilteredUsers(users.filter(u => u.role.toLowerCase() === filter).sort((a, b) => a.full_name.localeCompare(b.full_name)));
     }
   };
 
@@ -226,8 +228,17 @@ export default function AdminPannel() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {u.email}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {u.full_name}
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  {u.role === 'player' && u.player_name ? (
+                    <button
+                      onClick={() => navigate(`/players/${encodeURIComponent(u.player_name)}`)}
+                      className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                    >
+                      {u.full_name}
+                    </button>
+                  ) : (
+                    <span className="text-gray-900">{u.full_name}</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(u.role)}`}>
