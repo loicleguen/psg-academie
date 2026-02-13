@@ -9,16 +9,22 @@ so existing imports like `from app import schemas` keep working.
 
 # Core (CRUD + common)
 from .core import (
+    EntryFieldDescriptor,
     KPIResponse,
     KPIValue,
     LeaderboardEntry,  # noqa: F401
     LeaderboardResponse,
     Match,
     MatchBase,
+    MatchBootstrapFromCatapultRequest,
+    MatchBootstrapFromCatapultResponse,
     MatchCreate,
     MatchUpdate,
+    MetricCatalogGroup,
+    MetricCatalogItem,
     MetricDefinition,
     MetricDefinitionBase,
+    MetricsEntrySchemaResponse,
     Participation,
     ParticipationBase,
     ParticipationBulk,

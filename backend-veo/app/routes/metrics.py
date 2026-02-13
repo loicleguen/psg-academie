@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from typing import List, Optional
+from typing import Dict, List, Optional
 from app.db.session import get_db
 from app.models import (
     MetricDefinition, TeamMatchMetricValue, PlayerMatchMetricValue,
@@ -10,6 +10,57 @@ from app.models import (
 from app import schemas
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
+
+CATEGORY_LABELS_FR: Dict[MetricCategory, str] = {
+    MetricCategory.GENERAL: "General",
+    MetricCategory.EVENTS: "Evenements",
+    MetricCategory.POSSESSION: "Possession",
+    MetricCategory.PASSES: "Passes",
+    MetricCategory.COMBINATIONS: "Combinaisons",
+}
+
+CATEGORY_SORT_INDEX: Dict[MetricCategory, int] = {
+    MetricCategory.GENERAL: 1,
+    MetricCategory.EVENTS: 2,
+    MetricCategory.POSSESSION: 3,
+    MetricCategory.PASSES: 4,
+    MetricCategory.COMBINATIONS: 5,
+}
+
+
+def _build_metric_catalog_groups(
+    metrics: List[MetricDefinition], scope: MetricScope
+) -> List[schemas.MetricCatalogGroup]:
+    grouped: Dict[MetricCategory, List[schemas.MetricCatalogItem]] = {}
+
+    for metric in metrics:
+        if metric.scope != scope:
+            continue
+
+        grouped.setdefault(metric.category, []).append(
+            schemas.MetricCatalogItem(
+                slug=metric.slug,
+                label_fr=metric.label_fr,
+                description_fr=metric.description_fr,
+                datatype=metric.datatype,
+                unit=metric.unit,
+                side=metric.side,
+                is_derived=metric.is_derived,
+                formula=metric.formula,
+            )
+        )
+
+    groups: List[schemas.MetricCatalogGroup] = []
+    for category, items in grouped.items():
+        groups.append(
+            schemas.MetricCatalogGroup(
+                category=category,
+                category_label_fr=CATEGORY_LABELS_FR.get(category, category.value),
+                metrics=sorted(items, key=lambda item: item.slug),
+            )
+        )
+
+    return sorted(groups, key=lambda group: CATEGORY_SORT_INDEX.get(group.category, 99))
 
 @router.get("", response_model=List[schemas.MetricDefinition])
 def list_metrics(
@@ -30,6 +81,135 @@ def list_metrics(
 
     metrics = query.order_by(MetricDefinition.category, MetricDefinition.slug).all()
     return metrics
+
+
+@router.get("/entry-schema", response_model=schemas.MetricsEntrySchemaResponse)
+def get_entry_schema(
+    include_derived: bool = Query(
+        False,
+        description="Include derived metrics in catalog (default: raw metrics only)",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Return a UI-oriented schema for manual data entry.
+
+    This endpoint centralizes:
+    - match-level fields (metadata + VEO context),
+    - participation fields,
+    - team and player metrics grouped by category.
+
+    It is designed as the contract for frontend forms and future smart paste.
+    """
+    query = db.query(MetricDefinition)
+    if not include_derived:
+        query = query.filter(MetricDefinition.is_derived.is_(False))
+
+    metrics = query.order_by(
+        MetricDefinition.scope, MetricDefinition.category, MetricDefinition.slug
+    ).all()
+
+    match_fields = [
+        schemas.EntryFieldDescriptor(
+            key="date",
+            label_fr="Date du match",
+            input_type="date",
+            required=True,
+        ),
+        schemas.EntryFieldDescriptor(
+            key="opponent_name",
+            label_fr="Adversaire",
+            input_type="text",
+            required=True,
+        ),
+        schemas.EntryFieldDescriptor(
+            key="is_home",
+            label_fr="Match a domicile",
+            input_type="boolean",
+            required=True,
+        ),
+        schemas.EntryFieldDescriptor(
+            key="match_type",
+            label_fr="Type de match",
+            input_type="select",
+            required=True,
+            help_text="LEAGUE, CUP, FRIENDLY, TOURNAMENT",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="competition",
+            label_fr="Competition",
+            input_type="text",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="score_for",
+            label_fr="Buts marques",
+            input_type="int",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="score_against",
+            label_fr="Buts encaisses",
+            input_type="int",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="veo_title",
+            label_fr="Titre Veo",
+            input_type="text",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="veo_url",
+            label_fr="URL Veo",
+            input_type="url",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="veo_duration",
+            label_fr="Duree video",
+            input_type="int",
+            unit="seconds",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="veo_camera",
+            label_fr="Camera Veo",
+            input_type="text",
+        ),
+    ]
+
+    participation_fields = [
+        schemas.EntryFieldDescriptor(
+            key="player_id",
+            label_fr="Joueur",
+            input_type="select",
+            required=True,
+        ),
+        schemas.EntryFieldDescriptor(
+            key="is_starter",
+            label_fr="Titulaire",
+            input_type="boolean",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="is_captain",
+            label_fr="Capitaine",
+            input_type="boolean",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="minutes_played",
+            label_fr="Minutes jouees",
+            input_type="int",
+        ),
+        schemas.EntryFieldDescriptor(
+            key="position_played",
+            label_fr="Poste joue",
+            input_type="text",
+        ),
+    ]
+
+    return schemas.MetricsEntrySchemaResponse(
+        match_fields=match_fields,
+        participation_fields=participation_fields,
+        team_metrics_by_category=_build_metric_catalog_groups(metrics, MetricScope.TEAM),
+        player_metrics_by_category=_build_metric_catalog_groups(
+            metrics, MetricScope.PLAYER
+        ),
+    )
 
 @router.get("/{metric_id}", response_model=schemas.MetricDefinition)
 def get_metric(metric_id: int, db: Session = Depends(get_db)):
