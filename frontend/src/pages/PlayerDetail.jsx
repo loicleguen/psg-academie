@@ -17,6 +17,7 @@ export default function PlayerDetail() {
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState('');
+  const [allPlayersInfo, setAllPlayersInfo] = useState([]);
 
   // Medical state
   const [injuries, setInjuries] = useState([]);
@@ -29,6 +30,7 @@ export default function PlayerDetail() {
     loadPlayerInfo();
     loadPlayerStats();
     loadAllPlayers();
+    loadAllPlayersInfo();
   }, [playerName]);
 
   useEffect(() => {
@@ -81,6 +83,15 @@ export default function PlayerDetail() {
     }
   };
 
+  const loadAllPlayersInfo = async () => {
+    try {
+      const response = await api.get('/auth/users');
+      setAllPlayersInfo(response.data.filter(u => u.player_name));
+    } catch (error) {
+    }
+  };
+
+
   const fetchInjuries = async () => {
     if (!playerInfo) return;
     try {
@@ -104,13 +115,17 @@ export default function PlayerDetail() {
     setSearchParams({});
   };
 
-  const getFilteredPlayers = () => {
-    if (!playerInfo?.position) return allPlayers.filter(name => name !== playerName);
-    return allPlayers.filter(name => {
-      if (name === playerName) return false;
-      return true;
-    });
+  const getAllPlayersList = () => {
+    return allPlayers.filter(name => name !== playerName);
   };
+
+  const getSamePositionPlayers = () => {
+    if (!playerInfo?.position) return [];
+    return allPlayersInfo
+      .filter(p => p.position === playerInfo.position && p.player_name !== playerName)
+      .map(p => p.player_name);
+  };
+
 
   const onCoordinatesClick = (coords) => {
     setClickCoordinates(coords);
@@ -223,7 +238,7 @@ export default function PlayerDetail() {
               </button>
               <button
                 onClick={() => setActiveTab('stats')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px- py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'stats'
                     ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -307,10 +322,11 @@ export default function PlayerDetail() {
 
                 <div className="bg-gray-50 rounded-lg p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
-                  <div className="flex gap-4 items-end">
-                    <div className="flex-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {/* Liste 1 : Tous les joueurs */}
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Sélectionner un joueur {playerInfo?.position && `(${playerInfo.position})`}
+                        Tous les joueurs
                       </label>
                       <select
                         value={selectedPlayer}
@@ -318,22 +334,44 @@ export default function PlayerDetail() {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="">-- Choisir un joueur --</option>
-                        {getFilteredPlayers().map(name => (
+                        {getAllPlayersList().map(name => (
                           <option key={name} value={name}>{name}</option>
                         ))}
                       </select>
                     </div>
+
+                    {/* Liste 2 : Même poste */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Même poste {playerInfo?.position && `(${playerInfo.position})`}
+                      </label>
+                      <select
+                        value={selectedPlayer}
+                        onChange={(e) => setSelectedPlayer(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      >
+                        <option value="">-- Choisir un joueur --</option>
+                        {getSamePositionPlayers().map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                      {getSamePositionPlayers().length === 0 && playerInfo?.position && (
+                        <p className="text-xs text-gray-500 mt-1">Aucun autre joueur au poste {playerInfo.position}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
                     <button
                       onClick={handleCompare}
                       disabled={!selectedPlayer}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                      className="transform translate-x-[400px] px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                     >
                       Comparer
                     </button>
                     {comparePlayerStats && (
                       <button
                         onClick={clearComparison}
-                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                        className="transform translate-x-[400px] px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                       >
                         Effacer
                       </button>
