@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost',
+        target: 'http://nginx',  // Point vers nginx qui route vers les backends
         changeOrigin: true,
       }
     }

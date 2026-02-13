@@ -244,6 +244,48 @@ def get_sessions_by_title(session_title: str, session: Session = Depends(get_ses
     return sessions
 
 
+
+@router.get("/sessions/{session_title}/players")
+def get_session_players(
+    session_title: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> List[str]:
+    """Get list of unique player names for a specific session"""
+    stmt = select(
+        User.player_name
+    ).join(
+        CatapultSession, CatapultSession.user_id == User.id
+    ).where(
+        CatapultSession.session_title == session_title,
+        CatapultSession.split_name == "all"
+    ).distinct()
+    
+    results = session.exec(stmt).all()
+    return sorted([r for r in results if r])
+
+
+
+@router.get("/sessions/{session_title}/players")
+def get_session_players(
+    session_title: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> List[str]:
+    """Get list of unique player names for a specific session"""
+    stmt = select(
+        User.player_name
+    ).join(
+        CatapultSession, CatapultSession.user_id == User.id
+    ).where(
+        CatapultSession.session_title == session_title,
+        CatapultSession.split_name == "all"
+    ).distinct()
+    
+    results = session.exec(stmt).all()
+    return sorted([r for r in results if r])
+
+
 @router.get("/sessions/player/{player_name}")
 def get_player_sessions(player_name: str, session: Session = Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
@@ -551,6 +593,114 @@ def generate_weekly_report(
     return Response(content=img_binary, media_type="image/png")
 
 
+# Code à ajouter dans backend-catapult/src/routes/catapult.py après l'endpoint weekly report
+
+@router.get("/reports/individual-week.png", tags=["Reports"])
+def generate_individual_week_report(
+    player_name: str,
+    week: int,
+    year: int = 2026,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    """
+    Generate individual player weekly microcycle report.
+    """
+    from datetime import datetime, timedelta
+    from ..services.report_generator import IndividualWeekReportGenerator
+    import base64
+    
+    # Calculate week dates
+    jan_4 = datetime(year, 1, 4)
+    week_1_monday = jan_4 - timedelta(days=jan_4.weekday())
+    target_monday = week_1_monday + timedelta(weeks=week - 1)
+    target_sunday = target_monday + timedelta(days=6)
+    
+    week_start = target_monday.strftime('%d/%m/%Y')
+    week_end = target_sunday.strftime('%d/%m/%Y')
+    
+    # Get player info
+    stmt_user = select(User).where(
+        func.lower(User.full_name) == func.lower(player_name)
+    )
+    user = session.exec(stmt_user).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    position = getattr(user, "position", "Joueur")  # TODO: Add position field to User model
+    team_id = user.team_id
+    
+    # Get all player sessions (for max calculation) with split_name='all'
+    stmt_all = select(CatapultSession).where(
+        CatapultSession.user_id == user.id,
+        CatapultSession.split_name == "all"
+    )
+    all_player_sessions_db = session.exec(stmt_all).all()
+    all_player_sessions = [s.model_dump() for s in all_player_sessions_db]
+    
+    # Get player sessions for the week
+    player_sessions_db = []
+    for s in all_player_sessions_db:
+        try:
+            session_date = datetime.strptime(s.date, '%Y-%m-%d')
+            if target_monday <= session_date <= target_sunday:
+                player_sessions_db.append(s)
+        except (ValueError, AttributeError, TypeError):
+            continue
+    
+    if not player_sessions_db:
+        raise HTTPException(status_code=404, detail="No sessions found for this player in this week")
+    
+    player_sessions = [s.model_dump() for s in player_sessions_db]
+    
+    # Get all team sessions for the week (split_name='all')
+    stmt_team = select(CatapultSession).join(
+        User, CatapultSession.user_id == User.id
+    ).where(
+        User.team_id == team_id,
+        CatapultSession.split_name == "all"
+    )
+    all_team_sessions = session.exec(stmt_team).all()
+    
+    # Filter by date
+    team_sessions_db = []
+    for s in all_team_sessions:
+        try:
+            session_date = datetime.strptime(s.date, '%Y-%m-%d')
+            if target_monday <= session_date <= target_sunday:
+                team_sessions_db.append(s)
+        except (ValueError, AttributeError, TypeError):
+            continue
+    
+    team_sessions = [s.model_dump() for s in team_sessions_db]
+    
+    # Get same position sessions for the week
+    # Note: User.position field may not exist yet; fallback to team sessions
+    same_position_sessions = team_sessions
+    
+    # Generate report
+    img_base64 = IndividualWeekReportGenerator.generate_individual_week_report(
+        player_sessions=player_sessions,
+        all_player_sessions=all_player_sessions,
+        same_position_sessions=same_position_sessions,
+        team_sessions=team_sessions,
+        player_name=player_name,
+        position=position,
+        week_number=week,
+        year=year,
+        week_start=week_start,
+        week_end=week_end
+    )
+    
+    # Decode base64 to binary image
+    img_binary = base64.b64decode(img_base64)
+    
+    return Response(content=img_binary, media_type="image/png")
+
+
+
+
 
 
 @router.get("/players/{player_name}/stats")
@@ -619,3 +769,93 @@ async def get_all_players(
     result = session.exec(query).all()
     
     return [name for name in result if name]
+
+
+
+
+@router.get("/players-by-week")
+def get_players_by_week(
+    week: int,
+    year: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> list:
+    """Get list of unique player names who had at least one session in the given ISO week"""
+    from datetime import datetime, timedelta
+    
+    # Calculate week start and end dates
+    jan_4 = datetime(year, 1, 4)
+    week_start = jan_4 - timedelta(days=jan_4.weekday()) + timedelta(weeks=week - 1)
+    week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    
+    # Query for distinct player names with sessions in the week
+    stmt = select(distinct(CatapultSession.player_name)).where(
+        CatapultSession.date >= week_start.strftime('%Y-%m-%d'),
+        CatapultSession.date <= week_end.strftime('%Y-%m-%d'),
+        CatapultSession.split_name == "all",
+        CatapultSession.player_name.is_not(None),
+        CatapultSession.player_name != ""
+    ).order_by(CatapultSession.player_name)
+    
+    results = session.exec(stmt).all()
+    return sorted([name for name in results if name])
+
+
+@router.get("/sessions/players")
+def get_session_players_q(
+    session_title: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> list:
+    """Get list of unique player names for a specific session (query param)
+    """
+    stmt = select(User.player_name).join(
+        CatapultSession, CatapultSession.user_id == User.id
+    ).where(
+        CatapultSession.session_title == session_title,
+        CatapultSession.split_name == "all"
+    ).distinct()
+
+    results = session.exec(stmt).all()
+    return sorted([r for r in results if r])
+
+
+
+@router.get("/sessions/players-by-title")
+def get_session_players_by_title(
+    session_title: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> list:
+    """Get list of unique player names for a specific session (query param, no slashes issues)
+    """
+    stmt = select(User.player_name).join(
+        CatapultSession, CatapultSession.user_id == User.id
+    ).where(
+        CatapultSession.session_title == session_title,
+        CatapultSession.split_name == "all"
+    ).distinct()
+
+    results = session.exec(stmt).all()
+    return sorted([r for r in results if r])
+
+
+
+@router.get("/session-players-by-title")
+def get_session_players_global(
+    session_title: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+) -> list:
+    """Get list of unique player names for a specific session (no path conflicts)
+    """
+    stmt = select(User.player_name).join(
+        CatapultSession, CatapultSession.user_id == User.id
+    ).where(
+        CatapultSession.session_title == session_title,
+        CatapultSession.split_name == "all"
+    ).distinct()
+
+    results = session.exec(stmt).all()
+    return sorted([r for r in results if r])
+

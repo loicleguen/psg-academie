@@ -22,6 +22,7 @@ class SessionReportGenerator:
         'gauge_fill': '#4a5568',
         'text_white': '#ffffff',
         'text_gray': '#a0aec0',
+        'pink': '#f687b3',
         'green': '#48bb78',
         'orange': '#ed8936',
         'red': '#f56565',
@@ -1157,3 +1158,576 @@ class WeeklyReportGenerator:
         ax.grid(True, alpha=0.2, color=WeeklyReportGenerator.COLORS['text_gray'])
         ax.set_title('Évolution hebdomadaire', color=WeeklyReportGenerator.COLORS['text_white'],
                     fontweight='bold')
+# Code à ajouter à la fin de report_generator.py
+
+class IndividualWeekReportGenerator:
+    """Generate individual player weekly microcycle reports"""
+    
+    COLORS = SessionReportGenerator.COLORS
+    
+    @staticmethod
+    def calculate_player_max(all_sessions):
+        """Calculate personal max for each metric across all player sessions"""
+        if not all_sessions:
+            return {}
+        
+        max_distance = max((s.get('distance_km', 0) * 1000 for s in all_sessions), default=0)
+        max_hsr = max(((s.get('speed_zone_3_km', 0) + s.get('speed_zone_4_km', 0) + s.get('speed_zone_5_km', 0)) * 1000 for s in all_sessions), default=0)
+        max_sprint = max((s.get('sprint_distance_m', 0) for s in all_sessions), default=0)
+        max_vmax = max((s.get('top_speed', 0) for s in all_sessions), default=0)
+        max_dec = max((s.get('impacts', 0) for s in all_sessions), default=0)
+        max_pp = max((s.get('power_plays', 0) for s in all_sessions), default=0)
+        
+        return {
+            'distance': max_distance,
+            'hsr': max_hsr,
+            'sprint': max_sprint,
+            'vmax': max_vmax,
+            'dec': max_dec,
+            'pp': max_pp
+        }
+    
+    @staticmethod
+    def aggregate_by_day_individual(session_data: List[Dict]) -> Dict[str, Dict]:
+        """Aggregate player data by day of week"""
+        from collections import defaultdict
+        from datetime import datetime
+        
+        day_totals = defaultdict(lambda: {
+            'duration': 0,
+            'distance': 0,
+            'hsr': 0,
+            'sprint': 0,
+            'vmax': 0,
+            'dec': 0,
+            'pp': 0,
+            'player_load': 0,
+            'session_count': 0
+        })
+        
+        for session in session_data:
+            date_str = session['date']
+            date = datetime.strptime(date_str, '%Y-%m-%d')
+            day_name = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'][date.weekday()]
+            
+            hsr = (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
+            
+            day_totals[day_name]['duration'] += session.get('duration', 0)
+            day_totals[day_name]['distance'] += session.get('distance_km', 0) * 1000
+            day_totals[day_name]['hsr'] += hsr
+            day_totals[day_name]['sprint'] += session.get('sprint_distance_m', 0)
+            day_totals[day_name]['vmax'] = max(day_totals[day_name]['vmax'], session.get('top_speed', 0))
+            day_totals[day_name]['dec'] += session.get('impacts', 0)
+            day_totals[day_name]['pp'] += session.get('power_plays', 0)
+            day_totals[day_name]['player_load'] += session.get('player_load', 0)
+            day_totals[day_name]['session_count'] += 1
+        
+        return dict(day_totals)
+    
+    @staticmethod
+    def calculate_totals(session_data: List[Dict]) -> Dict:
+        """Calculate week totals for a player or group"""
+        total_distance = sum(s.get('distance_km', 0) * 1000 for s in session_data)
+        total_hsr = sum((s.get('speed_zone_3_km', 0) + s.get('speed_zone_4_km', 0) + s.get('speed_zone_5_km', 0)) * 1000 for s in session_data)
+        total_sprint = sum(s.get('sprint_distance_m', 0) for s in session_data)
+        max_vmax = max((s.get('top_speed', 0) for s in session_data), default=0)
+        total_dec = sum(s.get('impacts', 0) for s in session_data)
+        total_pp = sum(s.get('power_plays', 0) for s in session_data)
+        total_player_load = sum(s.get('player_load', 0) for s in session_data)
+        
+        return {
+            'distance': total_distance,
+            'hsr': total_hsr,
+            'sprint': total_sprint,
+            'vmax': max_vmax,
+            'dec': total_dec,
+            'pp': total_pp,
+            'player_load': total_player_load
+        }
+    
+    @staticmethod
+    def calculate_average(session_data: List[Dict]) -> Dict:
+        """Calculate average per session for a group"""
+        if not session_data:
+            return {'distance': 0, 'hsr': 0, 'sprint': 0, 'vmax': 0, 'dec': 0, 'pp': 0, 'player_load': 0}
+        
+        totals = IndividualWeekReportGenerator.calculate_totals(session_data)
+        count = len(session_data)
+        
+        return {
+            'distance': totals['distance'] / count,
+            'hsr': totals['hsr'] / count,
+            'sprint': totals['sprint'] / count,
+            'vmax': totals['vmax'],  # Max, not average
+            'dec': totals['dec'] / count,
+            'pp': totals['pp'] / count,
+            'player_load': totals['player_load'] / count
+        }
+    
+    @staticmethod
+    def _draw_header(ax, player_name, position, week_start, week_end, week_number, tags=""):
+        """Draw header section"""
+        from matplotlib import patches
+        from PIL import Image
+        from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+        
+        ax.set_facecolor('none')
+        
+        # White rectangle
+        rect = patches.Rectangle((0, 0.25), 0.99, 0.5, linewidth=1, 
+                                edgecolor='none', facecolor='#ffffff', zorder=0)
+        ax.add_patch(rect)
+        
+        # Logo
+        try:
+            logo = Image.open('assets/logo.png')
+            imagebox = OffsetImage(logo, zoom=0.17)
+            ab = AnnotationBbox(imagebox, (0.12, 0.5), frameon=False, 
+                              xycoords='axes fraction', box_alignment=(0.5, 0.5))
+            ax.add_artist(ab)
+        except:
+            pass
+        
+        # Title
+        ax.text(0.5, 0.5, 'MICROCYCLE JOUEUR',
+                ha='center', va='center',
+                fontsize=20, fontweight='bold',
+                color='#1a2332', zorder=10)
+        
+        # Info boxes
+        info_y = 0.5
+        ax.text(0.70, info_y + 0.15, 'POSTE', ha='center', va='center', fontsize=9, color='#718096', zorder=10)
+        ax.text(0.70, info_y - 0.15, position, ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
+        
+        ax.text(0.80, info_y + 0.15, week_start, ha='center', va='center', fontsize=9, color='#718096', zorder=10)
+        ax.text(0.80, info_y - 0.15, week_end, ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
+        
+        ax.text(0.90, info_y + 0.15, 'NUMÉRO DE SEMAINE', ha='center', va='center', fontsize=9, color='#718096', zorder=10)
+        ax.text(0.90, info_y - 0.15, str(week_number), ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
+        
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+    
+    @staticmethod
+    def _draw_daily_table(ax, daily_data, player_max, player_name):
+        """Draw main day-by-day table with percentages"""
+        ax.axis('off')
+        ax.set_xlim(0, 16)
+        ax.set_ylim(0, 12)
+        
+        from matplotlib.patches import Rectangle
+        import numpy as np
+        
+        # Headers
+        headers = ['JOUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'SPRINT', '%SPRINT', 'VMAX', '%VMAX', 'DEC', '%DEC', 'POWER PLAY', '%PP', 'PLAYER LOAD']
+        col_widths = [1.5, 0.8, 0.9, 0.7, 0.8, 0.7, 0.8, 0.7, 0.7, 0.7, 0.7, 0.7, 1.0, 0.7, 1.2]
+        
+        x_pos = 0
+        y = 11
+        for header, width in zip(headers, col_widths):
+            rect = Rectangle((x_pos, y-0.4), width, 0.8,
+                           facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
+                           edgecolor='white', linewidth= 0.5)
+            ax.add_patch(rect)
+            
+            ax.text(x_pos + width/2, y, header, ha='center', va='center',
+                   fontsize=7, fontweight='bold', color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += width
+        
+        # Days
+        days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        
+        # Aggregate player loads for monotonie calculation
+        player_loads = [daily_data.get(day, {}).get('player_load', 0) for day in days_order if daily_data.get(day, {}).get('session_count', 0) > 0]
+        
+        # Calculate totals
+        total_minutes = sum(daily_data.get(day, {}).get('duration', 0) for day in days_order) // 60
+        total_distance = sum(daily_data.get(day, {}).get('distance', 0) for day in days_order)
+        total_hsr = sum(daily_data.get(day, {}).get('hsr', 0) for day in days_order)
+        total_sprint = sum(daily_data.get(day, {}).get('sprint', 0) for day in days_order)
+        max_vmax = max((daily_data.get(day, {}).get('vmax', 0) for day in days_order), default=0)
+        total_dec = sum(daily_data.get(day, {}).get('dec', 0) for day in days_order)
+        total_pp = sum(daily_data.get(day, {}).get('pp', 0) for day in days_order)
+        total_player_load = sum(player_loads)
+        
+        # Calculate monotonie
+        if len(player_loads) > 1 and np.std(player_loads) > 0:
+            monotonie = np.mean(player_loads) / np.std(player_loads)
+        else:
+            monotonie = 0
+        
+        # Day rows
+        for day in days_order:
+            y -= 1
+            day_info = daily_data.get(day, {})
+            
+            if day_info.get('session_count', 0) == 0:
+                # Empty row
+                row_data = [(day, None, 'center')] + [('', None, 'center')] * 14
+            else:
+                minutes = day_info['duration'] // 60
+                distance = int(day_info['distance'])
+                hsr = int(day_info['hsr'])
+                sprint = int(day_info['sprint'])
+                vmax = day_info['vmax']
+                dec = day_info['dec']
+                pp = day_info['pp']
+                pl = day_info['player_load']
+                
+                # Calculate percentages
+                dist_pct = int((distance / player_max['distance'] * 100)) if player_max['distance'] > 0 else 0
+                hsr_pct = int((hsr / player_max['hsr'] * 100)) if player_max['hsr'] > 0 else 0
+                sprint_pct = int((sprint / player_max['sprint'] * 100)) if player_max['sprint'] > 0 else 0
+                vmax_pct = int((vmax / player_max['vmax'] * 100)) if player_max['vmax'] > 0 else 0
+                dec_pct = int((dec / player_max['dec'] * 100)) if player_max['dec'] > 0 else 0
+                pp_pct = int((pp / player_max['pp'] * 100)) if player_max['pp'] > 0 else 0
+                
+                # Color coding based on percentages
+                dist_color = SessionReportGenerator.COLORS['green'] if dist_pct >= 50 else (SessionReportGenerator.COLORS['orange'] if dist_pct >= 30 else SessionReportGenerator.COLORS['red'])
+                hsr_color = SessionReportGenerator.COLORS['green'] if hsr_pct >= 50 else (SessionReportGenerator.COLORS['orange'] if hsr_pct >= 30 else SessionReportGenerator.COLORS['red'])
+                sprint_color = SessionReportGenerator.COLORS['green'] if sprint_pct >= 50 else (SessionReportGenerator.COLORS['orange'] if sprint_pct >= 30 else SessionReportGenerator.COLORS['red'])
+                
+                row_data = [
+                    (day, None, 'center'),
+                    (str(minutes), None, 'center'),
+                    (str(distance), dist_color, 'center'),
+                    (f'{dist_pct}%', None, 'center'),
+                    (str(hsr), hsr_color, 'center'),
+                    (f'{hsr_pct}%', None, 'center'),
+                    (str(sprint), sprint_color, 'center'),
+                    (f'{sprint_pct}%', None, 'center'),
+                    (f'{vmax:.1f}', None, 'center'),
+                    (f'{vmax_pct}%', None, 'center'),
+                    (str(dec), None, 'center'),
+                    (f'{dec_pct}%', None, 'center'),
+                    (str(pp), None, 'center'),
+                    (f'{pp_pct}%', None, 'center'),
+                    (f'{pl:.1f}', None, 'center')
+                ]
+            
+            x_pos = 0
+            for (value, bgcolor, align), width in zip(row_data, col_widths):
+                if bgcolor:
+                    rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                                   facecolor=bgcolor, edgecolor='#4a5568', linewidth=0.5)
+                else:
+                    rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                                   facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                                   edgecolor='#4a5568', linewidth=0.5)
+                ax.add_patch(rect)
+                
+                text_color = IndividualWeekReportGenerator.COLORS['text_white']
+                ax.text(x_pos + width/2, y, value,
+                       ha='center', va='center', fontsize=7, color=text_color)
+                x_pos += width
+        
+        # TOTAL row
+        y -= 0.3
+        total_row_data = [
+            ('TOTAL', None, 'center'),
+            (str(total_minutes), None, 'center'),
+            (str(int(total_distance)), None, 'center'),
+            (f'{int((total_distance / player_max["distance"] * 100)) if player_max["distance"] > 0 else 0}%', None, 'center'),
+            (str(int(total_hsr)), None, 'center'),
+            (f'{int((total_hsr / player_max["hsr"] * 100)) if player_max["hsr"] > 0 else 0}%', None, 'center'),
+            (str(int(total_sprint)), None, 'center'),
+            (f'{int((total_sprint / player_max["sprint"] * 100)) if player_max["sprint"] > 0 else 0}%', None, 'center'),
+            (f'{max_vmax:.1f}', None, 'center'),
+            (f'{int((max_vmax / player_max["vmax"] * 100)) if player_max["vmax"] > 0 else 0}%', None, 'center'),
+            (str(total_dec), None, 'center'),
+            (f'{int((total_dec / player_max["dec"] * 100)) if player_max["dec"] > 0 else 0}%', None, 'center'),
+            (str(total_pp), None, 'center'),
+            (f'{int((total_pp / player_max["pp"] * 100)) if player_max["pp"] > 0 else 0}%', None, 'center'),
+            (f'{total_player_load:.1f}', None, 'center')
+        ]
+        
+        x_pos = 0
+        for (value, _, align), width in zip(total_row_data, col_widths):
+            rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                           facecolor='#2d3748', edgecolor='#4a5568', linewidth=0.5)
+            ax.add_patch(rect)
+            
+            ax.text(x_pos + width/2, y, value,
+                   ha='center', va='center', fontsize=7, fontweight='bold', 
+                   color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += width
+        
+        # OBJECTIF row
+        y -= 1
+        objectif_row_data = [
+            ('OBJECTIF', None, 'center'),
+            ('', None, 'center'),
+            ('', None, 'center'),
+            ('200%', None, 'center'),
+            ('', None, 'center'),
+            ('100%', None, 'center'),
+            ('', None, 'center'),
+            ('100%', None, 'center'),
+            ('', None, 'center'),
+            ('100%', None, 'center'),
+            ('', None, 'center'),
+            ('100%', None, 'center'),
+            ('', None, 'center'),
+            ('100%', None, 'center'),
+            ('', None, 'center')
+        ]
+        
+        x_pos = 0
+        for (value, _, align), width in zip(objectif_row_data, col_widths):
+            rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                           edgecolor='#4a5568', linewidth=0.5)
+            ax.add_patch(rect)
+            
+            ax.text(x_pos + width/2, y, value,
+                   ha='center', va='center', fontsize=7, 
+                   color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += width
+        
+        # MONOTONIE row
+        y -= 1
+        mono_row_data = [
+            ('MONOTONIE', None, 'center'),
+            (f'{monotonie:.2f}' if monotonie > 0 else '', SessionReportGenerator.COLORS['pink'], 'center')
+        ] + [('', None, 'center')] * 13
+        
+        x_pos = 0
+        for i, ((value, bgcolor, align), width) in enumerate(zip(mono_row_data, col_widths)):
+            if i == 1 and bgcolor:
+                rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                               facecolor=bgcolor, edgecolor='#4a5568', linewidth=0.5)
+            else:
+                rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                               facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                               edgecolor='#4a5568', linewidth=0.5)
+            ax.add_patch(rect)
+            
+            ax.text(x_pos + width/2, y, value,
+                   ha='center', va='center', fontsize=7, 
+                   color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += width
+
+    
+    @staticmethod
+    def _draw_graphs(ax, daily_data):
+        """Draw 6 mini bar charts for each metric"""
+        ax.axis('off')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        
+        days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        
+        # Extract data for each metric
+        metrics = {
+            'DISTANCE': [daily_data.get(day, {}).get('distance', 0) / 1000 for day in days_order],
+            'HSR': [daily_data.get(day, {}).get('hsr', 0) for day in days_order],
+            'SPRINT': [daily_data.get(day, {}).get('sprint', 0) for day in days_order],
+            'VMAX': [daily_data.get(day, {}).get('vmax', 0) for day in days_order],
+            'DEC': [daily_data.get(day, {}).get('dec', 0) for day in days_order],
+            'POWER PLAY': [daily_data.get(day, {}).get('pp', 0) for day in days_order]
+        }
+        
+        # Position for 6 graphs (2 rows x 3 cols)
+        positions = [
+            (0.0, 0.5, 0.33, 0.5),   # DISTANCE
+            (0.33, 0.5, 0.33, 0.5),  # HSR
+            (0.66, 0.5, 0.34, 0.5),  # SPRINT
+            (0.0, 0.0, 0.33, 0.5),   # VMAX
+            (0.33, 0.0, 0.33, 0.5),  # DEC
+            (0.66, 0.0, 0.34, 0.5)   # POWER PLAY
+        ]
+        
+        for (metric_name, values), (x, y, w, h) in zip(metrics.items(), positions):
+            graph_ax = ax.inset_axes([x, y, w, h])
+            # Simple bar chart
+            import matplotlib.pyplot as plt
+            x_pos = range(len(days_order))
+            bars = graph_ax.bar(x_pos, values, color='#3182ce', width=0.6)
+            
+            graph_ax.set_title(metric_name, fontsize=9, fontweight='bold', color='white', pad=5)
+            graph_ax.set_xticks(x_pos)
+            graph_ax.set_xticklabels(days_order, fontsize=6, rotation=45, ha='right', color='white')
+            graph_ax.tick_params(axis='y', labelsize=6, colors='white')
+            graph_ax.set_facecolor('#1a202c')
+            for spine in graph_ax.spines.values():
+                spine.set_edgecolor('#4a5568')
+            graph_ax.grid(axis='y', alpha=0.2, color='white')
+    
+    @staticmethod
+    def _draw_comparison_tables(ax, player_totals, position_avg, team_avg):
+        """Draw 3 comparison tables on the right side"""
+        ax.axis('off')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        
+        from matplotlib.patches import Rectangle
+        
+        # Headers for the 3 tables
+        headers = ['DIST', 'HSR', 'SPRINT', 'VMAX', 'DEC', 'PP', 'LOAD']
+        col_width = 1.0 / 7
+        
+        # Player table (top)
+        y_start = 0.7
+        x_pos = 0
+        for header in headers:
+            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
+                           facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
+                           edgecolor='white', linewidth=0.5)
+            ax.add_patch(rect)
+            ax.text(x_pos + col_width/2, y_start-0.025, header, ha='center', va='center',
+                   fontsize=7, fontweight='bold', color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += col_width
+        
+        # Player values
+        y_start -= 0.05
+        player_values = [
+            f'{int(player_totals["distance"])}',
+            f'{int(player_totals["hsr"])}',
+            f'{int(player_totals["sprint"])}',
+            f'{player_totals["vmax"]:.1f}',
+            f'{int(player_totals["dec"])}',
+            f'{int(player_totals["pp"])}',
+            f'{player_totals["player_load"]:.1f}'
+        ]
+        
+        x_pos = 0
+        for value in player_values:
+            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
+                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                           edgecolor='#4a5568', linewidth=0.5)
+            ax.add_patch(rect)
+            ax.text(x_pos + col_width/2, y_start-0.025, value, ha='center', va='center',
+                   fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += col_width
+        
+        # Position average table (middle)
+        y_start = 0.4
+        ax.text(0.5, y_start + 0.03, 'MOYENNE POSTE', ha='center', va='center',
+               fontsize=8, fontweight='bold', color='white')
+        
+        x_pos = 0
+        for header in headers:
+            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
+                           facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
+                           edgecolor='white', linewidth=0.5)
+            ax.add_patch(rect)
+            ax.text(x_pos + col_width/2, y_start-0.025, header, ha='center', va='center',
+                   fontsize=7, fontweight='bold', color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += col_width
+        
+        # Position average values
+        y_start -= 0.05
+        pos_values = [
+            f'{int(position_avg["distance"])}',
+            f'{int(position_avg["hsr"])}',
+            f'{int(position_avg["sprint"])}',
+            f'{position_avg["vmax"]:.1f}',
+            f'{int(position_avg["dec"])}',
+            f'{int(position_avg["pp"])}',
+            f'{position_avg["player_load"]:.1f}'
+        ]
+        
+        x_pos = 0
+        for value in pos_values:
+            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
+                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                           edgecolor='#4a5568', linewidth=0.5)
+            ax.add_patch(rect)
+            ax.text(x_pos + col_width/2, y_start-0.025, value, ha='center', va='center',
+                   fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += col_width
+        
+        # Team average table (bottom)
+        y_start = 0.1
+        ax.text(0.5, y_start + 0.03, 'MOYENNE ÉQUIPE', ha='center', va='center',
+               fontsize=8, fontweight='bold', color='white')
+        
+        x_pos = 0
+        for header in headers:
+            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
+                           facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
+                           edgecolor='white', linewidth=0.5)
+            ax.add_patch(rect)
+            ax.text(x_pos + col_width/2, y_start-0.025, header, ha='center', va='center',
+                   fontsize=7, fontweight='bold', color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += col_width
+        
+        # Team average values
+        y_start -= 0.05
+        team_values = [
+            f'{int(team_avg["distance"])}',
+            f'{int(team_avg["hsr"])}',
+            f'{int(team_avg["sprint"])}',
+            f'{team_avg["vmax"]:.1f}',
+            f'{int(team_avg["dec"])}',
+            f'{int(team_avg["pp"])}',
+            f'{team_avg["player_load"]:.1f}'
+        ]
+        
+        x_pos = 0
+        for value in team_values:
+            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
+                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                           edgecolor='#4a5568', linewidth=0.5)
+            ax.add_patch(rect)
+            ax.text(x_pos + col_width/2, y_start-0.025, value, ha='center', va='center',
+                   fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
+            x_pos += col_width
+    
+    @staticmethod
+    def generate_individual_week_report(
+        player_sessions: List[Dict[str, Any]],
+        all_player_sessions: List[Dict[str, Any]],
+        same_position_sessions: List[Dict[str, Any]],
+        team_sessions: List[Dict[str, Any]],
+        player_name: str,
+        position: str,
+        week_number: int,
+        year: int,
+        week_start: str,
+        week_end: str
+    ) -> str:
+        """
+        Generate individual player weekly report
+        
+        Returns:
+            Base64 encoded PNG image
+        """
+        # Calculate player max
+        player_max = IndividualWeekReportGenerator.calculate_player_max(all_player_sessions)
+        
+        # Aggregate data
+        daily_data = IndividualWeekReportGenerator.aggregate_by_day_individual(player_sessions)
+        player_totals = IndividualWeekReportGenerator.calculate_totals(player_sessions)
+        position_avg = IndividualWeekReportGenerator.calculate_average(same_position_sessions)
+        team_avg = IndividualWeekReportGenerator.calculate_average(team_sessions)
+        
+        # Create figure
+        fig = plt.figure(figsize=(20, 14), facecolor=IndividualWeekReportGenerator.COLORS['background'])
+        
+        # === HEADER ===
+        header_ax = plt.axes([0.05, 0.90, 0.9, 0.08])
+        IndividualWeekReportGenerator._draw_header(header_ax, player_name, position, week_start, week_end, week_number)
+        
+        # === MAIN TABLE ===
+        table_ax = plt.axes([0.05, 0.45, 0.65, 0.40])
+        IndividualWeekReportGenerator._draw_daily_table(table_ax, daily_data, player_max, player_name)
+        
+        # === GRAPHS ===
+        graph_ax = plt.axes([0.05, 0.05, 0.65, 0.35])
+        IndividualWeekReportGenerator._draw_graphs(graph_ax, daily_data)
+        
+        # === COMPARISON TABLES ===
+        comparison_ax = plt.axes([0.75, 0.05, 0.20, 0.80])
+        IndividualWeekReportGenerator._draw_comparison_tables(comparison_ax, player_totals, position_avg, team_avg)
+        
+        # Save to bytes
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
+        buf.seek(0)
+        plt.close(fig)
+        
+        # Convert to base64
+        img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        return img_base64
