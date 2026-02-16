@@ -2,12 +2,12 @@ import os
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session, select
+from sqlmodel import Session, select, delete
 from datetime import timedelta
 
 from ..middleware.security import require_coach_or_admin
 from ..db.database import get_session
-from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole
+from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole, RefreshToken
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from ..middleware.security import get_current_user, require_admin
 
@@ -229,6 +229,8 @@ def delete_my_account(
     Supprimer son propre compte
     """
     email = current_user.email
+    # Supprimer les refresh tokens liés pour éviter les contraintes FK
+    session.exec(delete(RefreshToken).where(RefreshToken.user_id == current_user.id))
     session.delete(current_user)
     session.commit()
     return {"message": f"Account {email} deleted successfully"}
@@ -385,6 +387,8 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     email = user.email
+    # Supprimer les refresh tokens liés pour éviter les contraintes FK
+    session.exec(delete(RefreshToken).where(RefreshToken.user_id == user.id))
     session.delete(user)
     session.commit()
     return {"message": f"User {email} deleted successfully"}

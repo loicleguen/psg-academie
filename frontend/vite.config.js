@@ -6,9 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': {
+      '/api/physical': {
         target: 'http://nginx',  // Point vers nginx qui route vers les backends
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/physical/, '/api/physical')
       }
     }
   }

@@ -39,10 +39,21 @@ export default function AdminPannel() {
 
   const fetchTeams = async () => {
     try {
-      const response = await api.get('/catapult/teams');
-      setTeams(response.data);
+      const response = await api.get('/teams/');
+      const data = response.data;
+      if (Array.isArray(data)) {
+        setTeams(data);
+      } else if (data && Array.isArray(data.teams)) {
+        setTeams(data.teams);
+      } else if (data && Array.isArray(data.data)) {
+        setTeams(data.data);
+      } else {
+        setTeams([]);
+        console.warn('Unexpected /teams response shape:', data);
+      }
     } catch (err) {
-      console.error('Erreur chargement teams:', err);
+      console.error('Erreur chargement teams:', err, err?.response?.status, err?.response?.data);
+      setTeams([]);
     }
   };
 
@@ -368,9 +379,17 @@ export default function AdminPannel() {
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 px-3 py-2 border"
                     >
                       <option value="">Sélectionner une équipe</option>
-                      {teams.map(team => (
-                        <option key={team.id} value={team.id}>{team.name}</option>
-                      ))}
+                      {teams.length === 0 ? (
+                        <option value="">Aucune équipe disponible</option>
+                      ) : (
+                        teams.map(team => (
+                          <option key={team.id} value={team.id}>
+                            {team.academy?.country
+                              ? `${team.academy.country.name} / ${team.academy.name} / ${team.name}`
+                              : (team.academy ? `${team.academy.name} / ${team.name}` : team.name)}
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
 
