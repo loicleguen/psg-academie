@@ -27,7 +27,6 @@ class User(SQLModel, table=True):
     age: Optional[int] = Field(default=None)
     team_id: Optional[int] = Field(default=None, foreign_key="team.id")
     position: Optional[str] = Field(default=None, max_length=50)
-    photo_url: Optional[str] = Field(default=None, max_length=1024)
     team: Optional["Team"] = Relationship(back_populates="players")
     injuries: List["Injury"] = Relationship(back_populates="user")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -46,7 +45,6 @@ class UserCreate(SQLModel):
     age: Optional[int] = None
     team_id: Optional[int] = None
     position: Optional[str] = None
-    photo_url: Optional[str] = None
 
 
 class UserRead(SQLModel):
@@ -60,7 +58,6 @@ class UserRead(SQLModel):
     age: Optional[int] = None
     team_id: Optional[int] = None
     position: Optional[str] = None
-    photo_url: Optional[str] = None
     created_at: datetime
 
 
@@ -95,7 +92,6 @@ class UserUpdate(SQLModel):
     age: Optional[int] = None
     player_name: Optional[str] = None
     position: Optional[str] = None
-    photo_url: Optional[str] = None
 
 
 class UserUpdateMe(SQLModel):
@@ -106,7 +102,6 @@ class UserUpdateMe(SQLModel):
     age: Optional[int] = None
     player_name: Optional[str] = None
     position: Optional[str] = None
-    photo_url: Optional[str] = None
 
 
 class RefreshToken(SQLModel, table=True):

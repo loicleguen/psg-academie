@@ -1,6 +1,4 @@
-import os
-import shutil
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from datetime import timedelta
@@ -259,8 +257,7 @@ def get_all_users(
             "team_id": user.team_id,
             "position": user.position,
             "created_at": user.created_at,
-            "team_name": None,
-            "photo_url": user.photo_url
+            "team_name": None
         }
         
         # Ajouter le chemin complet de l'équipe pour les joueurs
@@ -359,8 +356,7 @@ def update_user(
         "team_id": user.team_id,
         "position": user.position,
         "created_at": user.created_at,
-        "team_name": None,
-        "photo_url": user.photo_url
+        "team_name": None
     }
     
     if user.team_id:
@@ -388,21 +384,3 @@ def delete_user(
     session.delete(user)
     session.commit()
     return {"message": f"User {email} deleted successfully"}
-
-
-@router.post("/me/photo", tags=["Auth - User"], summary="[Me] Upload profile photo")
-def upload_my_photo(file: UploadFile = File(...), current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    if not file:
-        raise HTTPException(status_code=400, detail="No file uploaded")
-    filename = file.filename or f"{current_user.id}.jpg"
-    _, ext = os.path.splitext(filename)
-    os.makedirs('static/uploads/players', exist_ok=True)
-    safe_name = f"{current_user.id}{ext}"
-    dest_path = os.path.join('static', 'uploads', 'players', safe_name)
-    with open(dest_path, 'wb') as f:
-        shutil.copyfileobj(file.file, f)
-    current_user.photo_url = f"/static/uploads/players/{safe_name}"
-    session.add(current_user)
-    session.commit()
-    session.refresh(current_user)
-    return {"photo_url": current_user.photo_url}

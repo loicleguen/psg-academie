@@ -1,6 +1,5 @@
 import src.models
 from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from src.routes.country import router as country_router
 from src.routes.academy import router as academy_router
@@ -19,8 +18,6 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan)
 
-# Serve uploaded static files
-app.mount('/static', StaticFiles(directory='static'), name='static')
 
 app.include_router(auth_router)
 app.include_router(country_router)

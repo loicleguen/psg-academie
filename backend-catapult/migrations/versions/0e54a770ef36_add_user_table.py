@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS "user" (
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
 """)
-op.execute("""
-DO $$
+    op.execute("""
+    DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_class c

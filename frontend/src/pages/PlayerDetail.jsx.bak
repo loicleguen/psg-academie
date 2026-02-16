@@ -19,27 +19,6 @@ export default function PlayerDetail() {
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [allPlayersInfo, setAllPlayersInfo] = useState([]);
 
-  const handlePhotoSelect = async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      await uploadPhoto(file);
-    }
-  };
-
-  const uploadPhoto = async (fileParam) => {
-    const file = fileParam;
-    if (!file || !playerInfo) return;
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      const res = await api.post(`/auth/me/photo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const photo = res.data.photo_url;
-      setPlayerInfo({ ...playerInfo, photo_url: photo });
-    } catch (err) {
-      console.error('Upload failed', err);
-    }
-  };
-
   // Medical state
   const [injuries, setInjuries] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -285,27 +264,12 @@ export default function PlayerDetail() {
               <div className="space-y-6">
                 <div className="flex items-start gap-6">
                   <div className="flex-shrink-0">
-                    <div className="relative w-48 h-48">
-                      {playerInfo?.photo_url ? (
-                        <img src={playerInfo.photo_url.startsWith('http') ? playerInfo.photo_url : `/api/physical${playerInfo.photo_url}`} alt="photo" className="w-48 h-48 object-cover rounded-lg" />
-                      ) : (
-                        <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <svg className="w-24 h-24 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-
-                      <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
-
-                      <label htmlFor="photo-upload" className="absolute inset-0 flex items-center justify-center rounded-lg cursor-pointer hover:bg-black hover:bg-opacity-25">
-                        {!playerInfo?.photo_url && (
-                          <span className="px-3 py-1 bg-white bg-opacity-80 text-sm rounded">Upload</span>
-                        )}
-                      </label>
-
-
+                    <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <svg className="w-24 h-24 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
                     </div>
+                    <p className="text-sm text-gray-500 mt-2 text-center">Photo à venir</p>
                   </div>
 
                   <div className="flex-1 grid grid-cols-2 gap-6">
