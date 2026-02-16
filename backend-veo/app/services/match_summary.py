@@ -15,9 +15,6 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-from sqlalchemy import and_
-from sqlalchemy.orm import Session
-
 from app.models import (
     Match,
     MatchPlayerParticipation,
@@ -38,6 +35,8 @@ from app.schemas.summary import (
     TeamMetricCell,
     TeamMetricsBlock,
 )
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
 
 
 class MatchSummaryService:
