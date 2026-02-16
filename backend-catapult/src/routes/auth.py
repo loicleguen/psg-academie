@@ -406,3 +406,24 @@ def upload_my_photo(file: UploadFile = File(...), current_user: User = Depends(g
     session.commit()
     session.refresh(current_user)
     return {"photo_url": current_user.photo_url}
+
+
+@router.post("/users/{user_id}/photo", tags=["Auth - Coach/Admin"], summary="Upload profile photo for a user (coach/admin)")
+def upload_user_photo(user_id: int, file: UploadFile = File(...), current_user: User = Depends(require_coach_or_admin), session: Session = Depends(get_session)):
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    filename = file.filename or f"{user.id}.jpg"
+    _, ext = os.path.splitext(filename)
+    os.makedirs('static/uploads/players', exist_ok=True)
+    safe_name = f"{user.id}{ext}"
+    dest_path = os.path.join('static', 'uploads', 'players', safe_name)
+    with open(dest_path, 'wb') as f:
+        shutil.copyfileobj(file.file, f)
+    user.photo_url = f"/static/uploads/players/{safe_name}"
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return {"photo_url": user.photo_url}

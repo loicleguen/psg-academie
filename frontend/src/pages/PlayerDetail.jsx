@@ -32,9 +32,35 @@ export default function PlayerDetail() {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await api.post(`/auth/me/photo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // Déterminer si on upload pour un autre utilisateur (admin/coach)
+      const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+      let url = '/auth/me/photo';
+      if (me && (me.role === 'admin' || me.role === 'coach') && playerInfo?.id && me.id !== playerInfo.id) {
+        url = `/auth/users/${playerInfo.id}/photo`;
+      }
+
+      const res = await api.post(url, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       const photo = res.data.photo_url;
-      setPlayerInfo({ ...playerInfo, photo_url: photo });
+
+      // Mettre à jour l'état local
+      if (url.includes('/auth/me/photo')) {
+        // Uploaded for current user
+        setPlayerInfo({ ...playerInfo, photo_url: photo });
+        try {
+          const meRes = await api.get('/auth/me');
+          const me2 = meRes.data;
+          if (me2 && me2.id) {
+            localStorage.setItem('user', JSON.stringify(me2));
+            if (playerInfo?.id === me2.id) {
+              setPlayerInfo(me2);
+            }
+          }
+        } catch (e) {}
+      } else {
+        // Uploaded for another user (admin/coach) — refresh player info
+        try { await loadPlayerInfo(); } catch(e) {}
+      }
+
     } catch (err) {
       console.error('Upload failed', err);
     }
@@ -70,10 +96,38 @@ export default function PlayerDetail() {
 
   const loadPlayerInfo = async () => {
     try {
+      // 1) Try cached user from localStorage
+      const cached = localStorage.getItem('user');
+      if (cached) {
+        try {
+          const u = JSON.parse(cached);
+          if (u && (u.player_name === playerName || u.full_name === playerName)) {
+            setPlayerInfo(u);
+            return;
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+
+      // 2) Try /auth/me (works when viewing own profile)
+      try {
+        const meRes = await api.get('/auth/me');
+        const me = meRes.data;
+        if (me && (me.player_name === playerName || me.full_name === playerName)) {
+          setPlayerInfo(me);
+          return;
+        }
+      } catch (e) {
+        // ignore if not authenticated
+      }
+
+      // 3) Fallback to admin endpoint /auth/users (existing behavior)
       const response = await api.get('/auth/users');
       const player = response.data.find(u => u.player_name === playerName || u.full_name === playerName);
       setPlayerInfo(player);
     } catch (error) {
+      // keep playerInfo as is on error
     }
   };
 
