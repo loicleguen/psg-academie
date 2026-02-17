@@ -28,7 +28,7 @@ export const authService = {
       email,
       password,
       full_name: fullName,
-      role: 'admin'
+      role: 'player'
     });
     return response.data;
   },
