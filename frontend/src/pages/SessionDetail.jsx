@@ -467,7 +467,7 @@ export default function SessionDetail() {
       if (!sessionInfo || !sessionInfo.week || !sessionInfo.year) {
         return;
       }
-      
+
       try {
         const response = await api.get('/catapult/players-by-week', {
           params: {
@@ -477,7 +477,7 @@ export default function SessionDetail() {
         });
         console.log('Players for week:', response.data);
         setAvailablePlayers(response.data);
-        
+
         // Présélectionner le premier joueur si disponible
         if (response.data.length > 0) {
           setSelectedPlayer(response.data[0]);
@@ -486,7 +486,7 @@ export default function SessionDetail() {
         console.error('Erreur récupération joueurs semaine:', err);
       }
     };
-    
+
     fetchWeekPlayers();
   }, [sessionInfo]);
 
@@ -586,9 +586,9 @@ export default function SessionDetail() {
       setShowReport(false);
       setShowVeoReport(false);
       setShowWeeklyReport(false);
-      
+
       const data = await catapultService.generateSessionReport(sessionTitle);
-      
+
       if (data.report_image) {
         setReportImage(`data:image/png;base64,${data.report_image}`);
         setShowReport(true);
@@ -626,21 +626,21 @@ export default function SessionDetail() {
       setShowReport(false);
       setShowVeoReport(false);
       setShowWeeklyReport(false);
-      
+
       // Utiliser directement le numéro de semaine ISO calculé par le backend
       const weekNumber = sessionInfo.week;
       const year = sessionInfo.year;
-      
+
       console.log('Session date:', sessionInfo.date);
       console.log('Year (from backend):', year);
       console.log('Week number (from backend):', weekNumber);
-      
+
       if (!weekNumber || !year) {
         setError('Numéro de semaine manquant');
         setLoading(false);
         return;
       }
-      
+
       // Fetch avec token d'authentification
       const response = await api.get('/catapult/reports/weekly.png', {
         params: {
@@ -650,7 +650,7 @@ export default function SessionDetail() {
         },
         responseType: 'blob'
       });
-      
+
       // Créer un object URL à partir du blob
       const imageUrl = URL.createObjectURL(response.data);
       setWeeklyReportUrl(imageUrl);
@@ -681,16 +681,16 @@ export default function SessionDetail() {
       setShowVeoReport(false);
       setShowWeeklyReport(false);
       setShowIndividualReport(false);
-      
+
       const weekNumber = sessionInfo.week;
       const year = sessionInfo.year;
-      
+
       if (!weekNumber || !year) {
         setError('Numéro de semaine manquant');
         setLoading(false);
         return;
       }
-      
+
       // Fetch avec token d'authentification
       const response = await api.get('/catapult/reports/individual-week.png', {
         params: {
@@ -700,7 +700,7 @@ export default function SessionDetail() {
         },
         responseType: 'blob'
       });
-      
+
       // Créer un object URL à partir du blob
       const imageUrl = URL.createObjectURL(response.data);
       setIndividualReportUrl(imageUrl);
@@ -1379,8 +1379,8 @@ export default function SessionDetail() {
                 disabled={!report.available || loading}
                 className={`
                   relative rounded-lg border p-6 text-left transition-all
-                  ${report.available 
-                    ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
+                  ${report.available
+                    ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer'
                     : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
                   ${loading && report.available ? 'opacity-50' : ''}
                 `}
@@ -1478,7 +1478,7 @@ export default function SessionDetail() {
                   <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  {veoReportMode === 'GRAPH' ? 'Télécharger PNG' : 'Télécharger CSV'}
+                  {veoReportMode === 'GRAPH' ? 'Télécharger' : 'Télécharger'}
                 </button>
               )}
             </div>
@@ -1540,7 +1540,7 @@ export default function SessionDetail() {
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                        <div className="rounded-md border border-blue-400/30 bg-gradient-to-br from-blue-500/20 to-slate-900/30 p-4">
+                        <div className="rounded-md border border-blue-400/30 bg-linear-to-br from-blue-500/20 to-slate-900/30 p-4">
                           <p className="text-xs uppercase tracking-wide text-blue-200">Score global plan de jeu</p>
                           <p className="mt-2 text-4xl font-bold text-white">{coachAnalysis.globalScore}/10</p>
                           <p className="mt-2 text-xs text-blue-100">
