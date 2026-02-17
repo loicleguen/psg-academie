@@ -50,10 +50,10 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, injuries = [] }) => {
                     <circle
                       cx={injury.coord_x}
                       cy={injury.coord_y}
-                      r={isHovered ? 2 : 1.2}
-                      fill={isHovered ? '#ef4444' : '#f87171'}
-                      stroke={isHovered ? '#dc2626' : '#ef4444'}
-                      strokeWidth={isHovered ? '0.5' : '0.3'}
+                      r={isHovered ? 2 : 2.2}
+                      fill={isHovered ? '#ed0909' : '#f40909'}
+                      stroke={isHovered ? '#0c0c0c' : '#080808'}
+                      strokeWidth={isHovered ? '0.8' : '0.5'}
                       className="transition-all duration-200"
                     />
                     {isHovered && (
@@ -64,14 +64,14 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, injuries = [] }) => {
                           cy={injury.coord_y}
                           r={3}
                           fill="none"
-                          stroke="#ef4444"
-                          strokeWidth="0.4"
-                          opacity="0.6"
+                          stroke="#02fb2c"
+                          strokeWidth="0.8"
+                          opacity="0.2"
                         >
                           <animate
                             attributeName="r"
                             from="2"
-                            to="4"
+                            to="8"
                             dur="1s"
                             repeatCount="indefinite"
                           />
