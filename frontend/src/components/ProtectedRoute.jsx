@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export const ProtectedRoute = ({ children }) => {
+export const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -12,5 +12,19 @@ export const ProtectedRoute = ({ children }) => {
     );
   }
 
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole) {
+    const allowed = Array.isArray(requiredRole)
+      ? requiredRole.includes(user.role)
+      : user.role === requiredRole;
+
+    if (!allowed) {
+      return <Navigate to="/" replace />; // rediriger si rôle insuffisant
+    }
+  }
+
+  return children;
 };

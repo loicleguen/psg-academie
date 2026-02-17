@@ -531,7 +531,8 @@ def generate_weekly_report(
     team_id: int,
     week: int,
     year: int = 2026,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Générer un rapport hebdomadaire pour une équipe et une semaine donnée.
