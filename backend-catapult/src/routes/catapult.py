@@ -307,7 +307,7 @@ def _construct_session_date_from_title(title: str, raw_date: str):
                 day = None
             if i+1 < len(parts):
                 mtok = __import__('re').sub(r"[^a-zA-Zà-ÿÀ-Ÿéèêûîç'-]", "", parts[i+1]).lower()
-                month = { 'janvier':1,'janv':1,'jan':1,'fevrier':2,'février':2,'fev':2,'fév':2,'mars':3,'mar':3,'avril':4,'avr':4,'mai':5,'juin':6,'juillet':7,'juil':7,'aout':8,'août':8,'aou':8,'septembre':9,'sept':9,'sep':9,'octobre':10,'oct':10,'novembre':11,'nov':11,'decembre':12,'décembre':12,'dec':12,'déc':12 }.get(mtok)
+                month = { 'janvier':1,'janv':1,'jan':1,'fevrier':2,'février':2,'fev':2,'fév':2,'mars':3,'mar':3,'avril':4,'avr':4,'mai':5,'may':5,'juin':6,'juillet':7,'juil':7,'aout':8,'août':8,'aou':8,'septembre':9,'sept':9,'sep':9,'octobre':10,'oct':10,'novembre':11,'nov':11,'decembre':12,'décembre':12,'dec':12,'déc':12 }.get(mtok)
             break
     if day and month:
         # year from raw_date
