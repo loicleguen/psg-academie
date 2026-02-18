@@ -47,48 +47,6 @@ def _parse_mixed_date(val):
             return None
 
 
-def _construct_session_date_from_title(title: str, raw_date: str):
-    """Extract day/month from title and year from raw_date (or fallback).
-    Returns a `date` or None.
-    """
-    from datetime import date as _date
-    if not title:
-        return None
-    right = title.split('/')[-1].strip()
-    parts = __import__('re').split(r"\s+", right)
-    day = None
-    month = None
-    for i,tok in enumerate(parts):
-        if tok.isdigit() and 1 <= len(tok) <= 2:
-            try:
-                day = int(tok)
-            except Exception:
-                day = None
-            if i+1 < len(parts):
-                mtok = __import__('re').sub(r"[^a-zA-Zà-ÿÀ-Ÿéèêûîç'-]", "", parts[i+1]).lower()
-                month = { 'janvier':1,'janv':1,'jan':1,'fevrier':2,'février':2,'fev':2,'fév':2,'mars':3,'mar':3,'avril':4,'avr':4,'mai':5,'juin':6,'juillet':7,'juil':7,'aout':8,'août':8,'aou':8,'septembre':9,'sept':9,'sep':9,'octobre':10,'oct':10,'novembre':11,'nov':11,'decembre':12,'décembre':12,'dec':12,'déc':12 }.get(mtok)
-            break
-    if day and month:
-        # year from raw_date
-        y = None
-        import re as _re
-        if raw_date:
-            m = _re.search(r"(\d{4})", str(raw_date))
-            if m:
-                try:
-                    y = int(m.group(1))
-                except Exception:
-                    y = None
-        if not y:
-            y = _date.today().year
-        try:
-            return _date(y, month, day)
-        except Exception:
-            return None
-    return None
-
-
-
 @router.post("/upload", response_model=Dict[str, Any])
 async def upload_catapult_csv(
     file: UploadFile = File(...),
@@ -284,27 +242,6 @@ def get_sessions_by_title(session_title: str, session: Session = Depends(get_ses
     statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
     sessions = session.exec(statement).all()
     return sessions
-
-
-
-@router.get("/sessions/{session_title}/players")
-def get_session_players(
-    session_title: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
-) -> List[str]:
-    """Get list of unique player names for a specific session"""
-    stmt = select(
-        User.player_name
-    ).join(
-        CatapultSession, CatapultSession.user_id == User.id
-    ).where(
-        CatapultSession.session_title == session_title,
-        CatapultSession.split_name == "all"
-    ).distinct()
-    
-    results = session.exec(stmt).all()
-    return sorted([r for r in results if r])
 
 
 
