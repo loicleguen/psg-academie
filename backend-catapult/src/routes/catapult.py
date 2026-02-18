@@ -2,7 +2,6 @@ import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from ..models.user import User
 from ..models.team import Team
-from ..models.team import Team
 from ..middleware.security import require_coach_or_admin
 from fastapi.responses import Response
 from sqlmodel import Session, select
@@ -967,4 +966,3 @@ def get_session_players_global(
 
     results = session.exec(stmt).all()
     return sorted([r for r in results if r])
-
