@@ -350,6 +350,7 @@ export default function PlayerDetail() {
               >
                 Info Player
               </button>
+
               <button
                 onClick={() => setActiveTab('stats')}
                 className={`px- py-4 text-sm font-medium border-b-2 transition-colors ${
@@ -360,6 +361,7 @@ export default function PlayerDetail() {
               >
                 Stats Catapult
               </button>
+              
               <button
                 onClick={() => setActiveTab('medical')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
@@ -373,10 +375,10 @@ export default function PlayerDetail() {
             </nav>
           </div>
 
-          <div className="p-6">
+          <div className="p-10">
             {activeTab === 'info' && (
               <div className="space-y-6">
-                <div className="flex items-start gap-6">
+                <div className="flex items-start gap-15">
                   <div className="flex-shrink-0">
                     <div className="relative w-48 h-48">
                       {playerInfo?.photo_url ? (
@@ -401,7 +403,7 @@ export default function PlayerDetail() {
                     </div>
                   </div>
 
-                  <div className="flex-1 grid grid-cols-2 gap-6">
+                  <div className="flex-1 grid grid-cols-2">
                     <div className="col-span-2 flex justify-end items-start">
                       <button
                         onClick={() => { setEditForm(playerInfo || {}); setShowEditModal(true); }}
@@ -409,62 +411,63 @@ export default function PlayerDetail() {
                       >
                         Modifier
                       </button>
+
                     </div>
                     <div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Nom complet</label>
+                        <label className="block text-sm font-medium text-gray-500">Nom complet</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.full_name || 'N/A'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                        <label className="block text-sm font-medium text-gray-500">Email</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.email || 'N/A'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Date de naissance</label>
+                        <label className="block text-sm font-medium text-gray-500">Date de naissance</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.date_of_birth ? new Date(playerInfo.date_of_birth).toLocaleDateString() : 'À renseigner'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Âge</label>
+                        <label className="block text-sm font-medium text-gray-500">Âge</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Adresse postale</label>
+                        <label className="block text-sm font-medium text-gray-500">Adresse postale</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.adress || 'À renseigner'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">N° de téléphone</label>
+                        <label className="block text-sm font-medium text-gray-500">N° de téléphone</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.phone_number || 'À renseigner'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Personne à contacter</label>
+                        <label className="block text-sm font-medium text-gray-500">Personne à contacter</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.emergency_contact || 'À renseigner'}</p>
                       </div>
                     </div>
 
                     <div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Poste</label>
+                        <label className="block text-sm font-medium text-gray-500">Poste</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.position || 'N/A'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Taille</label>
+                        <label className="block text-sm font-medium text-gray-500">Taille</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.height ? `${playerInfo.height} m` : 'À renseigner'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Poids</label>
+                        <label className="block text-sm font-medium text-gray-500">Poids</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.weight ? `${playerInfo.weight} kg` : 'À renseigner'}</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">Pied fort</label>
+                        <label className="block text-sm font-medium text-gray-500">Pied fort</label>
                         <p className="text-lg font-semibold text-gray-900">{playerInfo?.strong_foot || 'À renseigner'}</p>
                       </div>
                     </div>
