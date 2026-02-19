@@ -23,6 +23,8 @@ export default function PlayerDetail() {
     // Medical state
   const [injuries, setInjuries] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState(null);
   const [clickCoordinates, setClickCoordinates] = useState(null);
   const [injuryDate, setInjuryDate] = useState('');
   const [injuryComment, setInjuryComment] = useState('');
@@ -71,12 +73,26 @@ export default function PlayerDetail() {
   };
 
 
+  const [teams, setTeams] = useState([]);
+
   useEffect(() => {
     loadPlayerInfo();
     loadPlayerStats();
     loadAllPlayers();
     loadAllPlayersInfo();
+    fetchTeams();
   }, [playerName]);
+
+  const fetchTeams = async () => {
+    try {
+      const res = await api.get('/teams/');
+      const data = res.data;
+      if (Array.isArray(data)) setTeams(data);
+      else if (data && Array.isArray(data.teams)) setTeams(data.teams);
+      else if (data && Array.isArray(data.data)) setTeams(data.data);
+      else setTeams([]);
+    } catch (err) { console.debug('Erreur fetch teams', err); setTeams([]); }
+  };
 
   useEffect(() => {
     if (compareWith && activeTab === 'stats') {
@@ -386,6 +402,14 @@ export default function PlayerDetail() {
                   </div>
 
                   <div className="flex-1 grid grid-cols-2 gap-6">
+                    <div className="col-span-2 flex justify-end items-start">
+                      <button
+                        onClick={() => { setEditForm(playerInfo || {}); setShowEditModal(true); }}
+                        className="ml-auto px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-900"
+                      >
+                        Modifier
+                      </button>
+                    </div>
                     <div>
                       <div>
                         <label className="block text-sm font-medium text-gray-500 mb-1">Nom complet</label>
@@ -450,7 +474,154 @@ export default function PlayerDetail() {
                 </div>
               )}
 
-            {activeTab === 'stats' && playerStats && (
+            {showEditModal && editForm && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8">
+                      <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Nom complet</label>
+                          <input value={editForm.full_name || ''} onChange={(e)=>setEditForm({...editForm, full_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Email</label>
+                          <input value={editForm.email || ''} onChange={(e)=>setEditForm({...editForm, email: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Player name</label>
+                          <input value={editForm.player_name || ''} onChange={(e)=>setEditForm({...editForm, player_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Poste</label>
+                          <input value={editForm.position || ''} onChange={(e)=>setEditForm({...editForm, position: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Date de naissance</label>
+                          <input type="date" value={editForm.date_of_birth ? String(editForm.date_of_birth).split('T')[0] : ''} onChange={(e)=>setEditForm({...editForm, date_of_birth: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Âge</label>
+                          <input type="number" value={editForm.age || ''} onChange={(e)=>setEditForm({...editForm, age: e.target.value ? parseInt(e.target.value,10) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Adresse</label>
+                          <input value={editForm.adress || ''} onChange={(e)=>setEditForm({...editForm, adress: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">N° de téléphone</label>
+                          <input value={editForm.phone_number || ''} onChange={(e)=>setEditForm({...editForm, phone_number: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Taille (m)</label>
+                          <input type="number" step="0.01" value={editForm.height || ''} onChange={(e)=>setEditForm({...editForm, height: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Poids (kg)</label>
+                          <input type="number" step="0.1" value={editForm.weight || ''} onChange={(e)=>setEditForm({...editForm, weight: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Pied fort</label>
+                          <input value={editForm.strong_foot || ''} onChange={(e)=>setEditForm({...editForm, strong_foot: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Contact urgence</label>
+                          <input value={editForm.emergency_contact || ''} onChange={(e)=>setEditForm({...editForm, emergency_contact: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                        </div>
+
+                        <div className="md:col-span-2 border-t pt-4 mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              id="edit-is-active"
+                              type="checkbox"
+                              checked={editForm.is_active !== false}
+                              onChange={(e) => setEditForm({...editForm, is_active: e.target.checked})}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                            />
+                            <label htmlFor="edit-is-active" className="text-sm font-medium text-gray-700">Compte actif</label>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Rôle</label>
+                            <select
+                              value={editForm.role || 'player'}
+                              onChange={(e) => setEditForm({...editForm, role: e.target.value})}
+                              className="mt-1 w-full px-2 py-2 border rounded"
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="coach">Coach</option>
+                              <option value="player">Joueur</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Équipe</label>
+                            <select
+                              value={editForm.team_id || ''}
+                              onChange={(e) => setEditForm({...editForm, team_id: e.target.value ? parseInt(e.target.value,10) : null})}
+                              className="mt-1 w-full px-2 py-2 border rounded"
+                            >
+                              <option value="">— Aucune —</option>
+                              {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name || t.team_name || t.id}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                      </div>
+
+                      <div className="flex justify-end gap-3 mt-6">
+                        <button
+                          onClick={() => { setShowEditModal(false); setEditForm(null); }}
+                          className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const updateData = {
+                                email: editForm.email,
+                                full_name: editForm.full_name,
+                                role: editForm.role,
+                                is_active: editForm.is_active !== false,
+                                player_name: editForm.player_name,
+                                age: editForm.age || null,
+                                team_id: editForm.team_id || null,
+                                position: editForm.position,
+                                date_of_birth: editForm.date_of_birth || null,
+                                adress: editForm.adress || null,
+                                height: editForm.height || null,
+                                weight: editForm.weight || null,
+                                strong_foot: editForm.strong_foot || null,
+                                phone_number: editForm.phone_number || null,
+                                emergency_contact: editForm.emergency_contact || null,
+                              };
+                              if (editForm.password && editForm.password.trim() !== '') {
+                                updateData.password = editForm.password;
+                              }
+                              const res = await api.put(`/auth/users/${playerInfo?.id}`, updateData);
+                              setPlayerInfo(res.data);
+                              const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+                              if (me && me.id === res.data.id) { localStorage.setItem('user', JSON.stringify(res.data)); }
+                              setShowEditModal(false);
+                              setEditForm(null);
+                            } catch(err) {
+                              console.error(err);
+                              alert('Erreur lors de la sauvegarde: ' + (err.response?.data?.detail || err.message));
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Enregistrer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+{activeTab === 'stats' && playerStats && (
               <div className="space-y-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center">

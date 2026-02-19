@@ -69,6 +69,13 @@ class UserRead(SQLModel):
     position: Optional[str] = None
     photo_url: Optional[str] = None
     created_at: datetime
+    date_of_birth: Optional[datetime] = None
+    adress: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    strong_foot: Optional[str] = None
+    phone_number: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
 
 class UserLogin(SQLModel):
@@ -103,6 +110,13 @@ class UserUpdate(SQLModel):
     player_name: Optional[str] = None
     position: Optional[str] = None
     photo_url: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
+    adress: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    strong_foot: Optional[str] = None
+    phone_number: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
 
 class UserUpdateMe(SQLModel):
@@ -114,6 +128,13 @@ class UserUpdateMe(SQLModel):
     player_name: Optional[str] = None
     position: Optional[str] = None
     photo_url: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
+    adress: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    strong_foot: Optional[str] = None
+    phone_number: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
 
 class RefreshToken(SQLModel, table=True):

@@ -262,7 +262,14 @@ def get_all_users(
             "position": user.position,
             "created_at": user.created_at,
             "team_name": None,
-            "photo_url": user.photo_url
+            "photo_url": user.photo_url,
+            "date_of_birth": user.date_of_birth,
+            "adress": user.adress,
+            "height": user.height,
+            "weight": user.weight,
+            "strong_foot": user.strong_foot,
+            "phone_number": user.phone_number,
+            "emergency_contact": user.emergency_contact,
         }
         
         # Ajouter le chemin complet de l'équipe pour les joueurs
@@ -343,6 +350,22 @@ def update_user(
         if user_update.position is not None:
             user.position = user_update.position
 
+    # Champs profil étendus
+    if user_update.date_of_birth is not None:
+        user.date_of_birth = user_update.date_of_birth
+    if user_update.adress is not None:
+        user.adress = user_update.adress
+    if user_update.height is not None:
+        user.height = user_update.height
+    if user_update.weight is not None:
+        user.weight = user_update.weight
+    if user_update.strong_foot is not None:
+        user.strong_foot = user_update.strong_foot
+    if user_update.phone_number is not None:
+        user.phone_number = user_update.phone_number
+    if user_update.emergency_contact is not None:
+        user.emergency_contact = user_update.emergency_contact
+
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -362,7 +385,14 @@ def update_user(
         "position": user.position,
         "created_at": user.created_at,
         "team_name": None,
-        "photo_url": user.photo_url
+        "photo_url": user.photo_url,
+        "date_of_birth": user.date_of_birth,
+        "adress": user.adress,
+        "height": user.height,
+        "weight": user.weight,
+        "strong_foot": user.strong_foot,
+        "phone_number": user.phone_number,
+        "emergency_contact": user.emergency_contact,
     }
     
     if user.team_id:
