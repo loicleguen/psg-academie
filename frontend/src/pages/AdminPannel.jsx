@@ -58,10 +58,21 @@ export default function AdminPannel() {
   };
 
   const filterUsers = () => {
+    const sortActiveThenAlpha = (a, b) => {
+      // Les actifs en premier
+      if (a.is_active === b.is_active) {
+        // si même statut, trier alphabétiquement sur le nom complet
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      }
+      return a.is_active ? -1 : 1;
+    };
+
     if (filter === 'all') {
-      setFilteredUsers([...users].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      setFilteredUsers([...users].sort(sortActiveThenAlpha));
     } else {
-      setFilteredUsers(users.filter(u => u.role.toLowerCase() === filter).sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      setFilteredUsers(users
+        .filter(u => u.role.toLowerCase() === filter)
+        .sort(sortActiveThenAlpha));
     }
   };
 
