@@ -392,8 +392,8 @@ export default function PlayerDetail() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Âge</label>
-                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Poste</label>
+                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.position || 'N/A'}</p>
                     </div>
 
                     <div>
@@ -402,8 +402,28 @@ export default function PlayerDetail() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Poste</label>
-                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.position || 'N/A'}</p>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Taille</label>
+                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Date de naissance</label>
+                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Poids</label>
+                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Âge</label>
+                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Pied fort</label>
+                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
                     </div>
 
                     <div>
@@ -412,7 +432,7 @@ export default function PlayerDetail() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Pied fort</label>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">N° de téléphone</label>
                       <p className="text-lg font-semibold text-gray-900">À renseigner</p>
                     </div>
                   </div>
