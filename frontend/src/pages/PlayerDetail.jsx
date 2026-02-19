@@ -387,58 +387,68 @@ export default function PlayerDetail() {
 
                   <div className="flex-1 grid grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Nom complet</label>
-                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.full_name || 'N/A'}</p>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Nom complet</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.full_name || 'N/A'}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.email || 'N/A'}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Date de naissance</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.date_of_birth ? new Date(playerInfo.date_of_birth).toLocaleDateString() : 'À renseigner'}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Âge</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Adresse postale</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.adress || 'À renseigner'}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">N° de téléphone</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.phone_number || 'À renseigner'}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Personne à contacter</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.emergency_contact || 'À renseigner'}</p>
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Poste</label>
-                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.position || 'N/A'}</p>
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Poste</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.position || 'N/A'}</p>
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.email || 'N/A'}</p>
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Taille</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.height ? `${playerInfo.height} m` : 'À renseigner'}</p>
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Taille</label>
-                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Poids</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.weight ? `${playerInfo.weight} kg` : 'À renseigner'}</p>
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Date de naissance</label>
-                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Poids</label>
-                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Âge</label>
-                      <p className="text-lg font-semibold text-gray-900">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Pied fort</label>
-                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Adresse postale</label>
-                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-1">N° de téléphone</label>
-                      <p className="text-lg font-semibold text-gray-900">À renseigner</p>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500 mb-1">Pied fort</label>
+                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.strong_foot || 'À renseigner'}</p>
+                      </div>
                     </div>
                   </div>
+
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {activeTab === 'stats' && playerStats && (
               <div className="space-y-6">
