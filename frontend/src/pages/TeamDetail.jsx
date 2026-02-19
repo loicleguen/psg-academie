@@ -15,7 +15,8 @@ export default function TeamDetail() {
   const loadPlayers = async () => {
     try {
       const data = await organizationService.getTeamPlayers(teamName);
-      setPlayers(data.sort((a, b) => (a.player_name || a.full_name).localeCompare(b.player_name || b.full_name)));
+      const playersData = (data || []).filter(p => p.is_active === true);
+    setPlayers(playersData.sort((a, b) => (a.player_name || a.full_name).localeCompare(b.player_name || b.full_name)));
     } catch (error) {
       console.error('Erreur lors du chargement des joueurs:', error);
     } finally {
