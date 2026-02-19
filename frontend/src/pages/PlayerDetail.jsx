@@ -436,7 +436,7 @@ export default function PlayerDetail() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Adresse postale</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.adress || 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4 whitespace-pre-wrap break-words">{playerInfo?.adress || 'À renseigner'}</p>
                       </div>
 
                       <div>
@@ -509,7 +509,7 @@ export default function PlayerDetail() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Adresse</label>
-                          <input value={editForm.adress || ''} onChange={(e)=>setEditForm({...editForm, adress: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                          <textarea rows={2} value={editForm.adress || ''} onChange={(e)=>setEditForm({...editForm, adress: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded resize-none"></textarea>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700">N° de téléphone</label>
