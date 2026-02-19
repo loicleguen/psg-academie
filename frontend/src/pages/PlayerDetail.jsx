@@ -416,59 +416,59 @@ export default function PlayerDetail() {
                     <div>
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Nom complet</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.full_name || 'N/A'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.full_name || 'N/A'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Email</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.email || 'N/A'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.email || 'N/A'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Date de naissance</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.date_of_birth ? new Date(playerInfo.date_of_birth).toLocaleDateString() : 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.date_of_birth ? new Date(playerInfo.date_of_birth).toLocaleDateString() : 'À renseigner'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Âge</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Adresse postale</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.adress || 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.adress || 'À renseigner'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">N° de téléphone</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.phone_number || 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.phone_number || 'À renseigner'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Personne à contacter</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.emergency_contact || 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.emergency_contact || 'À renseigner'}</p>
                       </div>
                     </div>
 
                     <div>
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Poste</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.position || 'N/A'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.position || 'N/A'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Taille</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.height ? `${playerInfo.height} m` : 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.height ? `${playerInfo.height} m` : 'À renseigner'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Poids</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.weight ? `${playerInfo.weight} kg` : 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.weight ? `${playerInfo.weight} kg` : 'À renseigner'}</p>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Pied fort</label>
-                        <p className="text-lg font-semibold text-gray-900">{playerInfo?.strong_foot || 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.strong_foot || 'À renseigner'}</p>
                       </div>
                     </div>
                   </div>
