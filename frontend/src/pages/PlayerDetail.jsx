@@ -278,24 +278,38 @@ export default function PlayerDetail() {
     );
   }
 
-  const StatRow = ({ label, values, color }) => {
-    const cols = values.length;
+    // Render a table where each player is a column and each row is a stat
+  const StatTable = ({ rows }) => {
+    const players = [playerStats, ...comparePlayersStats];
     return (
-      <div className="border-b pb-4">
-        <p className="text-sm text-gray-600 font-medium mb-2">{label}</p>
-        <div className={cols > 1 ? `grid grid-cols-${cols} gap-4` : 'flex'}>
-          {values.map((v, idx) => (
-            <div key={idx}>
-              <p className="text-xs text-gray-500 mb-1">
-                {idx === 0 ? playerStats?.player_name : comparePlayersStats[idx-1]?.player_name}
-              </p>
-              <p className={`text-2xl font-bold ${color}`}>{v ?? '-'}</p>
-            </div>
-          ))}
-        </div>
+      <div className="overflow-x-auto">
+        <table className="w-full table-auto border-collapse">
+          <thead>
+            <tr>
+              <th className="px-4 py-2 text-left"></th>
+              {players.map((p, i) => (
+                <th key={i} className="px-4 py-2 text-left">
+                  <div className="text-xs text-gray-500">{p?.player_name ?? '-'}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-t">
+                <td className="px-4 py-3 text-sm text-gray-600 font-medium">{r.label}</td>
+                {players.map((p, i) => (
+                  <td key={i} className="px-4 py-3">
+                    <div className={`text-2xl font-bold ${r.color || ''}`}>{r.format ? r.format(p?.[r.key]) : (p?.[r.key] ?? '-')}</div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
-  };
+  };;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -487,35 +501,24 @@ export default function PlayerDetail() {
                 </div>
 
                 <div className="bg-white rounded-lg border p-6 space-y-6">
-                  <div className="border-b pb-3">
-                    <p className="text-sm text-gray-600 font-medium mb-2">Nombre de sessions</p>
-                    <div className={comparePlayersStats.length > 0 ? `grid grid-cols-${1 + comparePlayersStats.length} gap-4` : 'flex'}>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">{playerStats.player_name}</p>
-                        <p className="text-2xl font-bold text-blue-600">{playerStats.sessions_count}</p>
-                      </div>
-                      {comparePlayersStats.map((s, idx) => (
-                        <div key={idx}>
-                          <p className="text-xs text-gray-500 mb-1">{s.player_name}</p>
-                          <p className="text-2xl font-bold text-blue-600">{s.sessions_count}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <StatRow label="Vitesse Max (m/s)" values={[playerStats.vitesse_max?.toFixed(2), ...comparePlayersStats.map(s => s.vitesse_max?.toFixed(2))]} color="text-gray-900" />
-                  <StatRow label="Vitesse Moyenne (m/s)" values={[playerStats.vitesse_avg?.toFixed(2), ...comparePlayersStats.map(s => s.vitesse_avg?.toFixed(2))]} color="text-gray-900" />
-                  <StatRow label="HSR Max (m)" values={[playerStats.hsr_max?.toFixed(0), ...comparePlayersStats.map(s => s.hsr_max?.toFixed(0))]} color="text-orange-600" />
-                  <StatRow label="HSR Moyen (m)" values={[playerStats.hsr_avg?.toFixed(0), ...comparePlayersStats.map(s => s.hsr_avg?.toFixed(0))]} color="text-orange-600" />
-                  <StatRow label="Sprint Max (m)" values={[playerStats.sprint_max?.toFixed(0), ...comparePlayersStats.map(s => s.sprint_max?.toFixed(0))]} color="text-red-600" />
-                  <StatRow label="Sprint Moyen (m)" values={[playerStats.sprint_avg?.toFixed(0), ...comparePlayersStats.map(s => s.sprint_avg?.toFixed(0))]} color="text-red-600" />
-                  <StatRow label="Distance Max (m)" values={[playerStats.distance_max?.toFixed(0), ...comparePlayersStats.map(s => s.distance_max?.toFixed(0))]} color="text-green-600" />
-                  <StatRow label="Distance Moyenne (m)" values={[playerStats.distance_avg?.toFixed(0), ...comparePlayersStats.map(s => s.distance_avg?.toFixed(0))]} color="text-green-600" />
-                  <StatRow label="DEC Max" values={[playerStats.dec_max?.toFixed(0), ...comparePlayersStats.map(s => s.dec_max?.toFixed(0))]} color="text-purple-600" />
-                  <StatRow label="DEC Moyen" values={[playerStats.dec_avg?.toFixed(0), ...comparePlayersStats.map(s => s.dec_avg?.toFixed(0))]} color="text-purple-600" />
-                  <StatRow label="PP Max" values={[playerStats.pp_max?.toFixed(2), ...comparePlayersStats.map(s => s.pp_max?.toFixed(2))]} color="text-indigo-600" />
-                  <StatRow label="PP Moyen" values={[playerStats.pp_avg?.toFixed(2), ...comparePlayersStats.map(s => s.pp_avg?.toFixed(2))]} color="text-indigo-600" />
-                </div>
+                  
+                    <StatTable
+                      rows={[
+                        { key: 'sessions_count', label: 'Nombre de sessions', color: 'text-blue-600' },
+                        { key: 'vitesse_max', label: 'Vitesse Max (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
+                        { key: 'vitesse_avg', label: 'Vitesse Moyenne (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
+                        { key: 'hsr_max', label: 'HSR Max (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
+                        { key: 'hsr_avg', label: 'HSR Moyen (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
+                        { key: 'sprint_max', label: 'Sprint Max (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
+                        { key: 'sprint_avg', label: 'Sprint Moyen (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
+                        { key: 'distance_max', label: 'Distance Max (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
+                        { key: 'distance_avg', label: 'Distance Moyenne (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
+                        { key: 'dec_max', label: 'DEC Max', format: v => v?.toFixed(0), color: 'text-purple-600' },
+                        { key: 'dec_avg', label: 'DEC Moyen', format: v => v?.toFixed(0), color: 'text-purple-600' },
+                        { key: 'pp_max', label: 'PP Max', format: v => v?.toFixed(2), color: 'text-indigo-600' },
+                        { key: 'pp_avg', label: 'PP Moyen', format: v => v?.toFixed(2), color: 'text-indigo-600' },
+                      ]}
+                    />                </div>
               </div>
             )}
 
