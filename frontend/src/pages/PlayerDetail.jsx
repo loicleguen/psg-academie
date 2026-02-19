@@ -60,9 +60,9 @@ export default function PlayerDetail() {
               setPlayerInfo(me2);
             }
           }
-        } catch (e) {}
+        } catch (err) { console.debug(err); }
       } else {
-        try { await loadPlayerInfo(); } catch(e) {}
+        try { await loadPlayerInfo(); } catch (err) { console.debug(err); }
       }
 
     } catch (err) {
@@ -85,7 +85,7 @@ export default function PlayerDetail() {
         try {
           const s = await catapultService.getPlayerStats(compareWith);
           setComparePlayersStats([s]);
-        } catch (e) {
+        } catch (err) { console.debug(err);
           setComparePlayersStats([]);
         }
       })();
@@ -111,8 +111,7 @@ export default function PlayerDetail() {
             setPlayerInfo(u);
             return;
           }
-        } catch (e) {
-        }
+        } catch (err) { console.debug(err); }
       }
 
       try {
@@ -122,13 +121,12 @@ export default function PlayerDetail() {
           setPlayerInfo(me);
           return;
         }
-      } catch (e) {}
+      } catch (err) { console.debug(err); }
 
       const response = await api.get('/auth/users');
       const player = response.data.find(u => u.player_name === playerName || u.full_name === playerName);
       setPlayerInfo(player);
-    } catch (error) {
-    }
+    } catch (err) { console.debug(err); }
   };
 
   const loadPlayerStats = async () => {
@@ -136,8 +134,7 @@ export default function PlayerDetail() {
       setLoading(true);
       const stats = await catapultService.getPlayerStats(playerName);
       setPlayerStats(stats);
-    } catch (error) {
-    } finally {
+    } catch (err) { console.debug(err); } finally {
       setLoading(false);
     }
   };
@@ -146,25 +143,21 @@ export default function PlayerDetail() {
     try {
       const stats = await catapultService.getPlayerStats(name);
       return stats;
-    } catch (error) {
-      return null;
-    }
+    } catch (err) { console.debug(err); }
   };
 
   const loadAllPlayers = async () => {
     try {
       const players = await catapultService.getAllPlayers();
       setAllPlayers(players);
-    } catch (error) {
-    }
+    } catch (err) { console.debug(err); }
   };
 
   const loadAllPlayersInfo = async () => {
     try {
       const response = await api.get('/auth/users');
       setAllPlayersInfo(response.data.filter(u => u.player_name));
-    } catch (error) {
-    }
+    } catch (err) { console.debug(err); }
   };
 
 
@@ -175,16 +168,14 @@ export default function PlayerDetail() {
       const list = res.data || [];
       list.sort((a,b) => new Date(b.injury_date) - new Date(a.injury_date));
       setInjuries(list);
-    } catch (err) {
-      setInjuries([]);
-    }
+    } catch (err) { console.debug(err); setInjuries([]); }
   };
 
   const handleCompare = async () => {
     if (!selectedPlayer || selectedPlayer === playerName) return;
     if (comparePlayers.includes(selectedPlayer)) return;
     if (comparePlayers.length >= 5) {
-      alert('Maximum 5 joueurs comparés.');
+      alert('Maximum 6 joueurs comparés.');
       return;
     }
     setComparePlayers(prev => [...prev, selectedPlayer]);
@@ -197,7 +188,7 @@ export default function PlayerDetail() {
         setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
         alert('Impossible de charger les stats pour ' + selectedPlayer);
       }
-    } catch (e) {
+    } catch (err) { console.debug(err);
       setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
     }
   };
@@ -243,13 +234,12 @@ export default function PlayerDetail() {
 
     try {
       if (playerInfo?.id) {
-        const response = await api.post(`/players/${playerInfo.id}/injuries`, payload);
+        const RESPONSE = await api.post(`/players/${playerInfo.id}/injuries`, payload);
         await fetchInjuries();
       } else {
         throw new Error('no player id');
       }
-    } catch (err) {
-      const newList = [{ ...payload, created_at: new Date().toISOString() }, ...injuries];
+    } catch (err) { console.debug(err); const newList = [{ ...payload, created_at: new Date().toISOString() }, ...injuries];
       newList.sort((a,b) => new Date(b.injury_date) - new Date(a.injury_date));
       setInjuries(newList);
     } finally {
@@ -264,7 +254,7 @@ export default function PlayerDetail() {
         await api.delete(`/players/${playerInfo.id}/injuries/${injuryId}`);
         await fetchInjuries();
       }
-    } catch (err) {
+    } catch (err) { console.debug(err);
       setInjuries(injuries.filter(inj => inj.id !== injuryId));
     }
   };
