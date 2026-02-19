@@ -13,11 +13,19 @@ export default function PlayerDetail() {
   const [activeTab, setActiveTab] = useState('info');
   const [playerInfo, setPlayerInfo] = useState(null);
   const [playerStats, setPlayerStats] = useState(null);
-  const [comparePlayerStats, setComparePlayerStats] = useState(null);
+  const [comparePlayers, setComparePlayers] = useState([]);
+  const [comparePlayersStats, setComparePlayersStats] = useState([]);
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [allPlayersInfo, setAllPlayersInfo] = useState([]);
+
+    // Medical state
+  const [injuries, setInjuries] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [clickCoordinates, setClickCoordinates] = useState(null);
+  const [injuryDate, setInjuryDate] = useState('');
+  const [injuryComment, setInjuryComment] = useState('');
 
   const handlePhotoSelect = async (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -32,7 +40,6 @@ export default function PlayerDetail() {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      // Déterminer si on upload pour un autre utilisateur (admin/coach)
       const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
       let url = '/auth/me/photo';
       if (me && (me.role === 'admin' || me.role === 'coach') && playerInfo?.id && me.id !== playerInfo.id) {
@@ -42,9 +49,7 @@ export default function PlayerDetail() {
       const res = await api.post(url, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       const photo = res.data.photo_url;
 
-      // Mettre à jour l'état local
       if (url.includes('/auth/me/photo')) {
-        // Uploaded for current user
         setPlayerInfo({ ...playerInfo, photo_url: photo });
         try {
           const meRes = await api.get('/auth/me');
@@ -57,7 +62,6 @@ export default function PlayerDetail() {
           }
         } catch (e) {}
       } else {
-        // Uploaded for another user (admin/coach) — refresh player info
         try { await loadPlayerInfo(); } catch(e) {}
       }
 
@@ -66,12 +70,6 @@ export default function PlayerDetail() {
     }
   };
 
-  // Medical state
-  const [injuries, setInjuries] = useState([]);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [clickCoordinates, setClickCoordinates] = useState(null);
-  const [injuryDate, setInjuryDate] = useState('');
-  const [injuryComment, setInjuryComment] = useState('');
 
   useEffect(() => {
     loadPlayerInfo();
@@ -82,9 +80,18 @@ export default function PlayerDetail() {
 
   useEffect(() => {
     if (compareWith && activeTab === 'stats') {
-      loadComparePlayerStats(compareWith);
-    } else {
-      setComparePlayerStats(null);
+      setComparePlayers([compareWith]);
+      (async () => {
+        try {
+          const s = await catapultService.getPlayerStats(compareWith);
+          setComparePlayersStats([s]);
+        } catch (e) {
+          setComparePlayersStats([]);
+        }
+      })();
+    } else if (activeTab !== 'stats') {
+      setComparePlayers([]);
+      setComparePlayersStats([]);
     }
   }, [compareWith, activeTab]);
 
@@ -96,7 +103,6 @@ export default function PlayerDetail() {
 
   const loadPlayerInfo = async () => {
     try {
-      // 1) Try cached user from localStorage
       const cached = localStorage.getItem('user');
       if (cached) {
         try {
@@ -106,11 +112,9 @@ export default function PlayerDetail() {
             return;
           }
         } catch (e) {
-          // ignore parse errors
         }
       }
 
-      // 2) Try /auth/me (works when viewing own profile)
       try {
         const meRes = await api.get('/auth/me');
         const me = meRes.data;
@@ -118,16 +122,12 @@ export default function PlayerDetail() {
           setPlayerInfo(me);
           return;
         }
-      } catch (e) {
-        // ignore if not authenticated
-      }
+      } catch (e) {}
 
-      // 3) Fallback to admin endpoint /auth/users (existing behavior)
       const response = await api.get('/auth/users');
       const player = response.data.find(u => u.player_name === playerName || u.full_name === playerName);
       setPlayerInfo(player);
     } catch (error) {
-      // keep playerInfo as is on error
     }
   };
 
@@ -142,11 +142,12 @@ export default function PlayerDetail() {
     }
   };
 
-  const loadComparePlayerStats = async (name) => {
+  const loadOneCompareStats = async (name) => {
     try {
       const stats = await catapultService.getPlayerStats(name);
-      setComparePlayerStats(stats);
+      return stats;
     } catch (error) {
+      return null;
     }
   };
 
@@ -179,14 +180,32 @@ export default function PlayerDetail() {
     }
   };
 
-  const handleCompare = () => {
-    if (selectedPlayer && selectedPlayer !== playerName) {
-      setSearchParams({ compare: selectedPlayer });
+  const handleCompare = async () => {
+    if (!selectedPlayer || selectedPlayer === playerName) return;
+    if (comparePlayers.includes(selectedPlayer)) return;
+    if (comparePlayers.length >= 5) {
+      alert('Maximum 5 joueurs comparés.');
+      return;
+    }
+    setComparePlayers(prev => [...prev, selectedPlayer]);
+    setSelectedPlayer('');
+    try {
+      const stats = await loadOneCompareStats(selectedPlayer);
+      if (stats) {
+        setComparePlayersStats(prev => [...prev, stats]);
+      } else {
+        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+        alert('Impossible de charger les stats pour ' + selectedPlayer);
+      }
+    } catch (e) {
+      setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
     }
   };
 
   const clearComparison = () => {
     setSelectedPlayer('');
+    setComparePlayers([]);
+    setComparePlayersStats([]);
     setSearchParams({});
   };
 
@@ -246,7 +265,6 @@ export default function PlayerDetail() {
         await fetchInjuries();
       }
     } catch (err) {
-      // Fallback: supprimer localement
       setInjuries(injuries.filter(inj => inj.id !== injuryId));
     }
   };
@@ -260,23 +278,24 @@ export default function PlayerDetail() {
     );
   }
 
-  const StatRow = ({ label, value1, value2, color }) => (
-    <div className="border-b pb-4">
-      <p className="text-sm text-gray-600 font-medium mb-2">{label}</p>
-      <div className={comparePlayerStats ? "grid grid-cols-2 gap-4" : "flex"}>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">{playerStats?.player_name}</p>
-          <p className={`text-2xl font-bold ${color}`}>{value1}</p>
+  const StatRow = ({ label, values, color }) => {
+    const cols = values.length;
+    return (
+      <div className="border-b pb-4">
+        <p className="text-sm text-gray-600 font-medium mb-2">{label}</p>
+        <div className={cols > 1 ? `grid grid-cols-${cols} gap-4` : 'flex'}>
+          {values.map((v, idx) => (
+            <div key={idx}>
+              <p className="text-xs text-gray-500 mb-1">
+                {idx === 0 ? playerStats?.player_name : comparePlayersStats[idx-1]?.player_name}
+              </p>
+              <p className={`text-2xl font-bold ${color}`}>{v ?? '-'}</p>
+            </div>
+          ))}
         </div>
-        {comparePlayerStats && (
-          <div>
-            <p className="text-xs text-gray-500 mb-1">{comparePlayerStats.player_name}</p>
-            <p className={`text-2xl font-bold ${color}`}>{value2}</p>
-          </div>
-        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -316,7 +335,7 @@ export default function PlayerDetail() {
                 className={`px- py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'stats'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
                 }`}
               >
                 Stats Catapult
@@ -326,7 +345,7 @@ export default function PlayerDetail() {
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'medical'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
                 }`}
               >
                 Médical
@@ -413,7 +432,6 @@ export default function PlayerDetail() {
                 <div className="bg-gray-50 rounded-lg p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {/* Liste 1 : Tous les joueurs */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Tous les joueurs
@@ -430,7 +448,6 @@ export default function PlayerDetail() {
                       </select>
                     </div>
 
-                    {/* Liste 2 : Même poste */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Même poste {playerInfo?.position && `(${playerInfo.position})`}
@@ -458,7 +475,7 @@ export default function PlayerDetail() {
                     >
                       Comparer
                     </button>
-                    {comparePlayerStats && (
+                    {comparePlayersStats.length > 0 && (
                       <button
                         onClick={clearComparison}
                         className="transform translate-x-[400px] px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -472,32 +489,32 @@ export default function PlayerDetail() {
                 <div className="bg-white rounded-lg border p-6 space-y-6">
                   <div className="border-b pb-3">
                     <p className="text-sm text-gray-600 font-medium mb-2">Nombre de sessions</p>
-                    <div className={comparePlayerStats ? "grid grid-cols-2 gap-4" : "flex"}>
+                    <div className={comparePlayersStats.length > 0 ? `grid grid-cols-${1 + comparePlayersStats.length} gap-4` : 'flex'}>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">{playerStats.player_name}</p>
                         <p className="text-2xl font-bold text-blue-600">{playerStats.sessions_count}</p>
                       </div>
-                      {comparePlayerStats && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">{comparePlayerStats.player_name}</p>
-                          <p className="text-2xl font-bold text-blue-600">{comparePlayerStats.sessions_count}</p>
+                      {comparePlayersStats.map((s, idx) => (
+                        <div key={idx}>
+                          <p className="text-xs text-gray-500 mb-1">{s.player_name}</p>
+                          <p className="text-2xl font-bold text-blue-600">{s.sessions_count}</p>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
 
-                  <StatRow label="Vitesse Max (m/s)" value1={playerStats.vitesse_max?.toFixed(2)} value2={comparePlayerStats?.vitesse_max?.toFixed(2)} color="text-gray-900" />
-                  <StatRow label="Vitesse Moyenne (m/s)" value1={playerStats.vitesse_avg?.toFixed(2)} value2={comparePlayerStats?.vitesse_avg?.toFixed(2)} color="text-gray-900" />
-                  <StatRow label="HSR Max (m)" value1={playerStats.hsr_max?.toFixed(0)} value2={comparePlayerStats?.hsr_max?.toFixed(0)} color="text-orange-600" />
-                  <StatRow label="HSR Moyen (m)" value1={playerStats.hsr_avg?.toFixed(0)} value2={comparePlayerStats?.hsr_avg?.toFixed(0)} color="text-orange-600" />
-                  <StatRow label="Sprint Max (m)" value1={playerStats.sprint_max?.toFixed(0)} value2={comparePlayerStats?.sprint_max?.toFixed(0)} color="text-red-600" />
-                  <StatRow label="Sprint Moyen (m)" value1={playerStats.sprint_avg?.toFixed(0)} value2={comparePlayerStats?.sprint_avg?.toFixed(0)} color="text-red-600" />
-                  <StatRow label="Distance Max (m)" value1={playerStats.distance_max?.toFixed(0)} value2={comparePlayerStats?.distance_max?.toFixed(0)} color="text-green-600" />
-                  <StatRow label="Distance Moyenne (m)" value1={playerStats.distance_avg?.toFixed(0)} value2={comparePlayerStats?.distance_avg?.toFixed(0)} color="text-green-600" />
-                  <StatRow label="DEC Max" value1={playerStats.dec_max?.toFixed(0)} value2={comparePlayerStats?.dec_max?.toFixed(0)} color="text-purple-600" />
-                  <StatRow label="DEC Moyen" value1={playerStats.dec_avg?.toFixed(0)} value2={comparePlayerStats?.dec_avg?.toFixed(0)} color="text-purple-600" />
-                  <StatRow label="PP Max" value1={playerStats.pp_max?.toFixed(2)} value2={comparePlayerStats?.pp_max?.toFixed(2)} color="text-indigo-600" />
-                  <StatRow label="PP Moyen" value1={playerStats.pp_avg?.toFixed(2)} value2={comparePlayerStats?.pp_avg?.toFixed(2)} color="text-indigo-600" />
+                  <StatRow label="Vitesse Max (m/s)" values={[playerStats.vitesse_max?.toFixed(2), ...comparePlayersStats.map(s => s.vitesse_max?.toFixed(2))]} color="text-gray-900" />
+                  <StatRow label="Vitesse Moyenne (m/s)" values={[playerStats.vitesse_avg?.toFixed(2), ...comparePlayersStats.map(s => s.vitesse_avg?.toFixed(2))]} color="text-gray-900" />
+                  <StatRow label="HSR Max (m)" values={[playerStats.hsr_max?.toFixed(0), ...comparePlayersStats.map(s => s.hsr_max?.toFixed(0))]} color="text-orange-600" />
+                  <StatRow label="HSR Moyen (m)" values={[playerStats.hsr_avg?.toFixed(0), ...comparePlayersStats.map(s => s.hsr_avg?.toFixed(0))]} color="text-orange-600" />
+                  <StatRow label="Sprint Max (m)" values={[playerStats.sprint_max?.toFixed(0), ...comparePlayersStats.map(s => s.sprint_max?.toFixed(0))]} color="text-red-600" />
+                  <StatRow label="Sprint Moyen (m)" values={[playerStats.sprint_avg?.toFixed(0), ...comparePlayersStats.map(s => s.sprint_avg?.toFixed(0))]} color="text-red-600" />
+                  <StatRow label="Distance Max (m)" values={[playerStats.distance_max?.toFixed(0), ...comparePlayersStats.map(s => s.distance_max?.toFixed(0))]} color="text-green-600" />
+                  <StatRow label="Distance Moyenne (m)" values={[playerStats.distance_avg?.toFixed(0), ...comparePlayersStats.map(s => s.distance_avg?.toFixed(0))]} color="text-green-600" />
+                  <StatRow label="DEC Max" values={[playerStats.dec_max?.toFixed(0), ...comparePlayersStats.map(s => s.dec_max?.toFixed(0))]} color="text-purple-600" />
+                  <StatRow label="DEC Moyen" values={[playerStats.dec_avg?.toFixed(0), ...comparePlayersStats.map(s => s.dec_avg?.toFixed(0))]} color="text-purple-600" />
+                  <StatRow label="PP Max" values={[playerStats.pp_max?.toFixed(2), ...comparePlayersStats.map(s => s.pp_max?.toFixed(2))]} color="text-indigo-600" />
+                  <StatRow label="PP Moyen" values={[playerStats.pp_avg?.toFixed(2), ...comparePlayersStats.map(s => s.pp_avg?.toFixed(2))]} color="text-indigo-600" />
                 </div>
               </div>
             )}
