@@ -9,7 +9,8 @@ export default function AdminPannel() {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, admin, coach, player
+  const [filter, setFilter] = useState('all'); // all, admin, coach, player, team
+  const [selectedTeamId, setSelectedTeamId] = useState('');
   const [editingUser, setEditingUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,7 +22,7 @@ export default function AdminPannel() {
 
   useEffect(() => {
     filterUsers();
-  }, [users, filter]);
+  }, [users, filter, selectedTeamId]);
 
   const fetchUsers = async () => {
     try {
@@ -69,9 +70,21 @@ export default function AdminPannel() {
 
     if (filter === 'all') {
       setFilteredUsers([...users].sort(sortActiveThenAlpha));
+    } else if (filter === 'team') {
+      if (!selectedTeamId) {
+        setFilteredUsers([...users].sort(sortActiveThenAlpha));
+      } else {
+        setFilteredUsers(users
+          .filter(u => {
+            if ((u.role || '').toLowerCase() !== 'player') return false;
+            if (!u.is_active) return false;
+            return String(u.team_id || u.team?.id || '') === String(selectedTeamId);
+          })
+          .sort(sortActiveThenAlpha));
+      }
     } else {
       setFilteredUsers(users
-        .filter(u => u.role.toLowerCase() === filter)
+        .filter(u => (u.role || '').toLowerCase() === filter)
         .sort(sortActiveThenAlpha));
     }
   };
@@ -149,7 +162,7 @@ export default function AdminPannel() {
   };
 
   const getRoleBadgeColor = (role) => {
-    switch (role.toLowerCase()) {
+    switch ((role || '').toLowerCase()) {
       case 'admin': return 'bg-red-100 text-red-800';
       case 'coach': return 'bg-blue-100 text-blue-800';
       case 'player': return 'bg-green-100 text-green-800';
@@ -179,39 +192,60 @@ export default function AdminPannel() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button
-            onClick={() => setFilter('all')}
+            onClick={() => { setFilter('all'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
               filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
             }`}
           >
             Tous ({users.length})
           </button>
+
           <button
-            onClick={() => setFilter('admin')}
+            onClick={() => { setFilter('admin'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
               filter === 'admin' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'
             }`}
           >
             Admins ({users.filter(u => u.role === 'admin').length})
           </button>
+
           <button
-            onClick={() => setFilter('coach')}
+            onClick={() => { setFilter('coach'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
               filter === 'coach' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
             }`}
           >
             Coaches ({users.filter(u => u.role === 'coach').length})
           </button>
+
           <button
-            onClick={() => setFilter('player')}
+            onClick={() => { setFilter('player'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
               filter === 'player' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'
             }`}
           >
             Joueurs ({users.filter(u => u.role === 'player').length})
           </button>
+
+          {/* Filtre par équipe */}
+          <select
+            value={selectedTeamId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedTeamId(val);
+              setFilter(val ? 'team' : 'all');
+            }}
+            className="px-3 py-2 rounded border bg-white text-gray-700"
+          >
+            <option value="">Tous les joueurs</option>
+            {teams.map(t => (
+              <option key={t.id} value={String(t.id)}>
+                {`${t.academy?.country?.name || 'unknown'}/${t.academy?.name || 'academy'}/${t.name}`}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -269,7 +303,7 @@ export default function AdminPannel() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(u.role)}`}>
-                    {u.role.toUpperCase()}
+                    {u.role?.toUpperCase()}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
