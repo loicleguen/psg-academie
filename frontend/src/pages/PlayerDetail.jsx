@@ -566,7 +566,9 @@ export default function PlayerDetail() {
                             >
                               <option value="">— Aucune —</option>
                               {teams.map(t => (
-                                <option key={t.id} value={t.id}>{t.name || t.team_name || t.id}</option>
+                                <option key={t.id} value={t.id}>
+                                  {`${t.academy?.country?.name || 'unknown'}/${t.academy?.name || 'academy'}/${t.name}`}
+                                </option>
                               ))}
                             </select>
                           </div>
