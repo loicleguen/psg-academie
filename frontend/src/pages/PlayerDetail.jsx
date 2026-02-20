@@ -334,7 +334,7 @@ export default function PlayerDetail() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             {playerName}
           </h1>
-          <p className="text-gray-600">{playerInfo?.position || 'Joueur'}</p>
+          <p className="text-gray-600">{playerInfo?.role || 'Joueur'}</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-lg mb-6">
