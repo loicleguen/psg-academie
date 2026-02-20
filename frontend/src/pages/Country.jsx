@@ -146,7 +146,7 @@ export default function Country() {
                           e.stopPropagation();
                           handleDelete(country);
                         }}
-                        className="text-red-600 hover:text-red-800 font-medium text-sm"
+                        className="text-black-600 hover:text-red-800 font-medium text-sm"
                       >
                         Supprimer
                       </button>
