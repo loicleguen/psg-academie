@@ -222,10 +222,13 @@ export default function AdminPannel() {
 
           {/* Sélecteur Joueurs + Équipe combiné */}
           <select
-            value={selectedTeamId || 'players_all'}
+            value={ (filter === 'team' ? (selectedTeamId || '') : (filter === 'player' ? 'players_all' : 'all')) }
             onChange={(e) => {
               const val = e.target.value;
-              if (val === 'players_all') {
+              if (val === 'all') {
+                setSelectedTeamId('');
+                setFilter('all');
+              } else if (val === 'players_all') {
                 setSelectedTeamId('');
                 setFilter('player');
               } else {
@@ -235,10 +238,11 @@ export default function AdminPannel() {
             }}
             className="px-3 py-2 rounded border bg-white text-gray-700"
           >
+            <option value="all">Tous ({users.length})</option>
             <option value="players_all">Joueurs ({users.filter(u => u.role === 'player').length})</option>
             {teams.map(t => (
               <option key={t.id} value={String(t.id)}>
-                {`${t.academy?.country?.name || 'unknown'}/${t.academy?.name || 'academy'}/${t.name}`}
+                {`${t.academy?.country?.name || 'unknown'}/${t.academy?.name || 'academy'}/${t.name} (${users.filter(u => (u.role || '').toLowerCase() === 'player' && u.is_active && String(u.team_id || u.team?.id || '') === String(t.id)).length})`}
               </option>
             ))}
           </select>
