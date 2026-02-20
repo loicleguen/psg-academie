@@ -290,16 +290,12 @@ export default function AdminPannel() {
                   {u.email}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  {u.role === 'player' && u.player_name ? (
-                    <button
-                      onClick={() => navigate(`/players/${encodeURIComponent(u.player_name)}`)}
-                      className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
-                    >
-                      {u.full_name}
-                    </button>
-                  ) : (
-                    <span className="text-gray-900">{u.full_name}</span>
-                  )}
+                  <button
+                    onClick={() => navigate(`/players/${encodeURIComponent(u.player_name || u.full_name)}`)}
+                    className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                  >
+                    {u.full_name}
+                  </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(u.role)}`}>
