@@ -220,26 +220,22 @@ export default function AdminPannel() {
             Coaches ({users.filter(u => u.role === 'coach').length})
           </button>
 
-          <button
-            onClick={() => { setFilter('player'); setSelectedTeamId(''); }}
-            className={`px-4 py-2 rounded ${
-              filter === 'player' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'
-            }`}
-          >
-            Joueurs ({users.filter(u => u.role === 'player').length})
-          </button>
-
-          {/* Filtre par équipe */}
+          {/* Sélecteur Joueurs + Équipe combiné */}
           <select
-            value={selectedTeamId}
+            value={selectedTeamId || 'players_all'}
             onChange={(e) => {
               const val = e.target.value;
-              setSelectedTeamId(val);
-              setFilter(val ? 'team' : 'all');
+              if (val === 'players_all') {
+                setSelectedTeamId('');
+                setFilter('player');
+              } else {
+                setSelectedTeamId(val);
+                setFilter('team');
+              }
             }}
             className="px-3 py-2 rounded border bg-white text-gray-700"
           >
-            <option value="">Tous les joueurs</option>
+            <option value="players_all">Joueurs ({users.filter(u => u.role === 'player').length})</option>
             {teams.map(t => (
               <option key={t.id} value={String(t.id)}>
                 {`${t.academy?.country?.name || 'unknown'}/${t.academy?.name || 'academy'}/${t.name}`}
