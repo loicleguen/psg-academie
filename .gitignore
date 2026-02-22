@@ -44,4 +44,3 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
-psgdb*.dump
