@@ -93,6 +93,37 @@ class Match(MatchBase):
     class Config:
         from_attributes = True
 
+class MatchBootstrapFromCatapultRequest(BaseModel):
+    """Payload used to bootstrap a Veo match from an existing Catapult session."""
+
+    session_title: str
+    session_date: date
+    team_name: str
+    player_names: List[str] = Field(default_factory=list)
+    opponent_name: Optional[str] = None
+    is_home: bool = True
+    match_type: MatchType = MatchType.LEAGUE
+    competition: Optional[str] = None
+    score_for: Optional[int] = None
+    score_against: Optional[int] = None
+    veo_title: Optional[str] = None
+    veo_url: Optional[str] = None
+    veo_duration: Optional[int] = None
+    veo_camera: Optional[str] = None
+    replace_participations: bool = False
+
+
+class MatchBootstrapFromCatapultResponse(BaseModel):
+    match_id: int
+    team_id: int
+    season_id: int
+    created_team: bool
+    created_season: bool
+    created_match: bool
+    created_players: int
+    total_players: int
+    participations_created: int
+
 # Participation schemas
 class ParticipationBase(BaseModel):
     player_id: int
@@ -136,6 +167,36 @@ class MetricDefinition(MetricDefinitionBase):
 
     class Config:
         from_attributes = True
+
+# UI entry schema descriptors
+class EntryFieldDescriptor(BaseModel):
+    key: str
+    label_fr: str
+    input_type: str
+    required: bool = False
+    unit: Optional[str] = None
+    help_text: Optional[str] = None
+
+class MetricCatalogItem(BaseModel):
+    slug: str
+    label_fr: str
+    description_fr: Optional[str] = None
+    datatype: MetricDataType
+    unit: Optional[str] = None
+    side: MetricSide
+    is_derived: bool
+    formula: Optional[str] = None
+
+class MetricCatalogGroup(BaseModel):
+    category: MetricCategory
+    category_label_fr: str
+    metrics: List[MetricCatalogItem]
+
+class MetricsEntrySchemaResponse(BaseModel):
+    match_fields: List[EntryFieldDescriptor]
+    participation_fields: List[EntryFieldDescriptor]
+    team_metrics_by_category: List[MetricCatalogGroup]
+    player_metrics_by_category: List[MetricCatalogGroup]
 
 # Metric Value schemas
 class TeamMetricValueInput(BaseModel):
