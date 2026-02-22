@@ -44,3 +44,4 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+upload_results.csv
