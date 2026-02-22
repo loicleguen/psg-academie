@@ -11,7 +11,6 @@ export default function AdminPannel() {
   const [teams, setTeams] = useState([]);
   const [filter, setFilter] = useState('all'); // all, admin, coach, player, team
   const [selectedTeamId, setSelectedTeamId] = useState('');
-  const [editingUser, setEditingUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -100,64 +99,6 @@ export default function AdminPannel() {
     } catch (err) {
       alert('Erreur lors de la suppression');
       console.error(err);
-    }
-  };
-
-  const handleEdit = (user) => {
-    setEditingUser({
-      ...user,
-      password: '', // Don't prefill password
-    });
-  };
-
-  const handleSave = async () => {
-    if (!editingUser) return;
-
-    try {
-      const updateData = {
-        email: editingUser.email,
-        full_name: editingUser.full_name,
-        role: editingUser.role,
-        is_active: editingUser.is_active,
-      };
-
-      // Add password only if provided
-      if (editingUser.password && editingUser.password.trim() !== '') {
-        updateData.password = editingUser.password;
-      }
-
-      // Add player fields if role is player
-      if (editingUser.role === 'player') {
-        updateData.team_id = editingUser.team_id;
-        updateData.player_name = editingUser.player_name;
-        updateData.age = editingUser.age;
-
-        updateData.position = editingUser.position;
-      }
-
-      const response = await api.put(`/auth/users/${editingUser.id}`, updateData);
-      
-      // Update local state
-      setUsers(users.map(u => u.id === editingUser.id ? response.data : u));
-      setEditingUser(null);
-    } catch (err) {
-      console.error('Full error:', err);
-      console.error('Error response:', err.response);
-      
-      let errorMessage = 'Erreur inconnue';
-      if (err.response?.data?.detail) {
-        if (typeof err.response.data.detail === 'string') {
-          errorMessage = err.response.data.detail;
-        } else {
-          errorMessage = JSON.stringify(err.response.data.detail);
-        }
-      } else if (err.response?.data) {
-        errorMessage = JSON.stringify(err.response.data);
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      alert('Erreur lors de la mise à jour: ' + errorMessage);
     }
   };
 
