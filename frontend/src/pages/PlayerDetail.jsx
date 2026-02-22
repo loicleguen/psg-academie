@@ -487,46 +487,67 @@ export default function PlayerDetail() {
                           <label className="block text-sm font-medium text-gray-700">Nom complet</label>
                           <input value={editForm.full_name || ''} onChange={(e)=>setEditForm({...editForm, full_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Email</label>
                           <input value={editForm.email || ''} onChange={(e)=>setEditForm({...editForm, email: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Player name</label>
                           <input value={editForm.player_name || ''} onChange={(e)=>setEditForm({...editForm, player_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Poste</label>
-                          <input value={editForm.position || ''} onChange={(e)=>setEditForm({...editForm, position: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                            <label className="block text-sm font-medium text-gray-700">Poste</label>
+                            <select
+                              value={editForm.position || 'player'}
+                              onChange={(e) => setEditForm({...editForm, position: e.target.value})}
+                              className="mt-1 w-full px-3 py-2 border rounded"
+                            >
+                              <option value="ATTAQUANT">ATTAQUANT</option>
+                              <option value="MILIEU">MILIEU</option>
+                              <option value="DEFENSEUR CENTRAL">DEFENSEUR CENTRAL</option>
+                              <option value="LATERAL">LATERAL</option>
+                              <option value="AILIER">AILIER</option>
+                            </select>
+                          </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Date de naissance</label>
                           <input type="date" value={editForm.date_of_birth ? String(editForm.date_of_birth).split('T')[0] : ''} onChange={(e)=>setEditForm({...editForm, date_of_birth: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Âge</label>
                           <input type="number" value={editForm.age || ''} onChange={(e)=>setEditForm({...editForm, age: e.target.value ? parseInt(e.target.value,10) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Adresse</label>
                           <textarea rows={2} value={editForm.adress || ''} onChange={(e)=>setEditForm({...editForm, adress: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded resize-none"></textarea>
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">N° de téléphone</label>
                           <input value={editForm.phone_number || ''} onChange={(e)=>setEditForm({...editForm, phone_number: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Taille (m)</label>
                           <input type="number" step="0.01" value={editForm.height || ''} onChange={(e)=>setEditForm({...editForm, height: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Poids (kg)</label>
                           <input type="number" step="0.1" value={editForm.weight || ''} onChange={(e)=>setEditForm({...editForm, weight: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Pied fort</label>
                           <input value={editForm.strong_foot || ''} onChange={(e)=>setEditForm({...editForm, strong_foot: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Contact urgence</label>
                           <input value={editForm.emergency_contact || ''} onChange={(e)=>setEditForm({...editForm, emergency_contact: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
@@ -549,8 +570,7 @@ export default function PlayerDetail() {
                             <select
                               value={editForm.role || 'player'}
                               onChange={(e) => setEditForm({...editForm, role: e.target.value})}
-                              className="mt-1 w-full px-2 py-2 border rounded"
-                            >
+                              className="mt-1 w-full px-2 py-2 border rounded">
                               <option value="admin">Admin</option>
                               <option value="coach">Coach</option>
                               <option value="player">Joueur</option>
@@ -562,8 +582,7 @@ export default function PlayerDetail() {
                             <select
                               value={editForm.team_id || ''}
                               onChange={(e) => setEditForm({...editForm, team_id: e.target.value ? parseInt(e.target.value,10) : null})}
-                              className="mt-1 w-full px-2 py-2 border rounded"
-                            >
+                              className="mt-1 w-full px-2 py-2 border rounded">
                               <option value="">— Aucune —</option>
                               {teams.map(t => (
                                 <option key={t.id} value={t.id}>
