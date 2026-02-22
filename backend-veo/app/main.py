@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routes import seasons, teams, players, matches, metrics, analytics
+from app.routes import seasons, teams, players, matches, metrics, analytics, clipboard
 
 app = FastAPI(
     title="Veo Module V1 API",
@@ -27,6 +27,7 @@ app.include_router(players.router)
 app.include_router(matches.router)
 app.include_router(metrics.router)
 app.include_router(analytics.router)
+app.include_router(clipboard.router)
 
 @app.get("/")
 def root():
