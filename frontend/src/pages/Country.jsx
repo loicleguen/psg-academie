@@ -90,7 +90,7 @@ export default function Country() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-12">
+          <div className="grid grid-cols-3 items-center mb-12">
             <h1 className="text-4xl font-bold text-gray-900">COUNTRY</h1>
             {isAdminOrCoach && (
               <button
@@ -168,7 +168,7 @@ export default function Country() {
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xl font-bold text-gray-900 mb-2">
                   Nom du pays
                 </label>
                 <input
@@ -176,7 +176,7 @@ export default function Country() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold placeholder-gray-900"
                   placeholder="France"
                 />
               </div>
@@ -184,7 +184,7 @@ export default function Country() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  className="px-4 py-2 text-gray-900 bg-gray-200 rounded-md hover:bg-gray-300"
                 >
                   Annuler
                 </button>
