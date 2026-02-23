@@ -17,38 +17,36 @@ export default function Layout({ children }) {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link to="/country" className="text-xl font-bold text-blue-600">PSG Académie</Link>
+                <Link to="/country" className="inline-flex items-center px-4 h-10 bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-xl font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black">PSG Académie</Link>
               </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8 sm:items-center">
                 <Link
                   to="/veo"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                  className="inline-flex items-center px-4 h-10 bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black"
                 >
                   VEO
                 </Link>
                 <Link
                   to="/catapult/sessions"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                  className="inline-flex items-center px-4 h-10 bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black"
                 >
                   Sessions Catapult
                 </Link>
+                <Link
+                      to="/admin"
+                      className="bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black"
+                    >
+                      Coach Pannel
+                    </Link>
               </div>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
               <div className="ml-3 relative">
                 <div className="flex items-center space-x-4">
                   <span className="text-sm text-gray-700">{user?.email}</span>
-                  {['admin','coach'].includes(user?.role) && (
-                    <Link
-                      to="/admin"
-                      className="bg-blue-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Coach Pannel
-                    </Link>
-                  )}
                   <button
                     onClick={handleLogout}
-                    className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="bg-red-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-red-700"
                   >
                     Déconnexion
                   </button>

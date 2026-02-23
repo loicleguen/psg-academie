@@ -122,7 +122,7 @@ export default function AdminPannel() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Administration - Gestion des Utilisateurs</h1>
+        <h1 className="text-4xl font-bold text-black">Administration - Gestion des Utilisateurs</h1>
       </div>
 
       {error && (
@@ -132,12 +132,12 @@ export default function AdminPannel() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex gap-2 items-center">
+      <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <div className="flex gap-6 items-center">
           <button
             onClick={() => { setFilter('all'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
-              filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+              filter === 'all' ? 'bg-green-600 text-white' : 'bg-gray-100 text-green-600'
             }`}
           >
             Tous ({users.length})
@@ -146,7 +146,7 @@ export default function AdminPannel() {
           <button
             onClick={() => { setFilter('admin'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
-              filter === 'admin' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'
+              filter === 'admin' ? 'bg-red-600 text-white' : 'bg-gray-100 text-red-700'
             }`}
           >
             Admins ({users.filter(u => u.role === 'admin').length})
@@ -155,7 +155,7 @@ export default function AdminPannel() {
           <button
             onClick={() => { setFilter('coach'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
-              filter === 'coach' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+              filter === 'coach' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-700'
             }`}
           >
             Coaches ({users.filter(u => u.role === 'coach').length})
@@ -193,35 +193,35 @@ export default function AdminPannel() {
       {/* Users Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-40">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 ID
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 Email
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 Nom
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 Rôle
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 Poste
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 Équipe
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 Statut
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-gray-300">
             {filteredUsers.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -239,14 +239,14 @@ export default function AdminPannel() {
                   </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(u.role)}`}>
+                  <span className={`px-2 inline-flex text-l leading-5 font-semibold rounded-full ${getRoleBadgeColor(u.role)}`}>
                     {u.role?.toUpperCase()}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {u.position || '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {u.team_name || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -256,11 +256,11 @@ export default function AdminPannel() {
                     {u.is_active ? 'Actif' : 'Inactif'}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <td className="px-6 py-4 whitespace-nowrap text-l font-medium">
                   {u.id !== user?.id && (
                     <button
                       onClick={() => handleDelete(u.id)}
-                      className="text-red-600 hover:text-red-900"
+                      className="text-red-600 hover:text-blue-600"
                     >
                       Supprimer
                     </button>

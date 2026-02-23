@@ -802,7 +802,7 @@ export default function Veo() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="veo-page max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -811,11 +811,11 @@ export default function Veo() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="veo-page max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0 space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-gray-900">VEO</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-2xl font-bold text-grey-600">
             Saisie manuelle des matchs et stats Veo pour centraliser les rapports.
           </p>
         </div>
@@ -871,14 +871,14 @@ export default function Veo() {
           <form onSubmit={handleCreateVeoSession} className="bg-white rounded-lg shadow p-6 space-y-4">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Creer une nouvelle session VEO</h2>
-              <p className="mt-1 text-sm text-gray-600">
+              <p className="mt-1 text-sm text-gray-900">
                 La session est rattachee automatiquement a une seance Catapult de la meme date si elle existe.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Date de session</span>
+                <span className="text-xs font-medium text-gray-900">Date de session</span>
                 <input
                   type="date"
                   className={FORM_CONTROL_CLASS}
@@ -889,7 +889,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Seance Catapult (optionnel)</span>
+                <span className="text-xs font-medium text-gray-900">Seance Catapult (optionnel)</span>
                 <select
                   className={FORM_CONTROL_CLASS}
                   value={selectedCatapultSessionTitle}
@@ -905,7 +905,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Equipe</span>
+                <span className="text-xs font-medium text-gray-900">Equipe</span>
                 <select
                   className={FORM_CONTROL_CLASS}
                   value={matchForm.team_name}
@@ -922,7 +922,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Adversaire</span>
+                <span className="text-xs font-medium text-gray-900">Adversaire</span>
                 <input
                   className={FORM_CONTROL_CLASS}
                   placeholder="Ex: Racing Besancon"
@@ -932,7 +932,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Type</span>
+                <span className="text-xs font-medium text-gray-900">Type</span>
                 <select
                   className={FORM_CONTROL_CLASS}
                   value={matchForm.match_type}
@@ -947,7 +947,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Competition</span>
+                <span className="text-xs font-medium text-gray-900">Competition</span>
                 <input
                   className={FORM_CONTROL_CLASS}
                   placeholder="Championnat, Coupe..."
@@ -957,7 +957,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Buts marques</span>
+                <span className="text-xs font-medium text-gray-900">Buts marques</span>
                 <input
                   type="number"
                   className={FORM_CONTROL_CLASS}
@@ -967,7 +967,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-600">Buts encaisses</span>
+                <span className="text-xs font-medium text-gray-900">Buts encaisses</span>
                 <input
                   type="number"
                   className={FORM_CONTROL_CLASS}
@@ -977,7 +977,7 @@ export default function Veo() {
               </label>
 
               <label className="block sm:col-span-2">
-                <span className="text-xs font-medium text-gray-600">Titre session VEO (optionnel)</span>
+                <span className="text-xs font-medium text-gray-900">Titre session VEO (optionnel)</span>
                 <input
                   className={FORM_CONTROL_CLASS}
                   placeholder="Par defaut: titre de seance Catapult"
@@ -987,7 +987,7 @@ export default function Veo() {
               </label>
             </div>
 
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-900">
               <input
                 type="checkbox"
                 checked={matchForm.is_home}
@@ -997,10 +997,10 @@ export default function Veo() {
             </label>
 
             <details className="border rounded-md p-3">
-              <summary className="cursor-pointer text-sm font-medium text-gray-700">
+              <summary className="cursor-pointer text-sm font-medium text-gray-900">
                 Reference video (facultatif)
               </summary>
-              <p className="mt-2 text-xs text-gray-600">
+              <p className="mt-2 text-xs text-gray-900">
                 Ces champs servent uniquement a garder la trace de la video Veo (lien, duree, camera). Ils
                 n'impactent pas le calcul des statistiques ni le rapport.
               </p>
@@ -1047,7 +1047,7 @@ export default function Veo() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Sessions VEO existantes</h2>
             {matches.length === 0 ? (
-              <p className="text-sm text-gray-500">Aucune session VEO creee.</p>
+              <p className="text-sm text-gray-900">Aucune session VEO creee.</p>
             ) : (
               <>
                 <select

@@ -1,73 +1,51 @@
 @import "tailwindcss";
 
-/* frontend/src/index.css */
 
 html, body {
   height: 100%;
   background: transparent;
 }
 
+/* Watermark background (global) */
 body::before {
   content: "";
   position: fixed;
   inset: 0;                     /* top:0; right:0; bottom:0; left:0 */
   background-image: url('/images/imgforeground.png');
   background-repeat: no-repeat;
-  background-position: center;
-  background-size: 60vw;        /* ajuster la taille */
-  opacity: 1;                /* transparence */
+  background-position: y;
+  background-size: cover;        /* ajuster la taille */
+  opacity: 0.6;                /* transparence */
   pointer-events: none;
-  z-index: 0;
+  z-index: 9999;
+  mix-blend-mode: overlay;
 }
 
-/* Assure que l'app est affichée au-dessus du pseudo-élément */
+/* Ensure app content renders above watermark */
 #root {
   position: relative;
   z-index: 1;
-  background: transparent;      /* IMPORTANT : rendre transparent si tu veux voir l'arrière-plan */
+  background: transparent;
 }
 
 /* Réglages pour petits écrans */
 @media (max-width: 640px) {
   body::before {
     background-size: 80vw;
-    opacity: 1;
+    opacity: 0.6;
   }
 }
 
-/* Make common card backgrounds slightly transparent so watermark shows */
-.bg-white { background-color: rgba(255,255,255,0.92) !important; }
-.bg-gray-50 { background-color: rgba(249,250,251,0.92) !important; }/* Debug/override: force watermark visible and make common card backgrounds translucent */
-body::before { opacity: 0.25 !important; }
-.bg-white { background-color: rgba(255,255,255,0.85) !important; }
-.bg-gray-50 { background-color: rgba(249,250,251,0.85) !important; }
-.bg-gray-100 { background-color: rgba(243,244,246,0.85) !important; }
-/* Temporary strong override to force watermark visibly in background for testing */
-body { position: relative; }
-body::before {
-  background-size: cover !important;
-  background-position: center !important;
-  opacity: 1 !important;
-  z-index: -1 !important; /* put behind everything */
-}
-/* STRONG OVERRIDES: increase watermark visibility and make panels more translucent */
-body::before {
-  background-size: cover !important;
-  background-position: center !important;
-  opacity: 0.6 !important;            /* stronger visibility */
-  mix-blend-mode: multiply !important; /* or overlay */
-  filter: contrast(1.05) brightness(0.95) !important;
-  z-index: -1 !important; /* keep behind */
-}
-
 /* Make main backgrounds more translucent so watermark shows through */
-.bg-white { background-color: rgba(255,255,255,0.75) !important; }
-.bg-gray-50 { background-color: rgba(249,250,251,0.75) !important; }
-.bg-gray-100 { background-color: rgba(243,244,246,0.75) !important; }
-.min-h-screen { background: transparent !important; }
+.bg-white { background-color: rgba(255, 255, 255, 0.75); }
+.bg-gray-50 { background-color: rgba(255, 255, 255, 0.75); }
+.bg-gray-100 { background-color: rgba(255, 255, 255, 0.75); }
+.min-h-screen { background: transparent; }
 
-/* If some full-screen wrappers still hide the image, lower their opacity slightly */
-.main-overlay, .app-shell { background: transparent !important; }
+/* scope VEO page only */
+.veo-page .bg-white { background-color: rgba(255,255,255,0.90) !important; }
+.veo-page .bg-gray-50 { background-color: rgba(249,250,251,0.90) !important; }
+.veo-page .bg-gray-100 { background-color: rgba(243,244,246,0.90) !important; }
 
 /* Slight transparency for login inputs */
 .login-input {
@@ -79,3 +57,6 @@ body::before {
   background-color: rgba(255,255,255,0.99) !important; /* brighten on focus */
   box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
 }
+
+/* If some full-screen wrappers still hide the image, lower their opacity slightly */
+.main-overlay, .app-shell { background: transparent !important; }
