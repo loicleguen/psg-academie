@@ -91,7 +91,7 @@ export default function Country() {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="grid grid-cols-3 items-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900">COUNTRY</h1>
+            <h1 className="text-4xl font-bold text-black">COUNTRY</h1>
             {isAdminOrCoach && (
               <button
                 onClick={openCreateModal}
@@ -111,7 +111,7 @@ export default function Country() {
               {countries.map((country) => (
                 <div
                   key={country.id}
-                  className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60"
+                  className="bg-white/50 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60"
                 >
                   <div 
                     onClick={() => handleCountryClick(country.name)}
@@ -131,7 +131,7 @@ export default function Country() {
                   </div>
                   
                   {isAdminOrCoach && (
-                    <div className="border-t border-gray-300 bg-gray-50 px-4 py-1 flex justify-end space-x-22">
+                    <div className="border-t border-gray-300 bg-white/50 px-4 py-1 flex justify-end space-x-22">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

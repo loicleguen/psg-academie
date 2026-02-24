@@ -12,7 +12,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-transparent">
-      <nav className="bg-white shadow-sm">
+      <nav className="bg-white/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
