@@ -183,7 +183,7 @@ export default function Teams() {
           </div>
 
           {academyFilter && (
-            <p className="text-center text-gray-600 mb-8">
+            <p className="bg-white/50 max-w-md mx-auto px-6 text-center text-black mb-12 rounded-lg">
               Filtré par : <span className="font-semibold">{academyFilter}</span>
               <button
                 onClick={() => navigate('/teams')}
