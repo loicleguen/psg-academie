@@ -90,16 +90,21 @@ export default function Country() {
     <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="grid grid-cols-3 items-center mb-12">
-            <h1 className="text-4xl font-bold text-black">COUNTRY</h1>
-            {isAdminOrCoach && (
-              <button
-                onClick={openCreateModal}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                + Ajouter un pays
-              </button>
-            )}
+          <div className="grid grid-cols-3 items-center gap-4 mb-12">
+            <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
+              COUNTRY
+            </h1>
+            <div className="col-start-2 flex justify-center">
+              {isAdminOrCoach && (
+                <button
+                  onClick={openCreateModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  + Ajouter un pays
+                </button>
+              )}
+            </div>
+            <div className="col-start-3" />
           </div>
 
           {countries.length === 0 ? (
