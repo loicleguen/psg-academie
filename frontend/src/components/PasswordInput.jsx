@@ -11,7 +11,7 @@ export default function PasswordInput({ id = 'password', value, onChange, placeh
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="login-input appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-red-700 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z 1 sm:text-sm"
+        className="rounded-none relative block w-full px-3 py-2 border border-gray-300 bg-white opacity-70 placeholder-red-700 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z 1 sm:text-sm"
         aria-describedby={`${id}-toggle`}
       />
       <button
