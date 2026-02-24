@@ -101,7 +101,7 @@ export default function Academies() {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-4xl font-bold text-gray-900">ACADEMIES</h1>
+            <h1 className="bg-white/50 text-4xl font-bold text-gray-900">ACADEMIES</h1>
             {isAdminOrCoach && (
               <button
                 onClick={openCreateModal}
@@ -113,11 +113,11 @@ export default function Academies() {
           </div>
           
           {countryFilter && (
-            <p className="text-center text-gray-600 mb-8">
+            <p className="bg-white/50 max-w-md mx-auto px-6 text-center text-black mb-12 rounded-lg">
               Filtré par : <span className="font-semibold">{countryFilter}</span>
               <button
                 onClick={() => navigate('/academies')}
-                className="ml-4 text-blue-600 hover:text-blue-800 text-sm"
+                className="ml-4 text-blue-600 hover:text-blue-800 text-m"
               >
                 Voir toutes
               </button>
@@ -130,8 +130,8 @@ export default function Academies() {
                 <p className="text-xl">Aucune académie enregistrée</p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-lg p-8">
-                <ul className="space-y-4">
+              <div className="bg-white/70 rounded-lg shadow-lg p-8">
+                <ul className="space-y-8">
                   {academies.map((academy) => (
                     <li
                       key={academy.id}
