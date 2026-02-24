@@ -7,24 +7,6 @@
     <title>frontend</title>
   </head>
   <body>
-    <!--<img src="/images/imgforeground.png" alt="" class="site-watermark" />-->
-    <style>
-      .site-watermark {
-        position: fixed;
-        top: 56%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 90vw;
-        max-width: 1400px;
-        opacity: 0.5;           /* très discret mais visible */
-        pointer-events: none;
-        z-index: 9999;          /* devant tout */
-        mix-blend-mode: normal;
-      }
-
-      /* s'assure que le reste de l'app reste interactif */
-      #root { position: relative; z-index: 1; }
-    </style>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -802,7 +802,7 @@ export default function Veo() {
 
   if (loading) {
     return (
-      <div className="veo-page max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -811,7 +811,7 @@ export default function Veo() {
   }
 
   return (
-    <div className="veo-page max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0 space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-gray-900">VEO</h1>

@@ -51,7 +51,7 @@ export default function Register() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="login-input appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-red-700 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="w-full px-3 py-2 border border-gray-300 placeholder-red-700 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Nom complet"
               />
             </div>
@@ -64,7 +64,7 @@ export default function Register() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="login-input appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-red-700 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="w-full px-3 py-2 border border-gray-300 placeholder-red-700 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email"
               />
             </div>
