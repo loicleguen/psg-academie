@@ -77,7 +77,7 @@ export default function Login() {
           </div>
 
           <div className="block mx-auto flex justify-center">
-            <Link to="/register" className="group relative w-50 flex justify-center py-2 px-4 border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+            <Link to="/register" className="group relative w-50 flex justify-center py-2 px-4 border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
               Créer un compte
             </Link>
           </div>
