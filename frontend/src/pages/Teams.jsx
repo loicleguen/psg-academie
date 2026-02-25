@@ -141,52 +141,58 @@ useEffect(() => {
   const TeamCard = ({ teams, title }) => (
     <div className="bg-white/80 rounded-lg shadow-lg p-2">
       <h2 className="text-xl font-bold text-gray-700 mb-4">{title}</h2>
-      <ul className="space-y-1">
-        {teams.map((team) => (
-          <li
-            key={team.id}
-            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <div 
-              onClick={() => handleTeamClick(team.name)}
-              className="flex items-center flex-1 cursor-pointer"
+      {(!teams || teams.length === 0) ? (
+        <div className="text-center text-gray-500 py-6">
+          <p className="text-lg">Aucune équipe enregistrée</p>
+        </div>
+      ) : (
+        <ul className="space-y-1">
+          {teams.map((team) => (
+            <li
+              key={team.id}
+              className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
             >
-              <span className="mr-4 text-blue-600 text-xl">•</span>
-              <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
-                {team.name}
-              </span>
-              {team.players && team.players.length > 0 && (
-                <span className="ml-4 text-sm text-gray-500">
-                  {team.players.length} joueur{team.players.length > 1 ? 's' : ''}
+              <div 
+                onClick={() => handleTeamClick(team.name)}
+                className="flex items-center flex-1 cursor-pointer"
+              >
+                <span className="mr-4 text-blue-600 text-xl">•</span>
+                <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
+                  {team.name}
                 </span>
-              )}
-            </div>
-            
-            {isAdminOrCoach && (
-              <div className="flex space-x-2 ml-4">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openEditModal(team);
-                  }}
-                  className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1"
-                >
-                  Modifier
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(team);
-                  }}
-                  className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1"
-                >
-                  Supprimer
-                </button>
+                {team.players && team.players.length > 0 && (
+                  <span className="ml-4 text-sm text-gray-500">
+                    {team.players.length} joueur{team.players.length > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
-            )}
-          </li>
-        ))}
-      </ul>
+              
+              {isAdminOrCoach && (
+                <div className="flex space-x-2 ml-4">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditModal(team);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(team);
+                    }}
+                    className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 
@@ -223,19 +229,14 @@ useEffect(() => {
             </p>
           )}
 
-          {teams.length === 0 ? (
-            <div className="text-center text-gray-500">
-              <p className="text-xl">Aucune équipe enregistrée</p>
+          { /* Afficher systématiquement les cards Hommes / Femmes */ }
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <TeamCard teams={maleTeams} title="Hommes" />
+              <TeamCard teams={femaleTeams} title="Femmes" />
             </div>
-          ) : (
-            <div className="max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {maleTeams.length > 0 && <TeamCard teams={maleTeams} title="Hommes" />}
-                {femaleTeams.length > 0 && <TeamCard teams={femaleTeams} title="Femmes" />}
-              </div>
-              
-            </div>
-          )}
+          </div>
+
         </div>
       </div>
 
