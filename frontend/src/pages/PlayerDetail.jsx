@@ -320,24 +320,14 @@ export default function PlayerDetail() {
   return (
     <div className="min-h-screen bg-transparent p-8">
       <div className="max-w-6xl mx-auto">
-        <button 
-          onClick={() => navigate(-1)} 
-          className="mb-6 text-blue-600 hover:text-blue-800 flex items-center transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Retour
-        </button>
-
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
             {playerName}
           </h1>
-          <p className="text-gray-600">{playerInfo?.role || 'Joueur'}</p>
+          <p className="justify-self-start bg-white/50 px-4 py-2 rounded-md text-l font-bold text-black">{playerInfo?.role || 'Joueur'}</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg mb-6">
+        <div className="bg-white/80 rounded-lg shadow-lg mb-6">
           <div className="border-b border-gray-200">
             <nav className="flex -mb-px">
               <button
@@ -656,9 +646,9 @@ export default function PlayerDetail() {
                   </div>
                 </div>
 
-                <p className="text-gray-600">Données des 3 derniers mois</p>
+                <p className="text-black">Données des 3 derniers mois</p>
 
-                <div className="bg-gray-50 rounded-lg p-6">
+                <div className="bg-gray-50/50 rounded-lg p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
@@ -715,7 +705,7 @@ export default function PlayerDetail() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg border p-6 space-y-6">
+                <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   
                     <StatTable
                       rows={[
