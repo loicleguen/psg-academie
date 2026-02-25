@@ -227,17 +227,6 @@ useEffect(() => {
             <div className="col-start-3" />
           </div>
 
-          {academyFilter && (
-            <p className="bg-white/50 max-w-md mx-auto px-6 text-center text-black mb-12 rounded-lg">
-              Filtré par : <span className="font-semibold">{academyFilter}</span>
-              <button
-                onClick={() => navigate('/teams')}
-                className="ml-4 text-blue-600 hover:text-blue-800 text-sm"
-              >
-                Voir toutes
-              </button>
-            </p>
-          )}
 
           { /* Afficher systématiquement les cards Hommes / Femmes */ }
           <div className="max-w-2xl mx-auto">
