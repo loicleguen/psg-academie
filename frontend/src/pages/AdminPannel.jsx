@@ -113,7 +113,7 @@ export default function AdminPannel() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="bg-white/60 flex justify-center items-center h-64">
         <div className="text-gray-600">Chargement...</div>
       </div>
     );
