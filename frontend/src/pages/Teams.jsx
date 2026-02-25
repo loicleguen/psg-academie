@@ -88,18 +88,35 @@ export default function Teams() {
     }
   };
 
-  const maleTeams = teams.filter(team => 
-    team.name.includes(' H') || team.name.includes('Hommes')
-  );
-  const femaleTeams = teams.filter(team => 
-    team.name.includes(' F') || team.name.includes('Femmes')
-  );
-  const otherTeams = teams.filter(team => 
-    !team.name.includes(' H') && 
-    !team.name.includes(' F') && 
-    !team.name.includes('Hommes') && 
-    !team.name.includes('Femmes')
-  );
+const maleRegex = /(\bH\b|\bHommes\b|\sH$)/i;
+const femaleRegex = /(\bF\b|\bFemmes\b|\sF$)/i;
+
+const [maleTeams, setMaleTeams] = useState([]);
+const [femaleTeams, setFemaleTeams] = useState([]);
+const [formatError, setFormatError] = useState(null);
+
+useEffect(() => {
+  setFormatError(null);
+  const m = [];
+  const f = [];
+  const invalid = [];
+  teams.forEach((team) => {
+    const name = (team.name || '').trim();
+    if (maleRegex.test(name)) m.push(team);
+    else if (femaleRegex.test(name)) f.push(team);
+    else invalid.push(team);
+  });
+
+  if (invalid.length > 0) {
+    setFormatError("Format de nom d'équipe invalide: " + invalid.map(t => t.name).join(', '));
+    setMaleTeams([]);
+    setFemaleTeams([]);
+  } else {
+    setMaleTeams(m);
+    setFemaleTeams(f);
+  }
+}, [teams]);
+
 
   if (loading) {
     return (
@@ -109,10 +126,22 @@ export default function Teams() {
     );
   }
 
+  if (formatError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-md max-w-xl text-center">
+          <p className="font-bold mb-2">Erreur</p>
+          <p>{formatError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  
   const TeamCard = ({ teams, title }) => (
-    <div className="bg-white rounded-lg shadow-lg p-8">
+    <div className="bg-white/80 rounded-lg shadow-lg p-2">
       <h2 className="text-xl font-bold text-gray-700 mb-4">{title}</h2>
-      <ul className="space-y-4">
+      <ul className="space-y-1">
         {teams.map((team) => (
           <li
             key={team.id}
@@ -205,11 +234,6 @@ export default function Teams() {
                 {femaleTeams.length > 0 && <TeamCard teams={femaleTeams} title="Femmes" />}
               </div>
               
-              {otherTeams.length > 0 && (
-                <div className="mt-8">
-                  <TeamCard teams={otherTeams} title="Autres" />
-                </div>
-              )}
             </div>
           )}
         </div>

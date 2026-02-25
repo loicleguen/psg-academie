@@ -129,14 +129,14 @@ export default function Academies() {
             </p>
           )}
 
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-xl mx-auto">
             {academies.length === 0 ? (
               <div className="text-center text-gray-500">
                 <p className="text-xl">Aucune académie enregistrée</p>
               </div>
             ) : (
               <div className="bg-white/70 rounded-lg shadow-lg p-8">
-                <ul className="space-y-8">
+                <ul className="space-y-0">
                   {academies.map((academy) => (
                     <li
                       key={academy.id}

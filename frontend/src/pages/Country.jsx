@@ -123,9 +123,9 @@ export default function Country() {
                     className="py-2 px-4 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform"
                   >
                     <div className="mb-1">
-                      <CountryBadge countryName={country.name} size="150px" showLabel={false} />
+                      <CountryBadge countryName={country.name} size="110px" showLabel={false} />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 text-center">
+                    <h2 className="text-3xl font-bold text-gray-900 text-center">
                       {country.name}
                     </h2>
                     {country.academies && country.academies.length > 0 && (
