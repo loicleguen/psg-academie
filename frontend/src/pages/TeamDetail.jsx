@@ -3,20 +3,34 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { organizationService } from '../services/organizationService';
 
 export default function TeamDetail() {
-  const { teamName } = useParams();
+  const { teamId } = useParams();
   const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
+  const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadPlayers();
-  }, [teamName]);
+  loadPlayers();
+  // eslint-disable-next-line
+}, [teamId]);
+
+  useEffect(() => {
+    console.log('team:', team);
+  }, [team]);
 
   const loadPlayers = async () => {
     try {
-      const data = await organizationService.getTeamPlayers(teamName);
-      const playersData = (data || []).filter(p => p.is_active === true);
-    setPlayers(playersData.sort((a, b) => (a.player_name || a.full_name).localeCompare(b.player_name || b.full_name)));
+      const [playersData, teamData] = await Promise.all([
+        organizationService.getTeamPlayersById(teamId),
+        organizationService.getTeamById(teamId)
+      ]);
+      const playersFiltered = (playersData || []).filter(p => p.is_active === true);
+      setPlayers(
+        playersFiltered.sort((a, b) =>
+          (a.player_name || a.full_name).localeCompare(b.player_name || b.full_name)
+        )
+      );
+      setTeam(teamData);
     } catch (error) {
       console.error('Erreur lors du chargement des joueurs:', error);
     } finally {
@@ -26,7 +40,7 @@ export default function TeamDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-white/60 min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -37,7 +51,13 @@ export default function TeamDetail() {
       <div className="max-w-2xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            {decodeURIComponent(teamName)}
+            {team && team.academy && team.academy.country
+              ? `${team.academy.country.name} / ${team.academy.name} / ${team.name}`
+              : team && team.academy
+                ? `${team.academy.name} / ${team.name}`
+                : team
+                  ? team.name
+                  : ''}
           </h1>
 
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">

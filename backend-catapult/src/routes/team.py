@@ -107,6 +107,35 @@ def get_players_by_team(
     players = session.exec(stmt).all()
     return players
 
+@router.get("/id/{team_id}", response_model=TeamRead)
+def read_team_by_id(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    team = session.exec(
+        select(Team)
+        .where(Team.id == team_id)
+        .options(
+            selectinload(Team.academy).selectinload(Academy.country),
+            selectinload(Team.players)
+        )
+    ).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return team
+
+@router.get("/id/{team_id}/players", response_model=list[UserRead])
+def get_players_by_team_id(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    players = session.exec(
+        select(User).where(User.team_id == team_id, User.role == "player")
+    ).all()
+    return players
+
 @router.put("/{team_id}", response_model=TeamRead)
 def update_team_by_id(
     team_id: int,

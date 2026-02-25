@@ -39,8 +39,8 @@ export default function Teams() {
     }
   };
 
-  const handleTeamClick = (teamName) => {
-    navigate(`/teams/${encodeURIComponent(teamName)}`);
+  const handleTeamClick = (team) => {
+    navigate(`/teams/${team.id}`);
   };
 
   const openCreateModal = () => {
@@ -163,7 +163,7 @@ useEffect(() => {
               className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
             >
               <div 
-                onClick={() => handleTeamClick(team.name)}
+                onClick={() => handleTeamClick(team)}
                 className="flex items-center flex-1 cursor-pointer"
               >
                 <span className="mr-4 text-blue-600 text-xl">•</span>
