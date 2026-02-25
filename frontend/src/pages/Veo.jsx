@@ -831,7 +831,7 @@ export default function Veo() {
           </div>
         )}
 
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+        <div className="bg-blue-50/80 border border-blue-100 rounded-lg p-4">
           <p className="text-sm font-semibold text-blue-900">
             Catalogue exhaustif VEO: {metricCatalogStats.totalTeam} metriques equipe, {metricCatalogStats.totalPlayer} metriques joueurs.
           </p>
@@ -868,7 +868,7 @@ export default function Veo() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <form onSubmit={handleCreateVeoSession} className="bg-white rounded-lg shadow p-6 space-y-4">
+          <form onSubmit={handleCreateVeoSession} className="bg-white/80 rounded-lg shadow p-6 space-y-4">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Creer une nouvelle session VEO</h2>
               <p className="mt-1 text-sm text-gray-900">
@@ -1044,7 +1044,7 @@ export default function Veo() {
             </button>
           </form>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white/80 rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Sessions VEO existantes</h2>
             {matches.length === 0 ? (
               <p className="text-sm text-gray-900">Aucune session VEO creee.</p>
