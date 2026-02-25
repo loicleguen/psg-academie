@@ -148,7 +148,7 @@ export default function Academies() {
                       >
                         <span className="mr-4 text-blue-600 text-xl">•</span>
                         <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
-                          {academy.name}
+                          {`${academy.country?.name || academy.country_name || 'Unknown'}/${academy.name}`}
                         </span>
                         {academy.teams && academy.teams.length > 0 && (
                           <span className="ml-4 text-sm text-gray-500">
