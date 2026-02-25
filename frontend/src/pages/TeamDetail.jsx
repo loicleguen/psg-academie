@@ -33,19 +33,9 @@ export default function TeamDetail() {
   }
 
   return (
-    <div className="bg-white/30 min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="bg-white/10 min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <button
-            onClick={() => navigate('/teams')}
-            className="mb-6 text-blue-600 hover:text-blue-800 flex items-center"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Retour aux équipes
-          </button>
-
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             {decodeURIComponent(teamName)}
           </h1>
@@ -73,9 +63,6 @@ export default function TeamDetail() {
                         Nom du joueur
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Poste
                       </th>
                     </tr>
@@ -93,9 +80,6 @@ export default function TeamDetail() {
                           >
                             {player.player_name || player.full_name || 'N/A'}
                           </button>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{player.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">{player.position || 'N/A'}</div>
