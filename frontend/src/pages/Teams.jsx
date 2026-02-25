@@ -167,7 +167,7 @@ useEffect(() => {
                 className="flex items-center flex-1 cursor-pointer"
               >
                 <span className="mr-4 text-blue-600 text-xl">•</span>
-                <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
+                <span className="text-xl font-medium text-gray-900 hover:text-blue-600 whitespace-nowrap">
                   {`${team.academy?.country?.name || team.country?.name || team.academy?.country_name || team.country_name || 'Unknown'}/${team.academy?.name || team.academy_name || 'Unknown'}/${team.name}`}
                 </span>
                 {team.players && team.players.length > 0 && (
@@ -240,8 +240,8 @@ useEffect(() => {
           )}
 
           { /* Afficher systématiquement les cards Hommes / Femmes */ }
-          <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 gap-8">
               <TeamCard teams={maleTeams} title="Hommes" />
               <TeamCard teams={femaleTeams} title="Femmes" />
             </div>
