@@ -117,17 +117,6 @@ export default function Academies() {
             <div className="col-start-3" />
           </div>
           
-          {countryFilter && (
-            <p className="bg-white/50 max-w-md mx-auto px-6 text-center text-black mb-12 rounded-lg">
-              Filtré par : <span className="font-semibold">{countryFilter}</span>
-              <button
-                onClick={() => navigate('/academies')}
-                className="ml-4 text-blue-600 hover:text-blue-800 text-m"
-              >
-                Voir toutes
-              </button>
-            </p>
-          )}
 
           <div className="max-w-xl mx-auto">
             <div className="bg-white/70 rounded-lg shadow-lg p-8">
