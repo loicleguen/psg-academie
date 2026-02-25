@@ -168,7 +168,7 @@ useEffect(() => {
               >
                 <span className="mr-4 text-blue-600 text-xl">•</span>
                 <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
-                  {team.name}
+                  {`${team.academy?.country?.name || team.country?.name || team.academy?.country_name || team.country_name || 'Unknown'}/${team.academy?.name || team.academy_name || 'Unknown'}/${team.name}`}
                 </span>
                 {team.players && team.players.length > 0 && (
                   <span className="ml-4 text-sm text-gray-500">
