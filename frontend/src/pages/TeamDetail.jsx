@@ -60,8 +60,8 @@ export default function TeamDetail() {
                   : ''}
           </h1>
 
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <div className="bg-white/60 rounded-lg shadow-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900">
                 Joueurs ({players.length})
               </h2>
@@ -76,21 +76,21 @@ export default function TeamDetail() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                         #
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                         Nom du joueur
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                         Poste
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white/10 divide-y divide-gray-400">
                     {players.map((player, index) => (
                       <tr key={player.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-black">
                           {index + 1}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -102,7 +102,7 @@ export default function TeamDetail() {
                           </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{player.position || 'N/A'}</div>
+                          <div className="text-sm text-black">{player.position || 'N/A'}</div>
                         </td>
                       </tr>
                     ))}
