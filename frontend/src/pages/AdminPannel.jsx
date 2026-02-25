@@ -122,7 +122,7 @@ export default function AdminPannel() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-4xl font-bold text-black">Administration - Gestion des Utilisateurs</h1>
+        <h1 className="bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">Administration - Gestion des Utilisateurs</h1>
       </div>
 
       {error && (
@@ -132,8 +132,8 @@ export default function AdminPannel() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <div className="flex gap-6 items-center">
+      <div className="bg-white/50 rounded-lg shadow p-6 mb-8">
+        <div className="flex gap-6 justify-center items-center">
           <button
             onClick={() => { setFilter('all'); setSelectedTeamId(''); }}
             className={`px-4 py-2 rounded ${
@@ -191,8 +191,8 @@ export default function AdminPannel() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="bg-white/80 rounded-lg shadow overflow-hidden max-w-7xl mx-auto">
+        <table className="min-w-full divide-y divide-gray-500">
           <thead className="bg-gray-40">
             <tr>
               <th className="px-6 py-3 text-left text-l font-medium text-gray-900 uppercase tracking-wider">
@@ -221,7 +221,7 @@ export default function AdminPannel() {
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-300">
+          <tbody className="bg-white/10 divide-y divide-gray-500">
             {filteredUsers.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
