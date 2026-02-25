@@ -130,19 +130,19 @@ export default function Academies() {
           )}
 
           <div className="max-w-xl mx-auto">
-            {academies.length === 0 ? (
-              <div className="text-center text-gray-500">
-                <p className="text-xl">Aucune académie enregistrée</p>
-              </div>
-            ) : (
-              <div className="bg-white/70 rounded-lg shadow-lg p-8">
+            <div className="bg-white/70 rounded-lg shadow-lg p-8">
+              {academies.length === 0 ? (
+                <div className="text-center text-gray-500 py-6">
+                  <p className="text-lg">Aucune académie enregistrée</p>
+                </div>
+              ) : (
                 <ul className="space-y-0">
                   {academies.map((academy) => (
                     <li
                       key={academy.id}
                       className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors"
                     >
-                      <div 
+                      <div
                         onClick={() => handleAcademyClick(academy.name)}
                         className="flex items-center flex-1 cursor-pointer"
                       >
@@ -156,23 +156,17 @@ export default function Academies() {
                           </span>
                         )}
                       </div>
-                      
+
                       {isAdminOrCoach && (
                         <div className="flex space-x-2 ml-4">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(academy);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); openEditModal(academy); }}
                             className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1"
                           >
                             Modifier
                           </button>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(academy);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(academy); }}
                             className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1"
                           >
                             Supprimer
@@ -182,8 +176,8 @@ export default function Academies() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
