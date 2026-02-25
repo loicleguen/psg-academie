@@ -46,6 +46,7 @@ export default function Teams() {
   const openCreateModal = () => {
     setModalMode('create');
     setFormData({ name: '', academy_id: '' });
+    setFormError(null);
     setSelectedTeam(null);
     setShowModal(true);
   };
@@ -56,25 +57,33 @@ export default function Teams() {
       name: team.name,
       academy_id: team.academy?.id || team.academy_id
     });
+    setFormError(null);
     setSelectedTeam(team);
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (modalMode === 'create') {
-        await organizationService.createTeam(formData.name, parseInt(formData.academy_id));
-      } else {
-        await organizationService.updateTeam(selectedTeam.id, formData.name);
-      }
-      setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert(error.response?.data?.detail || 'Une erreur est survenue');
+  e.preventDefault();
+  setFormError(null);
+  const name = (formData.name || '').trim();
+  if (!maleRegex.test(name) && !femaleRegex.test(name)) {
+    setFormError("Nom d'équipe invalide");
+    return;
+  }
+
+  try {
+    if (modalMode === 'create') {
+      await organizationService.createTeam(name, parseInt(formData.academy_id));
+    } else {
+      await organizationService.updateTeam(selectedTeam.id, name);
     }
-  };
+    setShowModal(false);
+    loadData();
+  } catch (error) {
+    console.error('Erreur:', error);
+    setFormError(error.response?.data?.detail || 'Une erreur est survenue');
+  }
+};
 
   const handleDelete = async (team) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) return;
@@ -94,6 +103,7 @@ const femaleRegex = /(\bF\b|\bFemmes\b|\sF$)/i;
 const [maleTeams, setMaleTeams] = useState([]);
 const [femaleTeams, setFemaleTeams] = useState([]);
 const [formatError, setFormatError] = useState(null);
+const [formError, setFormError] = useState(null);
 
 useEffect(() => {
   setFormatError(null);
@@ -261,6 +271,10 @@ useEffect(() => {
                   placeholder="N1 H"
                 />
               </div>
+              {formError && (
+                <p className="text-red-600 text-sm mb-2">{formError}</p>
+              )}
+
               {modalMode === 'create' && (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
