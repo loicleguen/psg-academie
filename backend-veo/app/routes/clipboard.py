@@ -21,6 +21,9 @@ from app.services.possession_zone_parser import parse_veo_possession_zone
 from app.services.shotmap_parser import parse_veo_shotmap
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, constr
+from backend_catapult.src.middleware.security import require_coach_or_admin
+from backend_catapult.src.models.user import User
+from fastapi import Depends
 
 router = APIRouter()
 
@@ -39,7 +42,7 @@ class ClipboardInput(BaseModel):
 
 
 @router.post("/parse-veo-clipboard")
-def parse_veo_clipboard_endpoint(data: ClipboardInput) -> dict:
+def parse_veo_clipboard_endpoint(data: ClipboardInput, current_user: User = Depends(require_coach_or_admin)) -> dict:
     """
     Route FastAPI principale pour analyser un collage VEO (tous menus confondus).
 

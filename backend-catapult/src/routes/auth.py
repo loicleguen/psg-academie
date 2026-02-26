@@ -425,7 +425,7 @@ def delete_user(
 
 
 @router.post("/me/photo", tags=["Auth - User"], summary="[Me] Upload profile photo")
-def upload_my_photo(file: UploadFile = File(...), current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+def upload_my_photo(file: UploadFile = File(...), current_user: User = Depends(require_coach_or_admin), session: Session = Depends(get_session)):
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
     filename = file.filename or f"{current_user.id}.jpg"

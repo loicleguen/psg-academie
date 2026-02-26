@@ -4,13 +4,17 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.models import Player, Team
 from app import schemas
+from backend_catapult.src.middleware.security import require_coach_or_admin
+from backend_catapult.src.models.user import User
+from fastapi import Depends
 
 router = APIRouter(prefix="/players", tags=["players"])
 
 @router.get("", response_model=List[schemas.Player])
 def list_players(
     team_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """List players, optionally filtered by team"""
     query = db.query(Player)
@@ -21,7 +25,7 @@ def list_players(
     return players
 
 @router.post("", response_model=schemas.Player, status_code=201)
-def create_player(player: schemas.PlayerCreate, db: Session = Depends(get_db)):
+def create_player(player: schemas.PlayerCreate, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
     """Create a new player"""
     # Verify team exists
     team = db.query(Team).get(player.team_id)
@@ -35,7 +39,7 @@ def create_player(player: schemas.PlayerCreate, db: Session = Depends(get_db)):
     return db_player
 
 @router.get("/{player_id}", response_model=schemas.Player)
-def get_player(player_id: int, db: Session = Depends(get_db)):
+def get_player(player_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
     """Get player by ID"""
     player = db.query(Player).get(player_id)
     if not player:
@@ -46,7 +50,8 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
 def update_player(
     player_id: int,
     player_update: schemas.PlayerUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Update player information"""
     player = db.query(Player).get(player_id)
@@ -63,7 +68,7 @@ def update_player(
     return player
 
 @router.delete("/{player_id}", status_code=204)
-def delete_player(player_id: int, db: Session = Depends(get_db)):
+def delete_player(player_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
     """Delete a player"""
     player = db.query(Player).get(player_id)
     if not player:
