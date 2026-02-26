@@ -122,8 +122,8 @@ export default function Country() {
                     onClick={() => handleCountryClick(country.name)}
                     className="py-2 px-4 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform"
                   >
-                    <div className="mb-1">
-                      <CountryBadge countryName={country.name} size="110px" showLabel={false} />
+                    <div className="mb-2">
+                      <CountryBadge countryName={country.name} size="180px" showLabel={false} />
                     </div>
                     <h2 className="text-3xl font-bold text-gray-900 text-center">
                       {country.name}

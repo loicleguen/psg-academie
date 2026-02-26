@@ -1,9 +1,28 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Détection des onglets actifs
+  const isPSGAcadémieActive =
+    location.pathname.startsWith('/country') ||
+    location.pathname.startsWith('/academies') ||
+    location.pathname.startsWith('/teams') ||
+    /^\/teams\/\d+/.test(location.pathname);
+
+  const isVEOActive = location.pathname.startsWith('/veo');
+
+  const isSessionCatapultActive =
+    location.pathname.startsWith('/catapult/sessions') ||
+    location.pathname.startsWith('/catapult/upload') ||
+    /^\/catapult\/sessions\/[^/]+$/.test(location.pathname);
+
+  const isCoachPannelActive =
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/players/');
 
   const handleLogout = () => {
     logout();
@@ -17,27 +36,44 @@ export default function Layout({ children }) {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link to="/country" className="inline-flex items-center px-4 h-10 bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-xl font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black">PSG Académie</Link>
+                <NavLink
+                  to="/country"
+                  className={
+                    "inline-flex items-center px-4 h-10 bg-blue-500 py-2 border border-transparent rounded-md shadow-sm text-xl font-medium text-white hover:bg-blue-700 " +
+                    (isPSGAcadémieActive ? "ring-5 ring-offset-5 ring-black" : "")
+                  }
+                >
+                  PSG Académie
+                </NavLink>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8 sm:items-center">
-                <Link
+                <NavLink
                   to="/veo"
-                  className="inline-flex items-center px-4 h-10 bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black"
+                  className={
+                    "inline-flex items-center px-4 h-10 bg-blue-500 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 " +
+                    (isVEOActive ? "ring-5 ring-offset-5 ring-black" : "")
+                  }
                 >
                   VEO
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/catapult/sessions"
-                  className="inline-flex items-center px-4 h-10 bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black"
+                  className={
+                    "inline-flex items-center px-4 h-10 bg-blue-500 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 " +
+                    (isSessionCatapultActive ? "ring-5 ring-offset-5 ring-black" : "")
+                  }
                 >
                   Sessions Catapult
-                </Link>
-                <Link
-                      to="/admin"
-                      className="bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-5 focus:ring-offset-5 focus:ring-black"
-                    >
-                      Coach Pannel
-                    </Link>
+                </NavLink>
+                <NavLink
+                  to="/admin"
+                  className={
+                    "bg-blue-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 " +
+                    (isCoachPannelActive ? "ring-5 ring-offset-5 ring-black" : "")
+                  }
+                >
+                  Coach Pannel
+                </NavLink>
               </div>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
@@ -56,7 +92,6 @@ export default function Layout({ children }) {
           </div>
         </div>
       </nav>
-
       <main>{children}</main>
     </div>
   );
