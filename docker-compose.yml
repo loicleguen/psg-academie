@@ -49,6 +49,7 @@ services:
       db-catapult:
         condition: service_healthy
     environment:
+      - SECRET_KEY=6393013afbfb365ab854ba0f1c6e9aee551ef777a273253fdf18cb219070076ace66e1108f5c551faaef05a3bb06f73fbc9e52ca53bec16ab8f9c77846078b22
       - ENV=prod
       - DATABASE_URL=postgresql://psguser:psgpass@db-catapult:5432/psgdb
     ports:
