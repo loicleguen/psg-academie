@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { catapultService } from '../services/catapultService';
 import api from '../services/api';
 import MedicalMap from '../components/MedicalMap';
 
 export default function PlayerDetail() {
   const { playerName } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const compareWith = searchParams.get('compare');
 
