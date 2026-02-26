@@ -86,7 +86,7 @@ function App() {
           <Route
             path="/veo"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <Veo />
                 </Layout>
