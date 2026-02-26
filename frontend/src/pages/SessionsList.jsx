@@ -60,7 +60,7 @@ export default function SessionsList() {
       <div className="px-4 py-6 sm:px-0">
         <div className="grid grid-cols-3 items-center gap-4 mb-12">
           <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
-            SESSIONS
+            SESSIONS ({sessions.length})
           </h1>
           <div className="col-start-2 flex justify-center">
             {isAdminOrCoach && (
