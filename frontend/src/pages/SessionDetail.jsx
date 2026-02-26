@@ -230,21 +230,21 @@ export default function SessionDetail() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="max-w-5xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         {/* Header with back button */}
         <div className="mb-6">
           <Link
             to="/catapult/sessions"
-            className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700"
+            className="inline-flex text-xl font-medium text-orange-600 hover:text-black"
           >
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             Retour aux sessions
           </Link>
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">
+          <h1 className="inline-block-center bg-white/50 px-4 py-2 rounded-md text-3xl text-center font-bold text-gray-900">
             {sessionTitle}
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="justify-self-center inline-block-center bg-white/50 rounded-md mt-2 text-m text-center text-black">
             Choisissez un type de rapport à générer
           </p>
         </div>
@@ -265,7 +265,7 @@ export default function SessionDetail() {
             className={`
               relative rounded-lg border p-6 text-left transition-all
               ${reportTypes[0].available 
-                ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
+                ? 'border-gray-300 bg-white/70 hover:border-blue-500 hover:shadow-lg cursor-pointer' 
                 : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
               ${loading && reportTypes[0].available ? 'opacity-50' : ''}
             `}
@@ -276,7 +276,7 @@ export default function SessionDetail() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               {reportTypes[0].title}
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-900">
               {reportTypes[0].description}
             </p>
             {loading && reportTypes[0].available && (
@@ -293,7 +293,7 @@ export default function SessionDetail() {
             className={`
               relative rounded-lg border p-6 text-left transition-all
               ${reportTypes[1].available 
-                ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
+                ? 'border-gray-300 bg-white/70 hover:border-blue-500 hover:shadow-lg cursor-pointer' 
                 : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
               ${loading && reportTypes[1].available ? 'opacity-50' : ''}
             `}
@@ -304,7 +304,7 @@ export default function SessionDetail() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               {reportTypes[1].title}
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-900">
               {reportTypes[1].description}
             </p>
             {loading && reportTypes[1].available && (
@@ -318,7 +318,7 @@ export default function SessionDetail() {
           <div className="space-y-6">
             {/* Player selection for individual report */}
             {availablePlayers.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white/70 rounded-lg shadow p-6">
                 <label htmlFor="player-select" className="block text-sm font-medium text-gray-700 mb-2">
                   Sélectionner un joueur pour le rapport individuel
                 </label>
@@ -344,7 +344,7 @@ export default function SessionDetail() {
               className={`
                 relative rounded-lg border p-6 text-left transition-all w-full
                 ${reportTypes[2].available 
-                  ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer' 
+                  ? 'border-gray-300 bg-white/70 hover:border-blue-500 hover:shadow-lg cursor-pointer' 
                   : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
                 ${loading && reportTypes[2].available ? 'opacity-50' : ''}
               `}
@@ -355,7 +355,7 @@ export default function SessionDetail() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 {reportTypes[2].title}
               </h3>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-900">
                 {reportTypes[2].description}
               </p>
               {loading && reportTypes[2].available && (
