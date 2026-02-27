@@ -32,17 +32,52 @@ const ESSENTIAL_TEAM_METRICS = new Set([
 ]);
 
 const ESSENTIAL_PLAYER_METRICS = new Set([
-  'player_goals',
-  'player_shots',
   'player_goal_assists',
-  'player_total_events',
-  'player_corners',
-  'player_free_kicks',
-  'player_throw_ins',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_fouls_committed',
+  'player_cards',
+  'player_offsides',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+  'player_ball_losses',
 ]);
 
+const PLAYER_METRIC_DISPLAY_ORDER = [
+  'player_goal_assists',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_fouls_committed',
+  'player_cards',
+  'player_offsides',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+  'player_ball_losses',
+];
+
+const PLAYER_METRIC_ORDER_INDEX = new Map(
+  PLAYER_METRIC_DISPLAY_ORDER.map((slug, index) => [slug, index])
+);
+
 const METRIC_LABEL_OVERRIDES = {
-  player_total_events: 'Total evenements',
+  player_goal_assists: 'Passes decisives',
+  player_shots: 'Tirs',
+  player_shots_on_target: 'Tirs cadres',
+  player_goals: 'Buts',
+  player_duels_won: 'Duels gagnes',
+  player_fouls_committed: 'Fautes',
+  player_cards: 'Cartons',
+  player_offsides: 'Hors-jeu',
+  player_dribbles_won: 'Dribbles reussis',
+  player_tackles_won: 'Tacles reussis',
+  player_recoveries: 'Recuperations',
+  player_ball_losses: 'Pertes de balle',
 };
 
 const UNIT_LABELS = {
@@ -195,16 +230,13 @@ export default function Veo() {
   }, [teamMetricsByCategory, showAllMetrics]);
 
   const visiblePlayerMetricsByCategory = useMemo(() => {
-    if (showAllMetrics) {
-      return playerMetricsByCategory;
-    }
     return playerMetricsByCategory
       .map((group) => ({
         ...group,
         metrics: group.metrics.filter((metric) => ESSENTIAL_PLAYER_METRICS.has(metric.slug)),
       }))
       .filter((group) => group.metrics.length > 0);
-  }, [playerMetricsByCategory, showAllMetrics]);
+  }, [playerMetricsByCategory]);
 
   const allTeamMetricFields = useMemo(
     () =>
@@ -239,7 +271,17 @@ export default function Veo() {
     [allFlatPlayerMetrics]
   );
   const visibleFlatPlayerMetrics = useMemo(
-    () => visiblePlayerMetricsByCategory.flatMap((group) => group.metrics),
+    () =>
+      visiblePlayerMetricsByCategory
+        .flatMap((group) => group.metrics)
+        .sort((left, right) => {
+          const leftIndex = PLAYER_METRIC_ORDER_INDEX.get(left.slug) ?? Number.MAX_SAFE_INTEGER;
+          const rightIndex = PLAYER_METRIC_ORDER_INDEX.get(right.slug) ?? Number.MAX_SAFE_INTEGER;
+          if (leftIndex !== rightIndex) {
+            return leftIndex - rightIndex;
+          }
+          return left.slug.localeCompare(right.slug);
+        }),
     [visiblePlayerMetricsByCategory]
   );
 

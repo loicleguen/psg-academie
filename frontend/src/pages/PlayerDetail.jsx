@@ -1,6 +1,37 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { catapultService } from '../services/catapultService';
+import { veoService } from '../services/veoService';
+
+const VEO_PLAYER_METRIC_ORDER = [
+  'player_goal_assists',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_fouls_committed',
+  'player_cards',
+  'player_offsides',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+  'player_ball_losses',
+];
+
+const VEO_PLAYER_METRIC_LABELS = {
+  player_goal_assists: 'Passes decisives',
+  player_shots: 'Tirs',
+  player_shots_on_target: 'Tirs cadres',
+  player_goals: 'Buts',
+  player_duels_won: 'Duels gagnes',
+  player_fouls_committed: 'Fautes',
+  player_cards: 'Cartons',
+  player_offsides: 'Hors-jeu',
+  player_dribbles_won: 'Dribbles reussis',
+  player_tackles_won: 'Tacles reussis',
+  player_recoveries: 'Recuperations',
+  player_ball_losses: 'Pertes de balle',
+};
 
 export default function PlayerDetail() {
   const { playerName } = useParams();
@@ -10,8 +41,11 @@ export default function PlayerDetail() {
 
   const [playerStats, setPlayerStats] = useState(null);
   const [comparePlayerStats, setComparePlayerStats] = useState(null);
+  const [veoStats, setVeoStats] = useState(null);
+  const [compareVeoStats, setCompareVeoStats] = useState(null);
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [veoLoading, setVeoLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState('');
 
   useEffect(() => {
@@ -20,10 +54,22 @@ export default function PlayerDetail() {
   }, [playerName]);
 
   useEffect(() => {
+    loadVeoStats();
+  }, [playerName]);
+
+  useEffect(() => {
     if (compareWith) {
       loadComparePlayerStats(compareWith);
     } else {
       setComparePlayerStats(null);
+    }
+  }, [compareWith]);
+
+  useEffect(() => {
+    if (compareWith) {
+      loadCompareVeoStats(compareWith);
+    } else {
+      setCompareVeoStats(null);
     }
   }, [compareWith]);
 
@@ -48,6 +94,33 @@ export default function PlayerDetail() {
     }
   };
 
+  const loadVeoStats = async () => {
+    try {
+      setVeoLoading(true);
+      const stats = await veoService.getPlayerMetricsSummaryByName(playerName);
+      setVeoStats(stats);
+    } catch (error) {
+      if (error?.response?.status !== 404) {
+        console.error('Erreur chargement stats VEO joueur:', error);
+      }
+      setVeoStats(null);
+    } finally {
+      setVeoLoading(false);
+    }
+  };
+
+  const loadCompareVeoStats = async (name) => {
+    try {
+      const stats = await veoService.getPlayerMetricsSummaryByName(name);
+      setCompareVeoStats(stats);
+    } catch (error) {
+      if (error?.response?.status !== 404) {
+        console.error('Erreur chargement stats VEO comparaison:', error);
+      }
+      setCompareVeoStats(null);
+    }
+  };
+
   const loadAllPlayers = async () => {
     try {
       const players = await catapultService.getAllPlayers();
@@ -66,6 +139,7 @@ export default function PlayerDetail() {
   const clearComparison = () => {
     setSelectedPlayer('');
     setSearchParams({});
+    setCompareVeoStats(null);
   };
 
   if (loading) {
@@ -112,6 +186,27 @@ export default function PlayerDetail() {
     </div>
   );
 
+  const formatVeoMetricValue = (value) => {
+    if (value === null || value === undefined) {
+      return '-';
+    }
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) {
+      return '-';
+    }
+    return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
+  };
+
+  const veoMetricMap = (veoStats?.metrics ?? []).reduce((acc, metric) => {
+    acc[metric.slug] = metric.value;
+    return acc;
+  }, {});
+
+  const compareVeoMetricMap = (compareVeoStats?.metrics ?? []).reduce((acc, metric) => {
+    acc[metric.slug] = metric.value;
+    return acc;
+  }, {});
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
@@ -132,7 +227,7 @@ export default function PlayerDetail() {
             Statistiques de {playerStats.player_name}
             {comparePlayerStats && ` vs ${comparePlayerStats.player_name}`}
           </h1>
-          <p className="text-gray-600">Données des 3 derniers mois</p>
+          <p className="text-gray-600">Vue comparative des donnees joueur</p>
         </div>
 
         {/* Section de comparaison */}
@@ -275,6 +370,53 @@ export default function PlayerDetail() {
             value2={comparePlayerStats?.pp_avg?.toFixed(2)}
             color="text-indigo-600"
           />
+        </div>
+
+        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6 mt-8">
+          <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
+          {veoLoading ? (
+            <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
+          ) : !veoStats ? (
+            <p className="text-gray-500 text-sm">
+              Aucune metrique VEO disponible pour ce joueur sur les sessions disponibles.
+            </p>
+          ) : (
+            <>
+              <div className="border-b pb-3">
+                <p className="text-sm text-gray-600 font-medium mb-2">Nombre de sessions</p>
+                <div className={comparePlayerStats ? "grid grid-cols-2 gap-4" : "flex"}>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {veoStats.player_name || playerStats.player_name}
+                    </p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {veoStats.sessions_count}
+                    </p>
+                  </div>
+                  {comparePlayerStats && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        {compareVeoStats?.player_name || comparePlayerStats.player_name}
+                      </p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {compareVeoStats?.sessions_count ?? 0}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {VEO_PLAYER_METRIC_ORDER.map((slug) => (
+                <StatRow
+                  key={slug}
+                  label={VEO_PLAYER_METRIC_LABELS[slug] || slug}
+                  value1={formatVeoMetricValue(veoMetricMap[slug])}
+                  value2={formatVeoMetricValue(compareVeoMetricMap[slug])}
+                  color="text-gray-900"
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -290,3 +290,18 @@ class LeaderboardResponse(BaseModel):
     metric_label: str
     unit: Optional[str] = None
     entries: List[LeaderboardEntry]
+
+
+class PlayerMetricAggregate(BaseModel):
+    slug: str
+    label_fr: str
+    value: float
+    unit: Optional[str] = None
+
+
+class PlayerMetricsSummaryResponse(BaseModel):
+    player_id: int
+    player_name: str
+    team_id: int
+    sessions_count: int
+    metrics: List[PlayerMetricAggregate]

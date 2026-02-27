@@ -118,6 +118,13 @@ export const veoService = {
     return response.data;
   },
 
+  async getPlayerMetricsSummaryByName(playerName) {
+    const response = await tacticalApi.get(
+      `/players/by-name/${encodeURIComponent(playerName)}/metrics-summary`
+    );
+    return response.data;
+  },
+
   async updatePlayerMetrics(matchId, values) {
     const response = await tacticalApi.put(`/metrics/matches/${matchId}/player-metrics`, {
       values,

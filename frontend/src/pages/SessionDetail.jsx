@@ -1,5 +1,5 @@
 // SessionDetail.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { catapultService } from '../services/catapultService';
 import { veoService } from '../services/veoService';
@@ -36,6 +36,21 @@ const METRIC_LABELS = {
   team_shots_conceded: 'Tirs encaisses',
 };
 
+const PLAYER_METRIC_LABELS = {
+  player_goal_assists: 'Passes decisives',
+  player_shots: 'Tirs',
+  player_shots_on_target: 'Tirs cadres',
+  player_goals: 'Buts',
+  player_duels_won: 'Duels gagnes',
+  player_fouls_committed: 'Fautes',
+  player_cards: 'Cartons',
+  player_offsides: 'Hors-jeu',
+  player_dribbles_won: 'Dribbles reussis',
+  player_tackles_won: 'Tacles reussis',
+  player_recoveries: 'Recuperations',
+  player_ball_losses: 'Pertes de balle',
+};
+
 const KPI_COMPARISON_ROWS = [
   { label: 'Buts', ownSlug: 'team_goals_scored', opponentSlug: 'team_goals_conceded' },
   { label: 'Tirs', ownSlug: 'team_shots', opponentSlug: 'team_shots_conceded' },
@@ -64,6 +79,10 @@ function clampScore(value) {
 
 function formatMetricLabel(metric) {
   return METRIC_LABELS[metric.metric_slug] || metric.metric_label;
+}
+
+function formatPlayerMetricLabel(column) {
+  return PLAYER_METRIC_LABELS[column.slug] || column.label;
 }
 
 function formatMetricValue(value, unit) {
@@ -147,7 +166,189 @@ function toCsvString(rows) {
   return rows.map((row) => row.map((cell) => csvCell(cell)).join(';')).join('\n');
 }
 
-function buildVeoReportSvg({
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Unable to convert blob to data URL.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function syncFormValuesForClone(sourceRoot, cloneRoot) {
+  const sourceFields = sourceRoot.querySelectorAll('textarea, input, select');
+  const clonedFields = cloneRoot.querySelectorAll('textarea, input, select');
+
+  sourceFields.forEach((sourceField, index) => {
+    const clonedField = clonedFields[index];
+    if (!clonedField) {
+      return;
+    }
+
+    if (sourceField instanceof HTMLTextAreaElement && clonedField instanceof HTMLTextAreaElement) {
+      clonedField.textContent = sourceField.value;
+      return;
+    }
+
+    if (sourceField instanceof HTMLInputElement && clonedField instanceof HTMLInputElement) {
+      clonedField.setAttribute('value', sourceField.value);
+      if (sourceField.checked) {
+        clonedField.setAttribute('checked', 'checked');
+      } else {
+        clonedField.removeAttribute('checked');
+      }
+      return;
+    }
+
+    if (sourceField instanceof HTMLSelectElement && clonedField instanceof HTMLSelectElement) {
+      Array.from(sourceField.options).forEach((option, optionIndex) => {
+        const clonedOption = clonedField.options[optionIndex];
+        if (clonedOption) {
+          clonedOption.selected = option.selected;
+        }
+      });
+    }
+  });
+}
+
+function collectDocumentCssText() {
+  let cssText = '';
+
+  Array.from(document.styleSheets).forEach((styleSheet) => {
+    try {
+      const rules = styleSheet.cssRules;
+      if (!rules) {
+        return;
+      }
+
+      Array.from(rules).forEach((rule) => {
+        cssText += `${rule.cssText}\n`;
+      });
+    } catch {
+      // Ignore cross-origin stylesheets that cannot be inspected.
+    }
+  });
+
+  return cssText;
+}
+
+function escapeStyleTagContent(cssText) {
+  return String(cssText || '').replace(/<\/style/gi, '<\\/style');
+}
+
+async function inlineImageSources(rootElement) {
+  const images = Array.from(rootElement.querySelectorAll('img'));
+
+  await Promise.all(
+    images.map(async (image) => {
+      const source = image.getAttribute('src');
+      if (!source || source.startsWith('data:')) {
+        return;
+      }
+
+      try {
+        const absoluteUrl = new URL(source, window.location.href).href;
+        const response = await fetch(absoluteUrl);
+        if (!response.ok) {
+          return;
+        }
+
+        const blob = await response.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        image.setAttribute('src', dataUrl);
+        image.removeAttribute('srcset');
+      } catch (error) {
+        console.warn('Image not embedded in exported report:', source, error);
+      }
+    })
+  );
+}
+
+async function downloadElementAsPng(element, fileName) {
+  if (!element) {
+    return false;
+  }
+
+  const width = Math.ceil(element.scrollWidth || element.clientWidth);
+  const height = Math.ceil(element.scrollHeight || element.clientHeight);
+  if (width <= 0 || height <= 0) {
+    return false;
+  }
+
+  const clonedElement = element.cloneNode(true);
+  if (!(clonedElement instanceof HTMLElement)) {
+    return false;
+  }
+  clonedElement.style.width = `${width}px`;
+  syncFormValuesForClone(element, clonedElement);
+
+  await inlineImageSources(clonedElement);
+
+  const serializedNode = new XMLSerializer().serializeToString(clonedElement);
+  const cssText = collectDocumentCssText();
+  const foreignObjectHtml = `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;">${serializedNode}</div>`;
+  const svgMarkup = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <foreignObject x="0" y="0" width="100%" height="100%">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden;">
+          <style>${escapeStyleTagContent(cssText)}</style>
+          ${foreignObjectHtml}
+        </div>
+      </foreignObject>
+    </svg>
+  `;
+
+  const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+  const svgUrl = URL.createObjectURL(svgBlob);
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = svgUrl;
+    });
+
+    const scaleCap = Math.min(2, 2600 / Math.max(width, height));
+    const scale = Math.max(1, scaleCap);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return false;
+    }
+
+    context.scale(scale, scale);
+    context.drawImage(image, 0, 0, width, height);
+
+    const pngBlob = await new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/png');
+    });
+
+    if (!pngBlob) {
+      return false;
+    }
+
+    const pngUrl = URL.createObjectURL(pngBlob);
+    const link = document.createElement('a');
+    link.href = pngUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(pngUrl);
+    return true;
+  } catch (error) {
+    console.error('Unable to export rendered report to PNG.', error);
+    return false;
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
+}
+
+function BUILD_VEO_REPORT_SVG({
   title,
   dateLabel,
   opponent,
@@ -167,7 +368,7 @@ function buildVeoReportSvg({
   logoDataUrl = '',
 }) {
   const width = 1600;
-  const height = 2200;
+  const height = 2280;
   const chartLeft = 70;
   const chartWidth = width - chartLeft * 2;
 
@@ -176,7 +377,8 @@ function buildVeoReportSvg({
   const kpiStartY = 300;
   const qualityStartY = 450;
   const graphStartY = 620;
-  const comparisonStartY = 900;
+  const graphCardHeight = 340;
+  const comparisonStartY = graphStartY + graphCardHeight + 24;
   const comparisonRowHeight = 44;
   const comparisonRowsVisible = comparisonRows.slice(0, 8);
   const comparisonTableHeight = 52 + comparisonRowsVisible.length * comparisonRowHeight;
@@ -230,20 +432,20 @@ function buildVeoReportSvg({
   const territoryPitchSvg = (territoryRows || [])
     .slice(0, 3)
     .map((row, idx) => {
-      const x = chartLeft + 840 + idx * 110;
+      const x = chartLeft + 840 + idx * 198;
       const isMiddle = idx === 1;
       return `
-      <rect x="${x}" y="${graphStartY + 98}" width="108" height="96" fill="${
+      <rect x="${x}" y="${graphStartY + 98}" width="186" height="122" rx="10" fill="${
         isMiddle ? '#2f3f56' : '#223146'
       }" />
-      <circle cx="${x + 54}" cy="${graphStartY + 144}" r="28" fill="#334155" />
-      <text x="${x + 54}" y="${graphStartY + 150}" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700" font-family="Arial, sans-serif">${escapeSvg(
+      <circle cx="${x + 93}" cy="${graphStartY + 146}" r="28" fill="#334155" />
+      <text x="${x + 93}" y="${graphStartY + 152}" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700" font-family="Arial, sans-serif">${escapeSvg(
         `${row.ownPct}%`
       )}</text>
-      <text x="${x + 54}" y="${graphStartY + 214}" text-anchor="middle" fill="#cbd5e1" font-size="13" font-family="Arial, sans-serif">${escapeSvg(
-        row.label
+      <text x="${x + 93}" y="${graphStartY + 202}" text-anchor="middle" fill="#cbd5e1" font-size="13" font-family="Arial, sans-serif">${escapeSvg(
+        row.label.replace('Tiers ', '')
       )}</text>
-      <text x="${x + 54}" y="${graphStartY + 232}" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, sans-serif">${escapeSvg(
+      <text x="${x + 93}" y="${graphStartY + 218}" text-anchor="middle" fill="#94a3b8" font-size="12" font-family="Arial, sans-serif">${escapeSvg(
         `Adv ${row.oppPct}%`
       )}</text>
     `;
@@ -253,22 +455,22 @@ function buildVeoReportSvg({
   const passZoneSvg = (passZoneRows || [])
     .slice(0, 3)
     .map((row, idx) => {
-      const y = graphStartY + 182 + idx * 26;
-      const ownWidth = Math.round((100 * row.ownPct) / 100);
-      const oppWidth = Math.round((100 * row.oppPct) / 100);
+      const y = graphStartY + 278 + idx * 24;
+      const ownWidth = Math.max(0, Math.min(120, Math.round((120 * row.ownPct) / 100)));
+      const oppWidth = Math.max(0, Math.min(120, Math.round((120 * row.oppPct) / 100)));
       return `
       <text x="${chartLeft + 840}" y="${y}" fill="#cbd5e1" font-size="12" font-family="Arial, sans-serif">${escapeSvg(
-        row.label
+        row.label.replace('Zone ', '')
       )}</text>
-      <rect x="${chartLeft + 920}" y="${y - 10}" width="100" height="8" rx="4" fill="#334155" />
-      <rect x="${chartLeft + 920}" y="${y - 10}" width="${ownWidth}" height="8" rx="4" fill="#60a5fa" />
-      <text x="${chartLeft + 1026}" y="${y - 2}" fill="#e2e8f0" font-size="11" font-family="Arial, sans-serif">${escapeSvg(
+      <rect x="${chartLeft + 940}" y="${y - 10}" width="120" height="8" rx="4" fill="#334155" />
+      <rect x="${chartLeft + 940}" y="${y - 10}" width="${ownWidth}" height="8" rx="4" fill="#60a5fa" />
+      <text x="${chartLeft + 1066}" y="${y - 2}" fill="#e2e8f0" font-size="11" font-family="Arial, sans-serif">${escapeSvg(
         `${row.ownPct}%`
       )}</text>
 
-      <rect x="${chartLeft + 1064}" y="${y - 10}" width="100" height="8" rx="4" fill="#334155" />
-      <rect x="${chartLeft + 1064}" y="${y - 10}" width="${oppWidth}" height="8" rx="4" fill="#f97316" />
-      <text x="${chartLeft + 1170}" y="${y - 2}" fill="#e2e8f0" font-size="11" font-family="Arial, sans-serif">${escapeSvg(
+      <rect x="${chartLeft + 1102}" y="${y - 10}" width="120" height="8" rx="4" fill="#334155" />
+      <rect x="${chartLeft + 1102}" y="${y - 10}" width="${oppWidth}" height="8" rx="4" fill="#f97316" />
+      <text x="${chartLeft + 1228}" y="${y - 2}" fill="#e2e8f0" font-size="11" font-family="Arial, sans-serif">${escapeSvg(
         `${row.oppPct}%`
       )}</text>
     `;
@@ -374,14 +576,16 @@ function buildVeoReportSvg({
     qualityPlayerLabel
   )}</text>
 
-  <rect x="${chartLeft}" y="${graphStartY}" width="${chartWidth}" height="260" rx="14" fill="#243247" />
+  <rect x="${chartLeft}" y="${graphStartY}" width="${chartWidth}" height="${graphCardHeight}" rx="14" fill="#243247" />
   <text x="${chartLeft + 24}" y="${graphStartY + 40}" fill="#f8fafc" font-size="26" font-weight="700" font-family="Arial, sans-serif">Graphiques VEO</text>
   <text x="${chartLeft + 24}" y="${graphStartY + 66}" fill="#93c5fd" font-size="16" font-family="Arial, sans-serif">Comparatif visuel des indicateurs</text>
   ${comparisonGraphSvg}
   <text x="${chartLeft + 840}" y="${graphStartY + 66}" fill="#93c5fd" font-size="16" font-family="Arial, sans-serif">Carte de possession (tiers)</text>
-  <rect x="${chartLeft + 840}" y="${graphStartY + 98}" width="328" height="96" rx="10" fill="#1e293b" />
+  <rect x="${chartLeft + 840}" y="${graphStartY + 98}" width="592" height="122" rx="10" fill="#1e293b" />
   ${territoryPitchSvg}
-  <text x="${chartLeft + 840}" y="${graphStartY + 198}" fill="#93c5fd" font-size="14" font-family="Arial, sans-serif">Zones de passes (nous vs adv)</text>
+  <text x="${chartLeft + 840}" y="${graphStartY + 258}" fill="#93c5fd" font-size="14" font-family="Arial, sans-serif">Zones de passes (nous vs adv)</text>
+  <text x="${chartLeft + 992}" y="${graphStartY + 258}" fill="#93c5fd" font-size="12" font-family="Arial, sans-serif">Nous</text>
+  <text x="${chartLeft + 1155}" y="${graphStartY + 258}" fill="#93c5fd" font-size="12" font-family="Arial, sans-serif">Adv</text>
   ${passZoneSvg}
 
   <rect x="${chartLeft}" y="${comparisonStartY}" width="${chartWidth}" height="${comparisonTableHeight}" rx="14" fill="#243247" />
@@ -424,6 +628,7 @@ export default function SessionDetail() {
   const [coachManualNote, setCoachManualNote] = useState('');
   const [coachNoteSaved, setCoachNoteSaved] = useState(false);
   const [zoneViewSide, setZoneViewSide] = useState('OWN');
+  const veoGraphReportRef = useRef(null);
 
   const sessionTitle = decodeURIComponent(sessionId);
   const sessionDate = sessionInfo?.date ? String(sessionInfo.date).slice(0, 10) : '';
@@ -1091,12 +1296,18 @@ export default function SessionDetail() {
   ]);
 
   const preferredPlayerMetricOrder = [
-    'player_goals',
-    'player_shots',
     'player_goal_assists',
-    'player_total_events',
-    'player_corners',
-    'player_free_kicks',
+    'player_shots',
+    'player_shots_on_target',
+    'player_goals',
+    'player_duels_won',
+    'player_fouls_committed',
+    'player_cards',
+    'player_offsides',
+    'player_dribbles_won',
+    'player_tackles_won',
+    'player_recoveries',
+    'player_ball_losses',
   ];
 
   const veoPlayerColumns = (() => {
@@ -1125,22 +1336,24 @@ export default function SessionDetail() {
       return;
     }
 
+    const fileBase = `${sanitizeFilename(sessionTitle)}-veo`;
+    const downloadedFromView = await downloadElementAsPng(veoGraphReportRef.current, `${fileBase}.png`);
+    if (downloadedFromView) {
+      return;
+    }
+
     let logoDataUrl = '';
     try {
       const response = await fetch(CLUB_LOGO_PATH);
       if (response.ok) {
         const blob = await response.blob();
-        logoDataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result || '');
-          reader.readAsDataURL(blob);
-        });
+        logoDataUrl = await blobToDataUrl(blob);
       }
     } catch (fetchError) {
       console.error('Logo VEO indisponible pour export:', fetchError);
     }
 
-    const svg = buildVeoReportSvg({
+    const svg = BUILD_VEO_REPORT_SVG({
       title: veoSummary.match.veo_title || sessionTitle,
       dateLabel: veoSummary.match.date,
       opponent: veoSummary.match.opponent_name || '-',
@@ -1165,7 +1378,6 @@ export default function SessionDetail() {
       logoDataUrl,
     });
 
-    const fileBase = `${sanitizeFilename(sessionTitle)}-veo`;
     const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const svgUrl = URL.createObjectURL(svgBlob);
 
@@ -1190,6 +1402,7 @@ export default function SessionDetail() {
       if (!ctx) {
         URL.revokeObjectURL(svgUrl);
         downloadSvgFallback();
+        setError("Export exact indisponible: fichier template téléchargé (SVG).");
         return;
       }
 
@@ -1198,6 +1411,7 @@ export default function SessionDetail() {
         URL.revokeObjectURL(svgUrl);
         if (!pngBlob) {
           downloadSvgFallback();
+          setError("Export exact indisponible: fichier template téléchargé (SVG).");
           return;
         }
 
@@ -1209,16 +1423,32 @@ export default function SessionDetail() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(pngUrl);
+        setError("Export exact indisponible sur ce navigateur: template PNG téléchargé.");
       }, 'image/png');
     };
 
     image.onerror = () => {
       URL.revokeObjectURL(svgUrl);
       downloadSvgFallback();
+      setError("Export exact indisponible sur ce navigateur: template SVG téléchargé.");
     };
 
     image.src = svgUrl;
   };
+
+  const visibleOpponentMetrics = useMemo(() => {
+    return veoOpponentMetrics.slice(0, 8).map((metric) => ({
+      label: formatMetricLabel(metric),
+      value: formatMetricValue(metric.value, metric.unit),
+    }));
+  }, [veoOpponentMetrics]);
+
+  const visibleOwnMetrics = useMemo(() => {
+    return veoOwnMetrics.slice(0, 8).map((metric) => ({
+      label: formatMetricLabel(metric),
+      value: formatMetricValue(metric.value, metric.unit),
+    }));
+  }, [veoOwnMetrics]);
 
   const handleDownloadVeoRawCsv = () => {
     if (!veoSummary) {
@@ -1265,7 +1495,7 @@ export default function SessionDetail() {
     } else {
       rows.push([
         'Joueur',
-        ...veoPlayerColumns.map((column) => column.label),
+        ...veoPlayerColumns.map((column) => formatPlayerMetricLabel(column)),
       ]);
       (veoSummary.player_metrics?.players ?? []).forEach((player) => {
         rows.push([
@@ -1506,7 +1736,7 @@ export default function SessionDetail() {
             ) : (
               <div className="space-y-6">
                 {veoReportMode === 'GRAPH' && (
-                  <div className="rounded-xl overflow-hidden border border-slate-700 bg-[#141f30]">
+                  <div ref={veoGraphReportRef} className="rounded-xl overflow-hidden border border-slate-700 bg-[#141f30]">
                     <div className="bg-white mx-4 mt-4 rounded-md px-6 py-5">
                       <div className="flex flex-wrap items-end justify-between gap-4">
                         <div className="flex items-center gap-4">
@@ -1720,6 +1950,39 @@ export default function SessionDetail() {
                       </div>
 
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                        <div className="rounded-md border border-slate-600 bg-[#223146] p-4">
+                          <p className="text-sm font-semibold text-white mb-3">Métriques clés - notre équipe</p>
+                          {visibleOwnMetrics.length === 0 ? (
+                            <p className="text-xs text-slate-400">Aucune métrique disponible.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {visibleOwnMetrics.map((metric) => (
+                                <div key={`own-visible-${metric.label}`} className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-300">{metric.label}</span>
+                                  <span className="font-semibold text-slate-100">{metric.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="rounded-md border border-slate-600 bg-[#223146] p-4">
+                          <p className="text-sm font-semibold text-white mb-3">Métriques clés - adversaire</p>
+                          {visibleOpponentMetrics.length === 0 ? (
+                            <p className="text-xs text-slate-400">Aucune métrique disponible.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {visibleOpponentMetrics.map((metric) => (
+                                <div key={`opp-visible-${metric.label}`} className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-300">{metric.label}</span>
+                                  <span className="font-semibold text-slate-100">{metric.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                         {coachAnalysis.sections.map((section) => {
                           const scoreTone =
                             section.score >= 8
@@ -1917,7 +2180,7 @@ export default function SessionDetail() {
                                 <th className="text-left py-2 pr-3">Joueur</th>
                                 {veoPlayerColumns.map((column) => (
                                   <th key={column.slug} className="text-left py-2 pr-3 whitespace-nowrap">
-                                    {column.label}
+                                    {formatPlayerMetricLabel(column)}
                                   </th>
                                 ))}
                               </tr>
