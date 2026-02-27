@@ -51,6 +51,11 @@ export const veoService = {
     return response.data;
   },
 
+  async updatePlayer(playerId, payload) {
+    const response = await tacticalApi.patch(`/players/${playerId}`, payload);
+    return response.data;
+  },
+
   async getMatches(filters = {}) {
     const response = await tacticalApi.get('/matches', {
       params: filters,

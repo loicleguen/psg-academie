@@ -137,6 +137,74 @@ function inferOpponentFromSessionTitle(sessionTitle) {
   return withoutPrefix || '';
 }
 
+function normalizeNameForMatching(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizePlayerNameForStorage(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleUpperCase('fr-FR');
+}
+
+function buildTokenSignature(value) {
+  const normalized = normalizeNameForMatching(value);
+  if (!normalized) {
+    return '';
+  }
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
+function buildVeoPlayerMatchKeys(player) {
+  const first = normalizeNameForMatching(player.first_name);
+  const last = normalizeNameForMatching(player.last_name);
+  const full = normalizeNameForMatching(`${player.first_name} ${player.last_name}`);
+  const reverse = normalizeNameForMatching(`${player.last_name} ${player.first_name}`);
+  const signature = buildTokenSignature(`${player.first_name} ${player.last_name}`);
+
+  return new Set([first, last, full, reverse, signature].filter(Boolean));
+}
+
+function splitPlayerNameForVeo(name) {
+  const cleaned = String(name || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!cleaned) {
+    return null;
+  }
+
+  const tokens = cleaned.split(' ');
+  if (tokens.length === 1) {
+    const normalized = normalizePlayerNameForStorage(tokens[0]);
+    return {
+      firstName: normalized,
+      lastName: normalized,
+    };
+  }
+
+  return {
+    firstName: normalizePlayerNameForStorage(tokens[0]),
+    lastName: normalizePlayerNameForStorage(tokens.slice(1).join(' ')),
+  };
+}
+
+function formatPlayerDisplayName(player) {
+  const firstName = normalizePlayerNameForStorage(player?.first_name);
+  const lastName = normalizePlayerNameForStorage(player?.last_name);
+  return `${firstName} ${lastName}`.trim();
+}
+
 function getMetricDisplayLabel(metric) {
   return METRIC_LABEL_OVERRIDES[metric.slug] || metric.label_fr;
 }
@@ -212,6 +280,7 @@ export default function Veo() {
   const [selectedCatapultSessionTitle, setSelectedCatapultSessionTitle] = useState('');
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   const [teamMetricsMenu, setTeamMetricsMenu] = useState('OWN');
+  const [rosterSyncMessage, setRosterSyncMessage] = useState('');
   const latestSelectedMatchRequest = useRef(0);
 
   const teamMetricsByCategory = entrySchema?.team_metrics_by_category ?? [];
@@ -285,14 +354,15 @@ export default function Veo() {
     [visiblePlayerMetricsByCategory]
   );
 
-  const selectedPlayersForGrid = useMemo(() => {
-    const selectedIds = Object.entries(participationState)
-      .filter(([, value]) => value.selected)
-      .map(([playerId]) => Number(playerId));
-
-    const selected = players.filter((player) => selectedIds.includes(player.id));
-    return selected.length > 0 ? selected : players;
-  }, [participationState, players]);
+  const playersForMetricsGrid = useMemo(
+    () =>
+      [...players].sort((left, right) => {
+        const leftName = `${left.last_name || ''} ${left.first_name || ''}`.trim();
+        const rightName = `${right.last_name || ''} ${right.first_name || ''}`.trim();
+        return leftName.localeCompare(rightName, 'fr', { sensitivity: 'base' });
+      }),
+    [players]
+  );
 
   const selectedCatapultSession = useMemo(
     () =>
@@ -341,6 +411,7 @@ export default function Veo() {
     setParticipationState({});
     setTeamMetricInputs({});
     setPlayerMetricInputs({});
+    setRosterSyncMessage('');
   };
 
   const refreshCatapultData = async () => {
@@ -413,12 +484,173 @@ export default function Veo() {
     }
   };
 
-  const initializeMatchForms = async (matchSummary) => {
+  const alignPlayersWithCatapultRoster = async (matchSummary, teamName, initialPlayers) => {
+    const cleanTeamName = (teamName || '').trim();
+    if (!cleanTeamName) {
+      return { players: initialPlayers, message: '' };
+    }
+
+    let catapultRoster = [];
+    try {
+      const rosterData = await catapultService.getTeamPlayers(cleanTeamName);
+      catapultRoster = Array.isArray(rosterData) ? rosterData : [];
+      if (!Array.isArray(rosterData)) {
+        console.error('Format inattendu depuis Catapult API /teams/{team}/players:', rosterData);
+      }
+    } catch (err) {
+      console.error('Impossible de charger le roster Catapult pour alignement VEO:', err);
+      return { players: initialPlayers, message: '' };
+    }
+
+    const rosterNames = catapultRoster
+      .map((player) => player?.player_name || player?.full_name || '')
+      .map((name) => String(name).trim())
+      .filter(Boolean);
+
+    if (rosterNames.length === 0) {
+      return { players: initialPlayers, message: '' };
+    }
+
+    const buildPlayerIndex = (list) => {
+      const index = new Map();
+      list.forEach((player) => {
+        buildVeoPlayerMatchKeys(player).forEach((key) => {
+          if (!index.has(key)) {
+            index.set(key, player);
+          }
+        });
+      });
+      return index;
+    };
+
+    const resolveRosterName = (index, name) => {
+      const direct = normalizeNameForMatching(name);
+      const signature = buildTokenSignature(name);
+      return index.get(direct) || index.get(signature) || null;
+    };
+
+    let mergedPlayers = initialPlayers;
+    let playerIndex = buildPlayerIndex(mergedPlayers);
+    let createdPlayers = 0;
+    let normalizedPlayersCount = 0;
+    let shouldRefreshPlayers = false;
+
+    const missingNames = rosterNames.filter((name) => !resolveRosterName(playerIndex, name));
+    for (const missingName of missingNames) {
+      const split = splitPlayerNameForVeo(missingName);
+      if (!split) {
+        continue;
+      }
+
+      try {
+        await veoService.createPlayer({
+          team_id: matchSummary.match.team_id,
+          first_name: split.firstName,
+          last_name: split.lastName,
+          main_position: 'INCONNU',
+          secondary_positions: null,
+        });
+        createdPlayers += 1;
+        shouldRefreshPlayers = true;
+      } catch (err) {
+        console.error('Creation joueur VEO impossible pendant sync roster:', missingName, err);
+      }
+    }
+
+    for (const player of mergedPlayers) {
+      const normalizedFirst = normalizePlayerNameForStorage(player.first_name);
+      const normalizedLast = normalizePlayerNameForStorage(player.last_name);
+      const firstDiffers = String(player.first_name || '').trim() !== normalizedFirst;
+      const lastDiffers = String(player.last_name || '').trim() !== normalizedLast;
+      if (!firstDiffers && !lastDiffers) {
+        continue;
+      }
+
+      try {
+        await veoService.updatePlayer(player.id, {
+          first_name: normalizedFirst,
+          last_name: normalizedLast,
+        });
+        normalizedPlayersCount += 1;
+        shouldRefreshPlayers = true;
+      } catch (err) {
+        console.error('Normalisation nom joueur VEO impossible:', player.id, err);
+      }
+    }
+
+    if (shouldRefreshPlayers) {
+      const refreshedPlayers = await veoService.getPlayers(matchSummary.match.team_id);
+      if (Array.isArray(refreshedPlayers)) {
+        mergedPlayers = refreshedPlayers;
+        playerIndex = buildPlayerIndex(mergedPlayers);
+      }
+    }
+
+    const rosterOrderByPlayerId = new Map();
+    rosterNames.forEach((name, index) => {
+      const matchedPlayer = resolveRosterName(playerIndex, name);
+      if (matchedPlayer && !rosterOrderByPlayerId.has(matchedPlayer.id)) {
+        rosterOrderByPlayerId.set(matchedPlayer.id, index);
+      }
+    });
+
+    const participationIds = new Set(
+      (matchSummary.participations || []).map((participation) => Number(participation.player_id))
+    );
+
+    const orderedPlayers = [...mergedPlayers].sort((left, right) => {
+      const leftOrder = rosterOrderByPlayerId.get(left.id);
+      const rightOrder = rosterOrderByPlayerId.get(right.id);
+      const leftHasRoster = leftOrder !== undefined;
+      const rightHasRoster = rightOrder !== undefined;
+
+      if (leftHasRoster && rightHasRoster && leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+      if (leftHasRoster !== rightHasRoster) {
+        return leftHasRoster ? -1 : 1;
+      }
+
+      const leftSelected = participationIds.has(Number(left.id));
+      const rightSelected = participationIds.has(Number(right.id));
+      if (leftSelected !== rightSelected) {
+        return leftSelected ? -1 : 1;
+      }
+
+      const leftName = `${left.last_name || ''} ${left.first_name || ''}`.trim();
+      const rightName = `${right.last_name || ''} ${right.first_name || ''}`.trim();
+      return leftName.localeCompare(rightName, 'fr', { sensitivity: 'base' });
+    });
+
+    const unresolvedCount = rosterNames.filter((name) => !resolveRosterName(playerIndex, name)).length;
+    const messageParts = [];
+    if (createdPlayers > 0) {
+      messageParts.push(`${createdPlayers} joueur(s) ajouté(s) à VEO depuis le roster Catapult`);
+    }
+    if (normalizedPlayersCount > 0) {
+      messageParts.push(`${normalizedPlayersCount} joueur(s) normalisé(s) en MAJ`);
+    }
+    if (unresolvedCount > 0) {
+      messageParts.push(`${unresolvedCount} nom(s) non aligné(s) automatiquement`);
+    }
+
+    return {
+      players: orderedPlayers,
+      message: messageParts.join(' • '),
+    };
+  };
+
+  const initializeMatchForms = async (matchSummary, teamName = '') => {
     const teamPlayers = await veoService.getPlayers(matchSummary.match.team_id);
-    const normalizedPlayers = Array.isArray(teamPlayers) ? teamPlayers : [];
+    let normalizedPlayers = Array.isArray(teamPlayers) ? teamPlayers : [];
     if (!Array.isArray(teamPlayers)) {
       console.error('Format inattendu depuis Veo API /players:', teamPlayers);
     }
+
+    const aligned = await alignPlayersWithCatapultRoster(matchSummary, teamName, normalizedPlayers);
+    normalizedPlayers = aligned.players;
+    setRosterSyncMessage(aligned.message);
+
     setPlayers(normalizedPlayers);
 
     const nextParticipationState = {};
@@ -486,21 +718,22 @@ export default function Veo() {
       }
       setSummary(matchSummary);
       const matchDate = String(matchSummary.match.date).slice(0, 10);
-      const catapultTeam = catapultTeams.find(
-        (team) => Number(team.id) === Number(matchSummary.match.team_id)
-      );
       const sessionsSameDate = catapultSessions.filter((session) => session.date === matchDate);
       const normalizedVeoTitle = (matchSummary.match.veo_title || '').trim().toLowerCase();
       const linkedSession =
         sessionsSameDate.find(
           (session) => (session.session_title || '').trim().toLowerCase() === normalizedVeoTitle
         ) || sessionsSameDate[0] || null;
+      const linkedCatapultTeam = linkedSession
+        ? catapultTeams.find((team) => Number(team.id) === Number(linkedSession.team_id))
+        : null;
+      const resolvedTeamName = linkedCatapultTeam?.name || '';
 
       setSelectedCatapultSessionTitle(linkedSession?.session_title || '');
       setMatchForm((prev) => ({
         ...prev,
         date: matchDate,
-        team_name: catapultTeam?.name || prev.team_name,
+        team_name: resolvedTeamName || prev.team_name,
         opponent_name: matchSummary.match.opponent_name || '',
         is_home: !!matchSummary.match.is_home,
         match_type: matchSummary.match.match_type || 'LEAGUE',
@@ -512,7 +745,7 @@ export default function Veo() {
         veo_duration: toInputStringOrEmpty(matchSummary.match.veo_duration),
         veo_camera: matchSummary.match.veo_camera || '',
       }));
-      await initializeMatchForms(matchSummary);
+      await initializeMatchForms(matchSummary, resolvedTeamName);
     } catch (err) {
       if (latestSelectedMatchRequest.current !== requestId) {
         return;
@@ -1177,9 +1410,7 @@ export default function Veo() {
                       const state = participationState[player.id] || {};
                       return (
                         <tr key={player.id} className="border-b last:border-b-0">
-                          <td className="py-2 pr-3">
-                            {player.first_name} {player.last_name}
-                          </td>
+                          <td className="py-2 pr-3">{formatPlayerDisplayName(player)}</td>
                           <td className="py-2 pr-3">
                             <input
                               type="checkbox"
@@ -1322,9 +1553,14 @@ export default function Veo() {
                   Enregistrer metriques joueurs
                 </button>
               </div>
-              {selectedPlayersForGrid.length === 0 ? (
+              {rosterSyncMessage && (
+                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md px-3 py-2">
+                  {rosterSyncMessage}
+                </p>
+              )}
+              {playersForMetricsGrid.length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  Aucun joueur selectionne. Coche des joueurs dans la section Participations.
+                  Aucun joueur disponible pour cette equipe.
                 </p>
               ) : (
                 <div className="overflow-auto border rounded-md">
@@ -1344,11 +1580,9 @@ export default function Veo() {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedPlayersForGrid.map((player) => (
+                      {playersForMetricsGrid.map((player) => (
                         <tr key={player.id} className="border-b last:border-b-0">
-                          <td className="py-2 px-3 font-medium whitespace-nowrap">
-                            {player.first_name} {player.last_name}
-                          </td>
+                          <td className="py-2 px-3 font-medium whitespace-nowrap">{formatPlayerDisplayName(player)}</td>
                           {visibleFlatPlayerMetrics.map((metric) => {
                             const key = makePlayerMetricKey(player.id, metric.slug);
                             return (

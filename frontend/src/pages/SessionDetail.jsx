@@ -73,6 +73,92 @@ const OWN_SLUG_BY_OPPONENT_ALIAS = Object.fromEntries(
 const HIDDEN_VEO_TEAM_METRIC_SLUGS = new Set(['team_goal_kicks']);
 const CLUB_LOGO_PATH = '/club_logo.png';
 
+const KPI_TONE_CLASSES = {
+  good: {
+    card: 'border-emerald-400/40 bg-emerald-500/10',
+    label: 'text-emerald-200',
+    value: 'text-emerald-100',
+  },
+  medium: {
+    card: 'border-blue-400/40 bg-blue-500/10',
+    label: 'text-blue-200',
+    value: 'text-blue-100',
+  },
+  warning: {
+    card: 'border-orange-400/40 bg-orange-500/10',
+    label: 'text-orange-200',
+    value: 'text-orange-100',
+  },
+  danger: {
+    card: 'border-rose-400/40 bg-rose-500/10',
+    label: 'text-rose-200',
+    value: 'text-rose-100',
+  },
+  neutral: {
+    card: 'border-slate-600 bg-[#223146]',
+    label: 'text-slate-400',
+    value: 'text-white',
+  },
+};
+
+function normalizeNumeric(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isNaN(numeric) ? null : numeric;
+}
+
+function getPerformanceTone(metricKey, rawValue) {
+  const value = normalizeNumeric(rawValue);
+  if (value === null) {
+    return 'neutral';
+  }
+
+  if (metricKey === 'team_possession_pct') {
+    if (value >= 55) return 'good';
+    if (value >= 50) return 'medium';
+    if (value >= 45) return 'warning';
+    return 'danger';
+  }
+
+  if (metricKey === 'team_passes_completed') {
+    if (value >= 320) return 'good';
+    if (value >= 260) return 'medium';
+    if (value >= 200) return 'warning';
+    return 'danger';
+  }
+
+  if (metricKey === 'team_shots') {
+    if (value >= 10) return 'good';
+    if (value >= 7) return 'medium';
+    if (value >= 4) return 'warning';
+    return 'danger';
+  }
+
+  if (metricKey === 'team_goals_scored') {
+    if (value >= 2) return 'good';
+    if (value >= 1) return 'medium';
+    return 'danger';
+  }
+
+  if (metricKey === 'team_corners') {
+    if (value >= 6) return 'good';
+    if (value >= 4) return 'medium';
+    if (value >= 2) return 'warning';
+    return 'danger';
+  }
+
+  if (metricKey === 'global_score') {
+    if (value >= 8) return 'good';
+    if (value >= 6) return 'medium';
+    if (value >= 4) return 'warning';
+    return 'danger';
+  }
+
+  return 'neutral';
+}
+
 function clampScore(value) {
   return Math.max(0, Math.min(10, Math.round(value)));
 }
@@ -620,7 +706,7 @@ export default function SessionDetail() {
   const [availablePlayers, setAvailablePlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [sessionInfo, setSessionInfo] = useState(null);
-  const [loadingSessionInfo, setLoadingSessionInfo] = useState(true);
+  const [, setLoadingSessionInfo] = useState(true);
   const [selectedVeoMatchId, setSelectedVeoMatchId] = useState('');
   const [veoSummary, setVeoSummary] = useState(null);
   const [loadingVeoSummary, setLoadingVeoSummary] = useState(false);
@@ -1321,12 +1407,36 @@ export default function SessionDetail() {
 
   const veoReportKpis = useMemo(
     () => [
-      { label: 'Possession', value: veoPossession !== null ? `${veoPossession.toFixed(1)}%` : '-' },
-      { label: 'Passes', value: formatMetricValue(veoPasses, '') },
-      { label: 'Tirs', value: formatMetricValue(veoShots, '') },
-      { label: 'Buts', value: formatMetricValue(veoGoals, '') },
-      { label: 'Corners', value: formatMetricValue(veoCorners, '') },
-      { label: 'Score plan de jeu', value: `${coachAnalysis.globalScore}/10` },
+      {
+        label: 'Possession',
+        value: veoPossession !== null ? `${veoPossession.toFixed(1)}%` : '-',
+        tone: getPerformanceTone('team_possession_pct', veoPossession),
+      },
+      {
+        label: 'Passes',
+        value: formatMetricValue(veoPasses, ''),
+        tone: getPerformanceTone('team_passes_completed', veoPasses),
+      },
+      {
+        label: 'Tirs',
+        value: formatMetricValue(veoShots, ''),
+        tone: getPerformanceTone('team_shots', veoShots),
+      },
+      {
+        label: 'Buts',
+        value: formatMetricValue(veoGoals, ''),
+        tone: getPerformanceTone('team_goals_scored', veoGoals),
+      },
+      {
+        label: 'Corners',
+        value: formatMetricValue(veoCorners, ''),
+        tone: getPerformanceTone('team_corners', veoCorners),
+      },
+      {
+        label: 'Score plan de jeu',
+        value: `${coachAnalysis.globalScore}/10`,
+        tone: getPerformanceTone('global_score', coachAnalysis.globalScore),
+      },
     ],
     [veoPossession, veoPasses, veoShots, veoGoals, veoCorners, coachAnalysis.globalScore]
   );
@@ -1440,6 +1550,7 @@ export default function SessionDetail() {
     return veoOpponentMetrics.slice(0, 8).map((metric) => ({
       label: formatMetricLabel(metric),
       value: formatMetricValue(metric.value, metric.unit),
+      tone: getPerformanceTone(metric.metric_slug, metric.value),
     }));
   }, [veoOpponentMetrics]);
 
@@ -1447,6 +1558,7 @@ export default function SessionDetail() {
     return veoOwnMetrics.slice(0, 8).map((metric) => ({
       label: formatMetricLabel(metric),
       value: formatMetricValue(metric.value, metric.unit),
+      tone: getPerformanceTone(metric.metric_slug, metric.value),
     }));
   }, [veoOwnMetrics]);
 
@@ -1761,12 +1873,15 @@ export default function SessionDetail() {
 
                     <div className="p-4 space-y-3">
                       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-                        {veoReportKpis.map((kpi) => (
-                          <div key={kpi.label} className="rounded-md border border-slate-600 bg-[#223146] px-3 py-3">
-                            <p className="text-[11px] uppercase tracking-wide text-slate-400">{kpi.label}</p>
-                            <p className="mt-1 text-xl font-bold text-white">{kpi.value}</p>
+                        {veoReportKpis.map((kpi) => {
+                          const tone = KPI_TONE_CLASSES[kpi.tone] || KPI_TONE_CLASSES.neutral;
+                          return (
+                          <div key={kpi.label} className={`rounded-md border px-3 py-3 ${tone.card}`}>
+                            <p className={`text-[11px] uppercase tracking-wide ${tone.label}`}>{kpi.label}</p>
+                            <p className={`mt-1 text-xl font-bold ${tone.value}`}>{kpi.value}</p>
                           </div>
-                        ))}
+                        );
+                        })}
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -1959,7 +2074,9 @@ export default function SessionDetail() {
                               {visibleOwnMetrics.map((metric) => (
                                 <div key={`own-visible-${metric.label}`} className="flex items-center justify-between text-xs">
                                   <span className="text-slate-300">{metric.label}</span>
-                                  <span className="font-semibold text-slate-100">{metric.value}</span>
+                                  <span className={`font-semibold ${(KPI_TONE_CLASSES[metric.tone] || KPI_TONE_CLASSES.neutral).value}`}>
+                                    {metric.value}
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -1974,7 +2091,9 @@ export default function SessionDetail() {
                               {visibleOpponentMetrics.map((metric) => (
                                 <div key={`opp-visible-${metric.label}`} className="flex items-center justify-between text-xs">
                                   <span className="text-slate-300">{metric.label}</span>
-                                  <span className="font-semibold text-slate-100">{metric.value}</span>
+                                  <span className={`font-semibold ${(KPI_TONE_CLASSES[metric.tone] || KPI_TONE_CLASSES.neutral).value}`}>
+                                    {metric.value}
+                                  </span>
                                 </div>
                               ))}
                             </div>

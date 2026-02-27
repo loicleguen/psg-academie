@@ -68,4 +68,9 @@ export const catapultService = {
     const response = await api.get('/teams/');
     return response.data;
   },
+
+  async getTeamPlayers(teamName) {
+    const response = await api.get(`/teams/${encodeURIComponent(teamName)}/players`);
+    return response.data;
+  },
 };

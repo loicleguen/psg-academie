@@ -1,4 +1,6 @@
-from typing import Dict, List, Optional, Set
+import re
+import unicodedata
+from typing import Dict, List, Optional, Set, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, func
@@ -36,7 +38,21 @@ PLAYER_PROFILE_METRIC_SLUGS = [
 
 
 def _normalize_player_name(value: str) -> str:
-    return " ".join((value or "").split()).strip().lower()
+    raw = unicodedata.normalize("NFD", (value or "").strip().lower())
+    without_accents = "".join(char for char in raw if unicodedata.category(char) != "Mn")
+    compact = re.sub(r"[^a-z0-9]+", " ", without_accents)
+    return " ".join(compact.split())
+
+
+def _normalize_player_name_for_storage(value: str) -> str:
+    return " ".join((value or "").split()).strip().upper()
+
+
+def _name_tokens(value: str) -> Set[str]:
+    normalized = _normalize_player_name(value)
+    if not normalized:
+        return set()
+    return set(normalized.split(" "))
 
 
 def _candidate_player_names(player: Player) -> Set[str]:
@@ -47,13 +63,59 @@ def _candidate_player_names(player: Player) -> Set[str]:
     names = {full}
     if first and last:
         names.add(_normalize_player_name(f"{last} {first}"))
+    if first:
+        names.add(first)
+    if last:
+        names.add(last)
     return names
+
+
+def _name_match_score(input_name: str, player: Player) -> int:
+    input_normalized = _normalize_player_name(input_name)
+    if not input_normalized:
+        return 0
+
+    input_tokens = _name_tokens(input_normalized)
+    candidate_names = _candidate_player_names(player)
+
+    if input_normalized in candidate_names:
+        return 100
+
+    best_score = 0
+    for candidate in candidate_names:
+        candidate_tokens = _name_tokens(candidate)
+        if not candidate_tokens:
+            continue
+
+        if input_tokens == candidate_tokens:
+            best_score = max(best_score, 90)
+            continue
+
+        if input_tokens and (input_tokens.issubset(candidate_tokens) or candidate_tokens.issubset(input_tokens)):
+            best_score = max(best_score, 80)
+            continue
+
+        overlap = len(input_tokens & candidate_tokens)
+        union = len(input_tokens | candidate_tokens)
+        if union > 0 and (overlap / union) >= 0.67:
+            best_score = max(best_score, 70)
+
+    return best_score
 
 
 def _count_matches_for_player(db: Session, player_id: int) -> int:
     return (
         db.query(MatchPlayerParticipation.id)
         .filter(MatchPlayerParticipation.player_id == player_id)
+        .count()
+    )
+
+
+def _count_metric_matches_for_player(db: Session, player_id: int) -> int:
+    return (
+        db.query(PlayerMatchMetricValue.match_id)
+        .filter(PlayerMatchMetricValue.player_id == player_id)
+        .distinct()
         .count()
     )
 
@@ -79,7 +141,10 @@ def create_player(player: schemas.PlayerCreate, db: Session = Depends(get_db)):
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    db_player = Player(**player.model_dump())
+    payload = player.model_dump()
+    payload["first_name"] = _normalize_player_name_for_storage(payload.get("first_name"))
+    payload["last_name"] = _normalize_player_name_for_storage(payload.get("last_name"))
+    db_player = Player(**payload)
     db.add(db_player)
     db.commit()
     db.refresh(db_player)
@@ -103,30 +168,47 @@ def get_player_metrics_summary_by_name(
     if not normalized_name:
         raise HTTPException(status_code=400, detail="player_name is required")
 
-    candidates = [
-        player
-        for player in db.query(Player).all()
-        if normalized_name in _candidate_player_names(player)
-    ]
+    candidates: List[Tuple[Player, int]] = []
+    for player in db.query(Player).all():
+        score = _name_match_score(normalized_name, player)
+        if score > 0:
+            candidates.append((player, score))
+
     if not candidates:
         raise HTTPException(status_code=404, detail="Player not found in Veo database")
 
-    selected_player = max(
+    selected_player, _ = max(
         candidates,
-        key=lambda player: (
-            _count_matches_for_player(db, player.id),
-            player.id,
+        key=lambda item: (
+            item[1],
+            _count_metric_matches_for_player(db, item[0].id),
+            _count_matches_for_player(db, item[0].id),
+            item[0].id,
         ),
     )
 
-    match_rows = (
+    participation_match_rows = (
         db.query(Match.id)
         .join(MatchPlayerParticipation, MatchPlayerParticipation.match_id == Match.id)
         .filter(MatchPlayerParticipation.player_id == selected_player.id)
         .distinct()
         .all()
     )
-    match_ids = [match_id for (match_id,) in match_rows]
+
+    metric_match_rows = (
+        db.query(PlayerMatchMetricValue.match_id)
+        .filter(PlayerMatchMetricValue.player_id == selected_player.id)
+        .distinct()
+        .all()
+    )
+
+    match_ids = sorted(
+        {
+            match_id
+            for (match_id,) in participation_match_rows + metric_match_rows
+            if match_id is not None
+        }
+    )
     sessions_count = len(match_ids)
 
     metric_defs = (
@@ -214,6 +296,10 @@ def update_player(
 
     # Update only provided fields
     update_data = player_update.model_dump(exclude_unset=True)
+    if "first_name" in update_data and update_data["first_name"] is not None:
+        update_data["first_name"] = _normalize_player_name_for_storage(update_data["first_name"])
+    if "last_name" in update_data and update_data["last_name"] is not None:
+        update_data["last_name"] = _normalize_player_name_for_storage(update_data["last_name"])
     for field, value in update_data.items():
         setattr(player, field, value)
 
