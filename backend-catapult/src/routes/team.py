@@ -6,7 +6,7 @@ from ..db.database import get_session
 from ..models.team import Team, TeamCreate, TeamUpdate, TeamRead
 from ..models.academy import Academy
 from ..models.user import User, UserRead
-from common.security import require_coach_or_admin
+from common.security import require_coach_or_admin, get_current_user
 
 
 def get_team_full_path(session: Session, team_id: int) -> str:
@@ -41,7 +41,11 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 def create_team(
     team: TeamCreate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     db_team = Team(**team.model_dump())
     session.add(db_team)
@@ -52,7 +56,11 @@ def create_team(
 @router.get("/", response_model=list[TeamRead])
 def read_teams(
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     statement = select(Team).options(
         selectinload(Team.academy).selectinload(Academy.country),
@@ -65,7 +73,11 @@ def read_teams(
 def read_teams_by_academy_name(
     academy_name: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     academy = session.exec(select(Academy).where(Academy.name == academy_name)).first()
     if not academy:
@@ -81,7 +93,11 @@ def read_teams_by_academy_name(
 def read_team_by_name(
     team_name: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     statement = select(Team).where(func.lower(Team.name) == team_name.lower()).options(
         selectinload(Team.academy).selectinload(Academy.country),
@@ -96,7 +112,11 @@ def read_team_by_name(
 def get_players_by_team(
     team_name: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     teams = session.exec(select(Team).where(func.lower(Team.name) == team_name.lower())).all()
     if not teams:
@@ -111,7 +131,11 @@ def get_players_by_team(
 def read_team_by_id(
     team_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     team = session.exec(
         select(Team)
@@ -129,7 +153,11 @@ def read_team_by_id(
 def get_players_by_team_id(
     team_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     players = session.exec(
         select(User).where(User.team_id == team_id, User.role == "player")
@@ -141,7 +169,11 @@ def update_team_by_id(
     team_id: int,
     team_update: TeamUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     team = session.exec(select(Team).where(Team.id == team_id)).first()
     if not team:
@@ -155,7 +187,11 @@ def update_team_by_id(
 def delete_team_by_id(
     team_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     team = session.exec(select(Team).where(Team.id == team_id)).first()
     if not team:

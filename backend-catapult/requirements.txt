@@ -1,41 +1,36 @@
 # === FRAMEWORK WEB ===
-# Framework web moderne et rapide pour créer des APIs REST avec Python
-fastapi==0.124.4
-# Serveur ASGI ultra-rapide pour exécuter FastAPI en production et développement
-uvicorn==0.34.0
-# Gestion des fichiers uploadés dans FastAPI (formulaires multipart/form-data)
-python-multipart==0.0.21
+fastapi==0.124.4                # Framework web moderne et rapide pour créer des APIs REST avec Python
+uvicorn[standard]==0.34.0        # Serveur ASGI ultra-rapide pour exécuter FastAPI en production et développement
+python-multipart==0.0.21         # Gestion des fichiers uploadés dans FastAPI (formulaires multipart/form-data)
 
 # === BASE DE DONNÉES ===
-# ORM moderne combinant SQLAlchemy et Pydantic pour gérer la base de données
-sqlmodel==0.0.27
-# Adaptateur PostgreSQL pour Python (connexion à la base de données)
-psycopg2-binary==2.9.10
-# Outil de migration de base de données (versionning du schéma SQL)
-alembic==1.14.0
+sqlmodel==0.0.27                 # ORM moderne combinant SQLAlchemy et Pydantic pour gérer la base de données
+sqlalchemy==2.0.25               # ORM SQL classique, utilisé par SQLModel et parfois directement
+alembic==1.14.0                  # Outil de migration de base de données (versionning du schéma SQL)
+psycopg2-binary==2.9.10          # Adaptateur PostgreSQL pour Python (connexion à la base de données, v2)
+psycopg[binary]>=3.1             # Adaptateur PostgreSQL nouvelle génération (v3), utilisé par certains outils récents
 
-# === VALIDATION ===
-# Validation des données et sérialisation (utilisé par FastAPI et SQLModel)
-pydantic==2.12.5
-
-# === TRAITEMENT DE DONNÉES ===
-# Analyse et manipulation de données (DataFrames, calculs statistiques)
-pandas==2.3.3
-
-# === VISUALISATION ===
-# Bibliothèque de visualisation pour créer des graphiques (gauges, courbes, etc.)
-matplotlib==3.10.8
-# Visualisation statistique avancée (heatmaps, graphiques élégants)
-seaborn==0.13.2
-# Manipulation d'images (création de rapports PDF, redimensionnement, etc.)
-pillow==12.0.0
+# === VALIDATION & CONFIGURATION ===
+pydantic==2.12.5                 # Validation des données et sérialisation (utilisé par FastAPI et SQLModel)
+pydantic-settings==2.1.0         # Gestion des paramètres de configuration via Pydantic (variables d'environnement, .env)
+python-dotenv==1.0.0             # Chargement des variables d'environnement depuis un fichier .env
+email-validator==2.1.0           # Validation des adresses e-mail (utilisé pour vérifier les emails des utilisateurs)
 
 # === AUTHENTIFICATION & SÉCURITÉ ===
-# Création et vérification de JSON Web Tokens (JWT) pour l'authentification
-python-jose[cryptography]==3.3.0
-# Hash sécurisé des mots de passe avec bcrypt (protection contre les attaques)
-passlib[bcrypt]>=1.7.4
-# Backend bcrypt pour passlib (version 4.x pour compatibilité)
-bcrypt==4.1.3
-# Validation des adresses e-mail (utilisé pour vérifier les emails des utilisateurs)
-email-validator==2.0
+python-jose[cryptography]==3.3.0 # Création et vérification de JSON Web Tokens (JWT) pour l'authentification
+passlib[bcrypt]>=1.7.4           # Hash sécurisé des mots de passe avec bcrypt (protection contre les attaques)
+bcrypt==4.1.3                    # Backend bcrypt pour passlib (version 4.x pour compatibilité)
+cryptography==42.0.0             # Fonctions cryptographiques avancées (utilisé par python-jose et autres)
+
+# === TRAITEMENT DE DONNÉES ===
+pandas==2.3.3                    # Analyse et manipulation de données (DataFrames, calculs statistiques)
+
+# === VISUALISATION ===
+matplotlib==3.10.8               # Bibliothèque de visualisation pour créer des graphiques (courbes, barres, etc.)
+seaborn==0.13.2                  # Visualisation statistique avancée (heatmaps, graphiques élégants)
+pillow==12.0.0                   # Manipulation d'images (création de rapports PDF, redimensionnement, etc.)
+
+# === TESTS ===
+pytest==7.4.4                    # Framework de tests unitaires pour Python
+pytest-asyncio==0.23.3           # Support des tests asynchrones avec pytest
+httpx==0.26.0                    # Client HTTP asynchrone pour tester les APIs

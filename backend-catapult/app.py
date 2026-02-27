@@ -8,7 +8,7 @@ from src.routes.team import router as team_router
 from src.routes.catapult import router as catapult_router
 from src.routes.auth import router as auth_router
 from src.routes.injury import router as injury_router
-from src.db.database import init_db
+from src.db.database import init_db, get_session
 from contextlib import asynccontextmanager
 
 

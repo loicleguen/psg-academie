@@ -5,7 +5,7 @@ from datetime import date
 from app.db.session import get_db
 from app.services.analytics import AnalyticsService
 from app import schemas
-from common.security import require_coach_or_admin
+from common.security import require_coach_or_admin, get_current_user
 from common.user import User
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -19,7 +19,11 @@ def get_team_kpis(
     to_date: Optional[date] = Query(None, alias="to"),
     compute_delta: bool = Query(False, description="Compute delta vs previous period"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_coach_or_admin),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """
     Get aggregated KPIs for a team.
@@ -46,7 +50,11 @@ def get_team_timeseries(
     metric: str = Query(..., description="Metric slug"),
     last_n: int = Query(10, description="Number of recent matches"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_coach_or_admin),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """
     Get time series data for a team metric over last N matches.
@@ -71,7 +79,11 @@ def get_team_radar(
     fromB: date = Query(..., description="Period B start date"),
     toB: date = Query(..., description="Period B end date"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_coach_or_admin),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """
     Compare two time periods on multiple metrics (for radar chart).
@@ -103,7 +115,11 @@ def get_player_leaderboard(
     season_id: Optional[int] = Query(None),
     top_n: int = Query(10, description="Number of top players"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_coach_or_admin),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """
     Get top players leaderboard for a metric.

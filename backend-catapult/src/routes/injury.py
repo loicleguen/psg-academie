@@ -15,7 +15,11 @@ router = APIRouter(prefix="/players", tags=["Injuries"])
 def get_player_injuries(
     player_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     """
     Récupérer toutes les blessures d'un joueur triées par date décroissante
@@ -48,7 +52,11 @@ def create_injury(
     player_id: int,
     injury_data: InjuryCreate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     """
     Ajouter une blessure pour un joueur
@@ -96,7 +104,11 @@ def update_injury(
     injury_id: int,
     injury_data: InjuryUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     """
     Mettre à jour une blessure
@@ -154,7 +166,11 @@ def delete_injury(
     player_id: int,
     injury_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_coach_or_admin)
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_session))
+        )
+    )
 ):
     """
     Supprimer une blessure

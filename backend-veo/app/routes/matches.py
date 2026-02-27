@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.models import Match, MatchPlayerParticipation, Player, Season, Team
 from app.schemas.summary import MatchSummaryResponse
 from app.services.match_summary import MatchSummaryService
-from common.security import require_coach_or_admin
+from common.security import require_coach_or_admin, get_current_user
 from common.user import User
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -58,7 +58,11 @@ def list_matches(
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_coach_or_admin),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """List matches with optional filters"""
     query = db.query(Match)
@@ -77,7 +81,15 @@ def list_matches(
 
 
 @router.post("", response_model=schemas.Match, status_code=201)
-def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
+def create_match(
+    match: schemas.MatchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
+):
     """Create a new match"""
     # Verify team exists
     team = db.query(Team).get(match.team_id)
@@ -101,7 +113,13 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
     response_model=schemas.MatchBootstrapFromCatapultResponse,
 )
 def bootstrap_match_from_catapult(
-    payload: schemas.MatchBootstrapFromCatapultRequest, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)
+    payload: schemas.MatchBootstrapFromCatapultRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """
     Bootstrap Veo entities from an existing Catapult session context.
@@ -281,7 +299,15 @@ def bootstrap_match_from_catapult(
 
 
 @router.get("/{match_id}", response_model=schemas.Match)
-def get_match(match_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
+def get_match(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
+):
     """Get match by ID"""
     match = db.query(Match).get(match_id)
     if not match:
@@ -291,7 +317,14 @@ def get_match(match_id: int, db: Session = Depends(get_db), current_user: User =
 
 @router.patch("/{match_id}", response_model=schemas.Match)
 def update_match(
-    match_id: int, match_update: schemas.MatchUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)
+    match_id: int,
+    match_update: schemas.MatchUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """Update match information"""
     match = db.query(Match).get(match_id)
@@ -308,7 +341,15 @@ def update_match(
 
 
 @router.delete("/{match_id}", status_code=204)
-def delete_match(match_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
+def delete_match(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
+):
     """Delete a match"""
     match = db.query(Match).get(match_id)
     if not match:
@@ -321,7 +362,15 @@ def delete_match(match_id: int, db: Session = Depends(get_db), current_user: Use
 
 # Participations endpoints
 @router.get("/{match_id}/participations", response_model=List[schemas.Participation])
-def get_match_participations(match_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
+def get_match_participations(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
+):
     """Get all participations for a match"""
     match = db.query(Match).get(match_id)
     if not match:
@@ -337,7 +386,14 @@ def get_match_participations(match_id: int, db: Session = Depends(get_db), curre
 
 @router.put("/{match_id}/participations", response_model=List[schemas.Participation])
 def update_match_participations(
-    match_id: int, bulk: schemas.ParticipationBulk, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)
+    match_id: int,
+    bulk: schemas.ParticipationBulk,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """Bulk update participations for a match"""
     match = db.query(Match).get(match_id)
@@ -379,7 +435,14 @@ def update_match_participations(
 
 @router.post("/{match_id}/duplicate-participations/{source_match_id}")
 def duplicate_participations(
-    match_id: int, source_match_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)
+    match_id: int,
+    source_match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
 ):
     """Duplicate participations from another match"""
     match = db.query(Match).get(match_id)
@@ -424,7 +487,15 @@ def duplicate_participations(
 
 
 @router.get("/{match_id}/summary", response_model=MatchSummaryResponse)
-def get_match_summary(match_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_coach_or_admin)):
+def get_match_summary(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        lambda token=Depends(): require_coach_or_admin(
+            get_current_user(token, session=Depends(get_db))
+        )
+    ),
+):
     """
     Get a complete, Excel-like summary for a match.
 

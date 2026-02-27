@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes import seasons, teams, players, matches, metrics, analytics, clipboard
+from app.db.session import get_db
 
 app = FastAPI(
     title="Veo Module V1 API",
