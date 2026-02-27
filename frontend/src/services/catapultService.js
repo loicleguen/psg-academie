@@ -56,4 +56,21 @@ export const catapultService = {
     const response = await api.get('/catapult/players');
     return response.data;
   },
+
+  async getSessionPlayersByTitle(sessionTitle) {
+    const response = await api.get('/catapult/session-players-by-title', {
+      params: { session_title: sessionTitle },
+    });
+    return response.data;
+  },
+
+  async getTeams() {
+    const response = await api.get('/teams/');
+    return response.data;
+  },
+
+  async getTeamPlayers(teamName) {
+    const response = await api.get(`/teams/${encodeURIComponent(teamName)}/players`);
+    return response.data;
+  },
 };
