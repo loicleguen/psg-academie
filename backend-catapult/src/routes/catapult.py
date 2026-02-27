@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from ..models.user import User
 from ..models.team import Team
-from ..middleware.security import require_coach_or_admin
+from ....common.security import require_coach_or_admin
 from fastapi.responses import Response
 from sqlmodel import Session, select
 from typing import List, Dict, Any

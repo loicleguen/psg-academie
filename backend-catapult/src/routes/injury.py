@@ -6,7 +6,7 @@ from datetime import date
 from ..db.database import get_session
 from ..models.injury import Injury, InjuryCreate, InjuryRead, InjuryUpdate
 from ..models.user import User
-from ..middleware.security import get_current_user, require_coach_or_admin
+from ....common.security import get_current_user, require_coach_or_admin
 
 router = APIRouter(prefix="/players", tags=["Injuries"])
 

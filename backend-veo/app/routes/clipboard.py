@@ -19,11 +19,10 @@ from app.services.pass_location_parser import parse_veo_pass_location
 from app.services.pass_sequences_parser import parse_veo_pass_sequence
 from app.services.possession_zone_parser import parse_veo_possession_zone
 from app.services.shotmap_parser import parse_veo_shotmap
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, constr
-from backend_catapult.src.middleware.security import require_coach_or_admin
-from backend_catapult.src.models.user import User
-from fastapi import Depends
+from ....common.security import require_coach_or_admin
+from ....common.user import User
 
 router = APIRouter()
 

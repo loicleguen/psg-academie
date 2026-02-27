@@ -5,9 +5,8 @@ from datetime import date
 from app.db.session import get_db
 from app.services.analytics import AnalyticsService
 from app import schemas
-from backend_catapult.src.middleware.security import require_coach_or_admin
-from backend_catapult.src.models.user import User
-from fastapi import Depends
+from ....common.security import require_coach_or_admin
+from ....common.user import User
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 

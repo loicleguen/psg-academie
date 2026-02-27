@@ -4,9 +4,8 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.models import Player, Team
 from app import schemas
-from backend_catapult.src.middleware.security import require_coach_or_admin
-from backend_catapult.src.models.user import User
-from fastapi import Depends
+from ....common.security import require_coach_or_admin
+from ....common.user import User
 
 router = APIRouter(prefix="/players", tags=["players"])
 

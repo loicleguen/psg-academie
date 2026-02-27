@@ -10,9 +10,8 @@ from app.db.session import get_db
 from app.models import Match, MatchPlayerParticipation, Player, Season, Team
 from app.schemas.summary import MatchSummaryResponse
 from app.services.match_summary import MatchSummaryService
-from backend_catapult.src.middleware.security import require_coach_or_admin
-from backend_catapult.src.models.user import User
-from fastapi import Depends
+from ....common.security import require_coach_or_admin
+from ....common.user import User
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 

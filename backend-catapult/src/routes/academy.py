@@ -5,7 +5,7 @@ from ..db.database import get_session
 from ..models.academy import Academy, AcademyCreate, AcademyUpdate, AcademyRead
 from ..models.country import Country
 from ..models.user import User
-from ..middleware.security import require_coach_or_admin
+from ....common.security import require_coach_or_admin
 
 router = APIRouter(prefix="/academies", tags=["academies"])
 
