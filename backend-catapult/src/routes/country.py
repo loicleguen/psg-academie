@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from ..models.country import Country, CountryCreate, CountryUpdate, CountryRead
 from ..models.user import User
 from ..db.database import get_session
-from ....common.security import require_coach_or_admin
+from common.security import require_coach_or_admin
 from sqlmodel import select, func, Session
 from sqlalchemy.orm import selectinload
 from typing import List

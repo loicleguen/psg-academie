@@ -5,8 +5,8 @@ from datetime import date
 from app.db.session import get_db
 from app.models import Season
 from app import schemas
-from ....common.security import require_coach_or_admin
-from ....common.user import User
+from common.security import require_coach_or_admin
+from common.user import User
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
 

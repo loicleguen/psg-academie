@@ -4,8 +4,8 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.models import Player, Team
 from app import schemas
-from ....common.security import require_coach_or_admin
-from ....common.user import User
+from common.security import require_coach_or_admin
+from common.user import User
 
 router = APIRouter(prefix="/players", tags=["players"])
 

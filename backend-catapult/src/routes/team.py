@@ -6,7 +6,7 @@ from ..db.database import get_session
 from ..models.team import Team, TeamCreate, TeamUpdate, TeamRead
 from ..models.academy import Academy
 from ..models.user import User, UserRead
-from ....common.security import require_coach_or_admin
+from common.security import require_coach_or_admin
 
 
 def get_team_full_path(session: Session, team_id: int) -> str:

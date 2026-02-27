@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select, delete
 from datetime import timedelta
 
-from ....common.security import require_coach_or_admin
+from common.security import require_coach_or_admin
 from ..db.database import get_session
 from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole, RefreshToken
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES

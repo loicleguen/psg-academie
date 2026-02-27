@@ -10,8 +10,8 @@ from app.db.session import get_db
 from app.models import Match, MatchPlayerParticipation, Player, Season, Team
 from app.schemas.summary import MatchSummaryResponse
 from app.services.match_summary import MatchSummaryService
-from ....common.security import require_coach_or_admin
-from ....common.user import User
+from common.security import require_coach_or_admin
+from common.user import User
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
