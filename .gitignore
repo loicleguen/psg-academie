@@ -44,3 +44,8 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+
+
+.devcontainer/*.env
+.devcontainer/*.bak
+.devcontainer/*.log
