@@ -874,6 +874,7 @@ export default function SessionDetail() {
       setShowReport(false);
       setShowVeoReport(false);
       setShowWeeklyReport(false);
+      setShowIndividualReport(false);
 
       const data = await catapultService.generateSessionReport(sessionTitle);
 
@@ -914,6 +915,7 @@ export default function SessionDetail() {
       setShowReport(false);
       setShowVeoReport(false);
       setShowWeeklyReport(false);
+      setShowIndividualReport(false);
 
       // Utiliser directement le numéro de semaine ISO calculé par le backend
       const weekNumber = sessionInfo.week;
@@ -1683,31 +1685,55 @@ export default function SessionDetail() {
           </div>
         )}
 
-        {/* Player selection for individual report */}
-        {availablePlayers.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <label htmlFor="player-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Sélectionner un joueur pour le rapport individuel
-            </label>
-            <select
-              id="player-select"
-              value={selectedPlayer}
-              onChange={(e) => setSelectedPlayer(e.target.value)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-            >
-              {availablePlayers.map((player) => (
-                <option key={player} value={player}>
-                  {player}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Report type cards with player selection above individual report */}
+        {/* Report type cards - player select integrated inside individual card */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
           {reportTypes.map((report) => {
             const Icon = report.icon;
+            if (report.id === 'individual') {
+              return (
+                <div key={report.id} className="flex flex-col gap-2">
+                  {availablePlayers.length > 0 && (
+                    <div className="bg-white/80 rounded-lg shadow px-4 py-3">
+                      <label htmlFor="player-select" className="block text-xs font-medium text-gray-600 mb-1">
+                        Sélectionner un joueur
+                      </label>
+                      <select
+                        id="player-select"
+                        value={selectedPlayer}
+                        onChange={(e) => setSelectedPlayer(e.target.value)}
+                        className="block w-full pl-3 pr-10 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                      >
+                        {availablePlayers.map((player) => (
+                          <option key={player} value={player}>{player}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <button
+                    onClick={report.onClick}
+                    disabled={!report.available || loading}
+                    className={`
+                      relative rounded-lg border p-6 text-left transition-all flex-1
+                      ${report.available
+                        ? 'border-gray-300 bg-white/80 hover:border-blue-500 hover:shadow-lg cursor-pointer'
+                        : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
+                      ${loading && report.available ? 'opacity-50' : ''}
+                    `}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Icon className={`h-8 w-8 ${report.available ? 'text-blue-600' : 'text-gray-400'}`} />
+                      {!report.available && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+                          Bientôt disponible
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">{report.title}</h3>
+                    <p className="mt-2 text-sm text-gray-500">{report.description}</p>
+                  </button>
+                </div>
+              );
+            }
             return (
               <button
                 key={report.id}
@@ -1716,7 +1742,7 @@ export default function SessionDetail() {
                 className={`
                   relative rounded-lg border p-6 text-left transition-all
                   ${report.available
-                    ? 'border-gray-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer'
+                    ? 'border-gray-300 bg-white/80 hover:border-blue-500 hover:shadow-lg cursor-pointer'
                     : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
                   ${loading && report.available ? 'opacity-50' : ''}
                 `}
@@ -1729,6 +1755,8 @@ export default function SessionDetail() {
                     </span>
                   )}
                 </div>
+                <h3 className="text-lg font-medium text-gray-900">{report.title}</h3>
+                <p className="mt-2 text-sm text-gray-500">{report.description}</p>
               </button>
             );
           })}
@@ -1736,7 +1764,7 @@ export default function SessionDetail() {
 
         {/* Display session report image */}
         {showReport && reportImage && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/60 rounded-lg shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Rapport de séance</h2>
               <a
@@ -1761,7 +1789,7 @@ export default function SessionDetail() {
         )}
 
         {showReport && (
-          <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
+          <div className="bg-white/80 rounded-lg shadow-lg p-6 mt-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <h2 className="text-xl font-bold text-gray-900">Rapport Veo (session)</h2>
@@ -2316,7 +2344,7 @@ export default function SessionDetail() {
 
         {/* Display weekly report image */}
         {showWeeklyReport && weeklyReportUrl && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/60 rounded-lg shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Rapport Hebdomadaire</h2>
               <a
@@ -2342,7 +2370,7 @@ export default function SessionDetail() {
         )}
         {/* Display individual report image */}
         {showIndividualReport && individualReportUrl && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/60 rounded-lg shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Rapport Semaine Individuel</h2>
               <a

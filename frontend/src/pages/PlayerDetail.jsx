@@ -46,7 +46,7 @@ export default function PlayerDetail() {
   const [comparePlayers, setComparePlayers] = useState([]);
   const [comparePlayersStats, setComparePlayersStats] = useState([]);
   const [veoStats, setVeoStats] = useState(null);
-  const [compareVeoStats, setCompareVeoStats] = useState(null);
+  const [compareVeoStatsList, setCompareVeoStatsList] = useState([]);
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [veoLoading, setVeoLoading] = useState(true);
@@ -181,9 +181,11 @@ export default function PlayerDetail() {
 
   useEffect(() => {
     if (compareWith) {
-      loadCompareVeoStats(compareWith);
+      loadCompareVeoStats(compareWith).then(stats => {
+        setCompareVeoStatsList(stats ? [stats] : []);
+      });
     } else {
-      setCompareVeoStats(null);
+      setCompareVeoStatsList([]);
     }
   }, [compareWith]);
 
@@ -222,12 +224,12 @@ export default function PlayerDetail() {
   const loadCompareVeoStats = async (name) => {
     try {
       const stats = await veoService.getPlayerMetricsSummaryByName(name);
-      setCompareVeoStats(stats);
+      return stats ?? null;
     } catch (error) {
       if (error?.response?.status !== 404) {
         console.error('Erreur chargement stats VEO comparaison:', error);
       }
-      setCompareVeoStats(null);
+      return null;
     }
   };
 
@@ -263,18 +265,24 @@ export default function PlayerDetail() {
       alert('Maximum 6 joueurs comparés.');
       return;
     }
-    setComparePlayers(prev => [...prev, selectedPlayer]);
+    const nameToAdd = selectedPlayer;
+    setComparePlayers(prev => [...prev, nameToAdd]);
     setSelectedPlayer('');
     try {
-      const stats = await loadOneCompareStats(selectedPlayer);
+      const [stats, veoStats] = await Promise.all([
+        loadOneCompareStats(nameToAdd),
+        loadCompareVeoStats(nameToAdd),
+      ]);
       if (stats) {
         setComparePlayersStats(prev => [...prev, stats]);
       } else {
-        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
-        alert('Impossible de charger les stats pour ' + selectedPlayer);
+        setComparePlayers(prev => prev.filter(p => p !== nameToAdd));
+        alert('Impossible de charger les stats pour ' + nameToAdd);
+        return;
       }
+      setCompareVeoStatsList(prev => [...prev, veoStats]);
     } catch (err) { console.debug(err);
-      setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+      setComparePlayers(prev => prev.filter(p => p !== nameToAdd));
     }
   };
 
@@ -282,8 +290,8 @@ export default function PlayerDetail() {
     setSelectedPlayer('');
     setComparePlayers([]);
     setComparePlayersStats([]);
+    setCompareVeoStatsList([]);
     setSearchParams({});
-    setCompareVeoStats(null);
   };
 
   const getAllPlayersList = () => {
@@ -387,6 +395,20 @@ export default function PlayerDetail() {
     );
   };;
 
+  // Render a single metric row with label + 1 or 2 values
+  const StatRow = ({ label, value1, value2, color = 'text-gray-900' }) => (
+    <div className="flex items-center justify-between border-t py-2 px-1">
+      <span className="text-sm text-gray-600 font-medium">{label}</span>
+      <div className="flex gap-6">
+        <span className={`text-sm font-bold ${color}`}>{value1}</span>
+        {value2 !== undefined && (
+          <span className="text-sm font-bold text-orange-500">{value2}</span>
+        )}
+      </div>
+    </div>
+  );
+
+
   const formatVeoMetricValue = (value) => {
     if (value === null || value === undefined) {
       return '-';
@@ -403,10 +425,12 @@ export default function PlayerDetail() {
     return acc;
   }, {});
 
-  const compareVeoMetricMap = (compareVeoStats?.metrics ?? []).reduce((acc, metric) => {
-    acc[metric.slug] = metric.value;
-    return acc;
-  }, {});
+  const compareVeoMetricMaps = compareVeoStatsList.map(s =>
+    (s?.metrics ?? []).reduce((acc, metric) => {
+      acc[metric.slug] = metric.value;
+      return acc;
+    }, {})
+  );
 
   return (
     <div className="min-h-screen bg-transparent p-8">
@@ -440,7 +464,7 @@ export default function PlayerDetail() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
                 }`}
               >
-                Stats Catapult
+                Stats Catapult et VEO
               </button>
               
               <button
@@ -874,7 +898,8 @@ export default function PlayerDetail() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6 mt-8">
+        {activeTab === 'stats' && (
+        <div className="bg-white/80 rounded-lg shadow-lg p-6 space-y-6 mt-8">
           <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
           {veoLoading ? (
             <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
@@ -884,42 +909,46 @@ export default function PlayerDetail() {
             </p>
           ) : (
             <>
-              <div className="border-b pb-3">
-                <p className="text-sm text-gray-600 font-medium mb-2">Nombre de sessions</p>
-                <div className={comparePlayersStats[0] ? "grid grid-cols-2 gap-4" : "flex"}>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">
-                      {veoStats.player_name || playerStats.player_name}
-                    </p>
-                    <p className="text-2xl font-bold text-blue-600">
-                      {veoStats.sessions_count}
-                    </p>
-                  </div>
-                  {comparePlayersStats[0] && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        {compareVeoStats?.player_name || comparePlayersStats[0].player_name}
-                      </p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {compareVeoStats?.sessions_count ?? 0}
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full table-auto border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm text-gray-600 font-medium">Métrique</th>
+                      <th className="px-4 py-2 text-left">
+                        <div className="text-xs text-gray-500">{veoStats.player_name || playerName}</div>
+                        <div className="text-xs text-gray-400">{veoStats.sessions_count} session(s)</div>
+                      </th>
+                      {compareVeoStatsList.map((cs, i) => (
+                        <th key={i} className="px-4 py-2 text-left">
+                          <div className="text-xs text-gray-500">{cs?.player_name || comparePlayers[i]}</div>
+                          <div className="text-xs text-gray-400">{cs?.sessions_count ?? 0} session(s)</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {VEO_PLAYER_METRIC_ORDER.map((slug) => (
+                      <tr key={slug} className="border-t">
+                        <td className="px-4 py-3 text-sm text-gray-600 font-medium">
+                          {VEO_PLAYER_METRIC_LABELS[slug] || slug}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                          {formatVeoMetricValue(veoMetricMap[slug])}
+                        </td>
+                        {compareVeoMetricMaps.map((map, i) => (
+                          <td key={i} className="px-4 py-3 text-sm font-bold text-orange-500">
+                            {formatVeoMetricValue(map[slug])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-
-              {VEO_PLAYER_METRIC_ORDER.map((slug) => (
-                <StatRow
-                  key={slug}
-                  label={VEO_PLAYER_METRIC_LABELS[slug] || slug}
-                  value1={formatVeoMetricValue(veoMetricMap[slug])}
-                  value2={formatVeoMetricValue(compareVeoMetricMap[slug])}
-                  color="text-gray-900"
-                />
-              ))}
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );
