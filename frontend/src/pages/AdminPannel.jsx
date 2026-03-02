@@ -191,7 +191,7 @@ export default function AdminPannel() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white/80 rounded-lg shadow overflow-hidden max-w-8xl mx-auto">
+      <div className="bg-white/80 rounded-lg shadow overflow-x-auto max-w-8xl mx-auto">
         <table className="min-w-full divide-y divide-gray-500">
           <thead className="bg-gray-40">
             <tr>
