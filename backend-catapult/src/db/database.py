@@ -1,3 +1,4 @@
+from typing import Generator
 from sqlmodel import SQLModel, create_engine, Session
 from typing import Generator
 import os
@@ -22,10 +23,12 @@ engine = create_engine(
     pool_recycle=3600      # Recycler les connexions après 1h
 )
 
+# Utilitaire pour créer les tables
 def init_db():
     """Créer toutes les tables dans la base de données"""
     SQLModel.metadata.create_all(engine)
 
+# Utilitaire pour obtenir une session
 def get_session() -> Generator[Session, None, None]:
     """
     Dépendance FastAPI pour obtenir une session DB.

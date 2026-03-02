@@ -51,6 +51,11 @@ export const veoService = {
     return response.data;
   },
 
+  async updatePlayer(playerId, payload) {
+    const response = await tacticalApi.patch(`/players/${playerId}`, payload);
+    return response.data;
+  },
+
   async getMatches(filters = {}) {
     const response = await tacticalApi.get('/matches', {
       params: filters,
@@ -115,6 +120,13 @@ export const veoService = {
 
   async getPlayerMetrics(matchId) {
     const response = await tacticalApi.get(`/metrics/matches/${matchId}/player-metrics`);
+    return response.data;
+  },
+
+  async getPlayerMetricsSummaryByName(playerName) {
+    const response = await tacticalApi.get(
+      `/players/by-name/${encodeURIComponent(playerName)}/metrics-summary`
+    );
     return response.data;
   },
 

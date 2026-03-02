@@ -21,9 +21,9 @@ from app.services.possession_zone_parser import parse_veo_possession_zone
 from app.services.shotmap_parser import parse_veo_shotmap
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, constr
-from app.security import require_coach_or_admin, get_current_user
+from app.security import require_coach_or_admin
 from common.user import User
-from app.db.session import get_db
+
 
 router = APIRouter()
 

@@ -129,7 +129,7 @@ export default function SessionsList() {
                           </p>
                           <div className="mt-1 flex items-center text-sm text-black">
                             <svg
-                              className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400"
+                              className="shrink-0 mr-1.5 h-5 w-5 text-gray-400"
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
@@ -149,7 +149,7 @@ export default function SessionsList() {
                           </div>
                           <div className="mt-1 flex items-center text-sm text-black">
                             <svg
-                              className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400"
+                              className="shrink-0 mr-1.5 h-5 w-5 text-gray-400"
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"

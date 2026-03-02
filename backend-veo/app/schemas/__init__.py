@@ -33,6 +33,8 @@ from .core import (
     Player,
     PlayerBase,
     PlayerCreate,
+    PlayerMetricAggregate,
+    PlayerMetricsSummaryResponse,
     PlayerMetricValueBulk,
     PlayerMetricValueInput,
     PlayerMetricValueOutput,

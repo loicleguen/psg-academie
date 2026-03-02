@@ -32,17 +32,52 @@ const ESSENTIAL_TEAM_METRICS = new Set([
 ]);
 
 const ESSENTIAL_PLAYER_METRICS = new Set([
-  'player_goals',
-  'player_shots',
   'player_goal_assists',
-  'player_total_events',
-  'player_corners',
-  'player_free_kicks',
-  'player_throw_ins',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_fouls_committed',
+  'player_cards',
+  'player_offsides',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+  'player_ball_losses',
 ]);
 
+const PLAYER_METRIC_DISPLAY_ORDER = [
+  'player_goal_assists',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_fouls_committed',
+  'player_cards',
+  'player_offsides',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+  'player_ball_losses',
+];
+
+const PLAYER_METRIC_ORDER_INDEX = new Map(
+  PLAYER_METRIC_DISPLAY_ORDER.map((slug, index) => [slug, index])
+);
+
 const METRIC_LABEL_OVERRIDES = {
-  player_total_events: 'Total evenements',
+  player_goal_assists: 'Passes decisives',
+  player_shots: 'Tirs',
+  player_shots_on_target: 'Tirs cadres',
+  player_goals: 'Buts',
+  player_duels_won: 'Duels gagnes',
+  player_fouls_committed: 'Fautes',
+  player_cards: 'Cartons',
+  player_offsides: 'Hors-jeu',
+  player_dribbles_won: 'Dribbles reussis',
+  player_tackles_won: 'Tacles reussis',
+  player_recoveries: 'Recuperations',
+  player_ball_losses: 'Pertes de balle',
 };
 
 const UNIT_LABELS = {
@@ -100,6 +135,74 @@ function inferOpponentFromSessionTitle(sessionTitle) {
 
   const withoutPrefix = headerPart.replace(/^MATCH\s+/i, '').trim();
   return withoutPrefix || '';
+}
+
+function normalizeNameForMatching(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizePlayerNameForStorage(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleUpperCase('fr-FR');
+}
+
+function buildTokenSignature(value) {
+  const normalized = normalizeNameForMatching(value);
+  if (!normalized) {
+    return '';
+  }
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
+function buildVeoPlayerMatchKeys(player) {
+  const first = normalizeNameForMatching(player.first_name);
+  const last = normalizeNameForMatching(player.last_name);
+  const full = normalizeNameForMatching(`${player.first_name} ${player.last_name}`);
+  const reverse = normalizeNameForMatching(`${player.last_name} ${player.first_name}`);
+  const signature = buildTokenSignature(`${player.first_name} ${player.last_name}`);
+
+  return new Set([first, last, full, reverse, signature].filter(Boolean));
+}
+
+function splitPlayerNameForVeo(name) {
+  const cleaned = String(name || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!cleaned) {
+    return null;
+  }
+
+  const tokens = cleaned.split(' ');
+  if (tokens.length === 1) {
+    const normalized = normalizePlayerNameForStorage(tokens[0]);
+    return {
+      firstName: normalized,
+      lastName: normalized,
+    };
+  }
+
+  return {
+    firstName: normalizePlayerNameForStorage(tokens[0]),
+    lastName: normalizePlayerNameForStorage(tokens.slice(1).join(' ')),
+  };
+}
+
+function formatPlayerDisplayName(player) {
+  const firstName = normalizePlayerNameForStorage(player?.first_name);
+  const lastName = normalizePlayerNameForStorage(player?.last_name);
+  return `${firstName} ${lastName}`.trim();
 }
 
 function getMetricDisplayLabel(metric) {
@@ -177,6 +280,7 @@ export default function Veo() {
   const [selectedCatapultSessionTitle, setSelectedCatapultSessionTitle] = useState('');
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   const [teamMetricsMenu, setTeamMetricsMenu] = useState('OWN');
+  const [rosterSyncMessage, setRosterSyncMessage] = useState('');
   const latestSelectedMatchRequest = useRef(0);
 
   const teamMetricsByCategory = entrySchema?.team_metrics_by_category ?? [];
@@ -195,16 +299,13 @@ export default function Veo() {
   }, [teamMetricsByCategory, showAllMetrics]);
 
   const visiblePlayerMetricsByCategory = useMemo(() => {
-    if (showAllMetrics) {
-      return playerMetricsByCategory;
-    }
     return playerMetricsByCategory
       .map((group) => ({
         ...group,
         metrics: group.metrics.filter((metric) => ESSENTIAL_PLAYER_METRICS.has(metric.slug)),
       }))
       .filter((group) => group.metrics.length > 0);
-  }, [playerMetricsByCategory, showAllMetrics]);
+  }, [playerMetricsByCategory]);
 
   const allTeamMetricFields = useMemo(
     () =>
@@ -239,18 +340,29 @@ export default function Veo() {
     [allFlatPlayerMetrics]
   );
   const visibleFlatPlayerMetrics = useMemo(
-    () => visiblePlayerMetricsByCategory.flatMap((group) => group.metrics),
+    () =>
+      visiblePlayerMetricsByCategory
+        .flatMap((group) => group.metrics)
+        .sort((left, right) => {
+          const leftIndex = PLAYER_METRIC_ORDER_INDEX.get(left.slug) ?? Number.MAX_SAFE_INTEGER;
+          const rightIndex = PLAYER_METRIC_ORDER_INDEX.get(right.slug) ?? Number.MAX_SAFE_INTEGER;
+          if (leftIndex !== rightIndex) {
+            return leftIndex - rightIndex;
+          }
+          return left.slug.localeCompare(right.slug);
+        }),
     [visiblePlayerMetricsByCategory]
   );
 
-  const selectedPlayersForGrid = useMemo(() => {
-    const selectedIds = Object.entries(participationState)
-      .filter(([, value]) => value.selected)
-      .map(([playerId]) => Number(playerId));
-
-    const selected = players.filter((player) => selectedIds.includes(player.id));
-    return selected.length > 0 ? selected : players;
-  }, [participationState, players]);
+  const playersForMetricsGrid = useMemo(
+    () =>
+      [...players].sort((left, right) => {
+        const leftName = `${left.last_name || ''} ${left.first_name || ''}`.trim();
+        const rightName = `${right.last_name || ''} ${right.first_name || ''}`.trim();
+        return leftName.localeCompare(rightName, 'fr', { sensitivity: 'base' });
+      }),
+    [players]
+  );
 
   const selectedCatapultSession = useMemo(
     () =>
@@ -299,6 +411,7 @@ export default function Veo() {
     setParticipationState({});
     setTeamMetricInputs({});
     setPlayerMetricInputs({});
+    setRosterSyncMessage('');
   };
 
   const refreshCatapultData = async () => {
@@ -371,12 +484,173 @@ export default function Veo() {
     }
   };
 
-  const initializeMatchForms = async (matchSummary) => {
+  const alignPlayersWithCatapultRoster = async (matchSummary, teamName, initialPlayers) => {
+    const cleanTeamName = (teamName || '').trim();
+    if (!cleanTeamName) {
+      return { players: initialPlayers, message: '' };
+    }
+
+    let catapultRoster = [];
+    try {
+      const rosterData = await catapultService.getTeamPlayers(cleanTeamName);
+      catapultRoster = Array.isArray(rosterData) ? rosterData : [];
+      if (!Array.isArray(rosterData)) {
+        console.error('Format inattendu depuis Catapult API /teams/{team}/players:', rosterData);
+      }
+    } catch (err) {
+      console.error('Impossible de charger le roster Catapult pour alignement VEO:', err);
+      return { players: initialPlayers, message: '' };
+    }
+
+    const rosterNames = catapultRoster
+      .map((player) => player?.player_name || player?.full_name || '')
+      .map((name) => String(name).trim())
+      .filter(Boolean);
+
+    if (rosterNames.length === 0) {
+      return { players: initialPlayers, message: '' };
+    }
+
+    const buildPlayerIndex = (list) => {
+      const index = new Map();
+      list.forEach((player) => {
+        buildVeoPlayerMatchKeys(player).forEach((key) => {
+          if (!index.has(key)) {
+            index.set(key, player);
+          }
+        });
+      });
+      return index;
+    };
+
+    const resolveRosterName = (index, name) => {
+      const direct = normalizeNameForMatching(name);
+      const signature = buildTokenSignature(name);
+      return index.get(direct) || index.get(signature) || null;
+    };
+
+    let mergedPlayers = initialPlayers;
+    let playerIndex = buildPlayerIndex(mergedPlayers);
+    let createdPlayers = 0;
+    let normalizedPlayersCount = 0;
+    let shouldRefreshPlayers = false;
+
+    const missingNames = rosterNames.filter((name) => !resolveRosterName(playerIndex, name));
+    for (const missingName of missingNames) {
+      const split = splitPlayerNameForVeo(missingName);
+      if (!split) {
+        continue;
+      }
+
+      try {
+        await veoService.createPlayer({
+          team_id: matchSummary.match.team_id,
+          first_name: split.firstName,
+          last_name: split.lastName,
+          main_position: 'INCONNU',
+          secondary_positions: null,
+        });
+        createdPlayers += 1;
+        shouldRefreshPlayers = true;
+      } catch (err) {
+        console.error('Creation joueur VEO impossible pendant sync roster:', missingName, err);
+      }
+    }
+
+    for (const player of mergedPlayers) {
+      const normalizedFirst = normalizePlayerNameForStorage(player.first_name);
+      const normalizedLast = normalizePlayerNameForStorage(player.last_name);
+      const firstDiffers = String(player.first_name || '').trim() !== normalizedFirst;
+      const lastDiffers = String(player.last_name || '').trim() !== normalizedLast;
+      if (!firstDiffers && !lastDiffers) {
+        continue;
+      }
+
+      try {
+        await veoService.updatePlayer(player.id, {
+          first_name: normalizedFirst,
+          last_name: normalizedLast,
+        });
+        normalizedPlayersCount += 1;
+        shouldRefreshPlayers = true;
+      } catch (err) {
+        console.error('Normalisation nom joueur VEO impossible:', player.id, err);
+      }
+    }
+
+    if (shouldRefreshPlayers) {
+      const refreshedPlayers = await veoService.getPlayers(matchSummary.match.team_id);
+      if (Array.isArray(refreshedPlayers)) {
+        mergedPlayers = refreshedPlayers;
+        playerIndex = buildPlayerIndex(mergedPlayers);
+      }
+    }
+
+    const rosterOrderByPlayerId = new Map();
+    rosterNames.forEach((name, index) => {
+      const matchedPlayer = resolveRosterName(playerIndex, name);
+      if (matchedPlayer && !rosterOrderByPlayerId.has(matchedPlayer.id)) {
+        rosterOrderByPlayerId.set(matchedPlayer.id, index);
+      }
+    });
+
+    const participationIds = new Set(
+      (matchSummary.participations || []).map((participation) => Number(participation.player_id))
+    );
+
+    const orderedPlayers = [...mergedPlayers].sort((left, right) => {
+      const leftOrder = rosterOrderByPlayerId.get(left.id);
+      const rightOrder = rosterOrderByPlayerId.get(right.id);
+      const leftHasRoster = leftOrder !== undefined;
+      const rightHasRoster = rightOrder !== undefined;
+
+      if (leftHasRoster && rightHasRoster && leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+      if (leftHasRoster !== rightHasRoster) {
+        return leftHasRoster ? -1 : 1;
+      }
+
+      const leftSelected = participationIds.has(Number(left.id));
+      const rightSelected = participationIds.has(Number(right.id));
+      if (leftSelected !== rightSelected) {
+        return leftSelected ? -1 : 1;
+      }
+
+      const leftName = `${left.last_name || ''} ${left.first_name || ''}`.trim();
+      const rightName = `${right.last_name || ''} ${right.first_name || ''}`.trim();
+      return leftName.localeCompare(rightName, 'fr', { sensitivity: 'base' });
+    });
+
+    const unresolvedCount = rosterNames.filter((name) => !resolveRosterName(playerIndex, name)).length;
+    const messageParts = [];
+    if (createdPlayers > 0) {
+      messageParts.push(`${createdPlayers} joueur(s) ajouté(s) à VEO depuis le roster Catapult`);
+    }
+    if (normalizedPlayersCount > 0) {
+      messageParts.push(`${normalizedPlayersCount} joueur(s) normalisé(s) en MAJ`);
+    }
+    if (unresolvedCount > 0) {
+      messageParts.push(`${unresolvedCount} nom(s) non aligné(s) automatiquement`);
+    }
+
+    return {
+      players: orderedPlayers,
+      message: messageParts.join(' • '),
+    };
+  };
+
+  const initializeMatchForms = async (matchSummary, teamName = '') => {
     const teamPlayers = await veoService.getPlayers(matchSummary.match.team_id);
-    const normalizedPlayers = Array.isArray(teamPlayers) ? teamPlayers : [];
+    let normalizedPlayers = Array.isArray(teamPlayers) ? teamPlayers : [];
     if (!Array.isArray(teamPlayers)) {
       console.error('Format inattendu depuis Veo API /players:', teamPlayers);
     }
+
+    const aligned = await alignPlayersWithCatapultRoster(matchSummary, teamName, normalizedPlayers);
+    normalizedPlayers = aligned.players;
+    setRosterSyncMessage(aligned.message);
+
     setPlayers(normalizedPlayers);
 
     const nextParticipationState = {};
@@ -444,21 +718,22 @@ export default function Veo() {
       }
       setSummary(matchSummary);
       const matchDate = String(matchSummary.match.date).slice(0, 10);
-      const catapultTeam = catapultTeams.find(
-        (team) => Number(team.id) === Number(matchSummary.match.team_id)
-      );
       const sessionsSameDate = catapultSessions.filter((session) => session.date === matchDate);
       const normalizedVeoTitle = (matchSummary.match.veo_title || '').trim().toLowerCase();
       const linkedSession =
         sessionsSameDate.find(
           (session) => (session.session_title || '').trim().toLowerCase() === normalizedVeoTitle
         ) || sessionsSameDate[0] || null;
+      const linkedCatapultTeam = linkedSession
+        ? catapultTeams.find((team) => Number(team.id) === Number(linkedSession.team_id))
+        : null;
+      const resolvedTeamName = linkedCatapultTeam?.name || '';
 
       setSelectedCatapultSessionTitle(linkedSession?.session_title || '');
       setMatchForm((prev) => ({
         ...prev,
         date: matchDate,
-        team_name: catapultTeam?.name || prev.team_name,
+        team_name: resolvedTeamName || prev.team_name,
         opponent_name: matchSummary.match.opponent_name || '',
         is_home: !!matchSummary.match.is_home,
         match_type: matchSummary.match.match_type || 'LEAGUE',
@@ -470,7 +745,7 @@ export default function Veo() {
         veo_duration: toInputStringOrEmpty(matchSummary.match.veo_duration),
         veo_camera: matchSummary.match.veo_camera || '',
       }));
-      await initializeMatchForms(matchSummary);
+      await initializeMatchForms(matchSummary, resolvedTeamName);
     } catch (err) {
       if (latestSelectedMatchRequest.current !== requestId) {
         return;
@@ -802,7 +1077,7 @@ export default function Veo() {
 
   if (loading) {
     return (
-      <div className="bg-white/60 max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -831,7 +1106,7 @@ export default function Veo() {
           </div>
         )}
 
-        <div className="bg-blue-50/80 border border-blue-100 rounded-lg p-4">
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
           <p className="text-sm font-semibold text-blue-900">
             Catalogue exhaustif VEO: {metricCatalogStats.totalTeam} metriques equipe, {metricCatalogStats.totalPlayer} metriques joueurs.
           </p>
@@ -868,17 +1143,17 @@ export default function Veo() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <form onSubmit={handleCreateVeoSession} className="bg-white/80 rounded-lg shadow p-6 space-y-4">
+          <form onSubmit={handleCreateVeoSession} className="bg-white rounded-lg shadow p-6 space-y-4">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Creer une nouvelle session VEO</h2>
-              <p className="mt-1 text-sm text-gray-900">
+              <p className="mt-1 text-sm text-gray-600">
                 La session est rattachee automatiquement a une seance Catapult de la meme date si elle existe.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Date de session</span>
+                <span className="text-xs font-medium text-gray-600">Date de session</span>
                 <input
                   type="date"
                   className={FORM_CONTROL_CLASS}
@@ -889,7 +1164,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Seance Catapult (optionnel)</span>
+                <span className="text-xs font-medium text-gray-600">Seance Catapult (optionnel)</span>
                 <select
                   className={FORM_CONTROL_CLASS}
                   value={selectedCatapultSessionTitle}
@@ -905,7 +1180,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Equipe</span>
+                <span className="text-xs font-medium text-gray-600">Equipe</span>
                 <select
                   className={FORM_CONTROL_CLASS}
                   value={matchForm.team_name}
@@ -922,7 +1197,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Adversaire</span>
+                <span className="text-xs font-medium text-gray-600">Adversaire</span>
                 <input
                   className={FORM_CONTROL_CLASS}
                   placeholder="Ex: Racing Besancon"
@@ -932,7 +1207,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Type</span>
+                <span className="text-xs font-medium text-gray-600">Type</span>
                 <select
                   className={FORM_CONTROL_CLASS}
                   value={matchForm.match_type}
@@ -947,7 +1222,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Competition</span>
+                <span className="text-xs font-medium text-gray-600">Competition</span>
                 <input
                   className={FORM_CONTROL_CLASS}
                   placeholder="Championnat, Coupe..."
@@ -957,7 +1232,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Buts marques</span>
+                <span className="text-xs font-medium text-gray-600">Buts marques</span>
                 <input
                   type="number"
                   className={FORM_CONTROL_CLASS}
@@ -967,7 +1242,7 @@ export default function Veo() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-gray-900">Buts encaisses</span>
+                <span className="text-xs font-medium text-gray-600">Buts encaisses</span>
                 <input
                   type="number"
                   className={FORM_CONTROL_CLASS}
@@ -977,7 +1252,7 @@ export default function Veo() {
               </label>
 
               <label className="block sm:col-span-2">
-                <span className="text-xs font-medium text-gray-900">Titre session VEO (optionnel)</span>
+                <span className="text-xs font-medium text-gray-600">Titre session VEO (optionnel)</span>
                 <input
                   className={FORM_CONTROL_CLASS}
                   placeholder="Par defaut: titre de seance Catapult"
@@ -987,7 +1262,7 @@ export default function Veo() {
               </label>
             </div>
 
-            <label className="inline-flex items-center gap-2 text-sm text-gray-900">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
                 checked={matchForm.is_home}
@@ -997,10 +1272,10 @@ export default function Veo() {
             </label>
 
             <details className="border rounded-md p-3">
-              <summary className="cursor-pointer text-sm font-medium text-gray-900">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700">
                 Reference video (facultatif)
               </summary>
-              <p className="mt-2 text-xs text-gray-900">
+              <p className="mt-2 text-xs text-gray-600">
                 Ces champs servent uniquement a garder la trace de la video Veo (lien, duree, camera). Ils
                 n'impactent pas le calcul des statistiques ni le rapport.
               </p>
@@ -1044,10 +1319,10 @@ export default function Veo() {
             </button>
           </form>
 
-          <div className="bg-white/80 rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Sessions VEO existantes</h2>
             {matches.length === 0 ? (
-              <p className="text-sm text-gray-900">Aucune session VEO creee.</p>
+              <p className="text-sm text-gray-500">Aucune session VEO creee.</p>
             ) : (
               <>
                 <select
@@ -1135,9 +1410,7 @@ export default function Veo() {
                       const state = participationState[player.id] || {};
                       return (
                         <tr key={player.id} className="border-b last:border-b-0">
-                          <td className="py-2 pr-3">
-                            {player.first_name} {player.last_name}
-                          </td>
+                          <td className="py-2 pr-3">{formatPlayerDisplayName(player)}</td>
                           <td className="py-2 pr-3">
                             <input
                               type="checkbox"
@@ -1280,9 +1553,14 @@ export default function Veo() {
                   Enregistrer metriques joueurs
                 </button>
               </div>
-              {selectedPlayersForGrid.length === 0 ? (
+              {rosterSyncMessage && (
+                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md px-3 py-2">
+                  {rosterSyncMessage}
+                </p>
+              )}
+              {playersForMetricsGrid.length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  Aucun joueur selectionne. Coche des joueurs dans la section Participations.
+                  Aucun joueur disponible pour cette equipe.
                 </p>
               ) : (
                 <div className="overflow-auto border rounded-md">
@@ -1302,11 +1580,9 @@ export default function Veo() {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedPlayersForGrid.map((player) => (
+                      {playersForMetricsGrid.map((player) => (
                         <tr key={player.id} className="border-b last:border-b-0">
-                          <td className="py-2 px-3 font-medium whitespace-nowrap">
-                            {player.first_name} {player.last_name}
-                          </td>
+                          <td className="py-2 px-3 font-medium whitespace-nowrap">{formatPlayerDisplayName(player)}</td>
                           {visibleFlatPlayerMetrics.map((metric) => {
                             const key = makePlayerMetricKey(player.id, metric.slug);
                             return (
