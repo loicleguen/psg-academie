@@ -70,7 +70,7 @@ services:
       DATABASE_URL: postgresql+psycopg://veo_user:veo_password@db-veo:5432/veo_db
       API_HOST: 0.0.0.0
       API_PORT: 8001
-      CORS_ORIGINS: http://localhost
+      CORS_ORIGINS: "*"
     depends_on:
       db-veo:
         condition: service_healthy
