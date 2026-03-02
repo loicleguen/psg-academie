@@ -814,8 +814,8 @@ export default function Veo() {
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0 space-y-6">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">VEO</h1>
-          <p className="mt-2 text-2xl font-bold text-grey-600">
+          <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">VEO</h1>
+          <p className="block w-fit bg-white/50 px-4 py-2 rounded-md text-xl text-black">
             Saisie manuelle des matchs et stats Veo pour centraliser les rapports.
           </p>
         </div>
