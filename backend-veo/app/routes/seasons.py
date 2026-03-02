@@ -5,7 +5,7 @@ from datetime import date
 from app.db.session import get_db
 from app.models import Season
 from app import schemas
-from common.security import require_coach_or_admin, get_current_user
+from app.security import require_coach_or_admin, get_current_user
 from common.user import User
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
@@ -13,11 +13,7 @@ router = APIRouter(prefix="/seasons", tags=["seasons"])
 @router.get("", response_model=List[schemas.Season])
 def list_seasons(
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """List all seasons"""
     seasons = db.query(Season).order_by(Season.start_date.desc()).all()
@@ -27,11 +23,7 @@ def list_seasons(
 def create_season(
     season: schemas.SeasonCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Create a new season"""
     # Check for duplicate label
@@ -53,11 +45,7 @@ def create_season(
 def get_season(
     season_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get season by ID"""
     season = db.query(Season).get(season_id)

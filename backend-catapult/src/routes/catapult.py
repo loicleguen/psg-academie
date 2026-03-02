@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from ..models.user import User
 from ..models.team import Team
-from common.security import require_coach_or_admin, get_current_user
+from ..middleware.security import require_coach_or_admin, get_current_user
 from fastapi.responses import Response
 from sqlmodel import Session, select
 from typing import List, Dict, Any
@@ -51,11 +51,7 @@ def _parse_mixed_date(val):
 async def upload_catapult_csv(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Upload and process a Catapult CSV file
@@ -132,11 +128,7 @@ async def upload_catapult_csv(
 @router.get("/sessions")
 def get_sessions(
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ) -> List[Dict[str, Any]]:
     """Get list of unique sessions with their counts"""
     # Group by session_title and get count of players, plus team_id from User table
@@ -177,11 +169,7 @@ def get_sessions(
 
 @router.get("/sessions/title")
 def get_sessions_by_title(session_title: str, session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """Get all sessions with a specific title"""
     statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
@@ -194,11 +182,7 @@ def get_sessions_by_title(session_title: str, session: Session = Depends(get_ses
 def get_session_players(
     session_title: str,
     session: Session = Depends(get_session),
-        current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+        current_user: User = Depends(require_coach_or_admin)
 ) -> List[str]:
     """Get list of unique player names for a specific session"""
     stmt = select(
@@ -216,11 +200,7 @@ def get_session_players(
 
 @router.get("/sessions/player/{player_name}")
 def get_player_sessions(player_name: str, session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """Get all sessions for a specific player"""
     statement = select(CatapultSession).where(CatapultSession.player_name == player_name)
@@ -230,11 +210,7 @@ def get_player_sessions(player_name: str, session: Session = Depends(get_session
 
 @router.get("/sessions/{session_id}", response_model=CatapultSession)
 def get_session_by_id(session_id: int, session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """Get a specific Catapult training session by ID"""
     db_session = session.get(CatapultSession, session_id)
@@ -247,11 +223,7 @@ def get_session_by_id(session_id: int, session: Session = Depends(get_session),
 def delete_sessions_by_title(
     session_title: str = Query(..., description="Session title to delete"),
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """Delete all sessions with a specific title"""
     statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
@@ -271,11 +243,7 @@ def delete_sessions_by_title(
 
 @router.delete("/sessions/{session_id}")
 def delete_session(session_id: int, session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """Delete a Catapult session by ID"""
     db_session = session.get(CatapultSession, session_id)
@@ -291,11 +259,7 @@ def delete_session(session_id: int, session: Session = Depends(get_session),
 @router.delete("/sessions/by-title/{session_title:path}")
 def delete_session_by_title(
     session_title: str,
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
     db: Session = Depends(get_session)
 ):
     """Delete all records for a session by title"""
@@ -370,11 +334,7 @@ def _construct_session_date_from_title(title: str, raw_date: str):
 def generate_session_report(
     session_title: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Generate complete professional session report
@@ -446,11 +406,7 @@ def generate_session_report(
 def get_session_report_image(
     session_title: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Get session report as PNG image (directly viewable in browser)
@@ -530,11 +486,7 @@ def generate_weekly_report(
     week: int,
     year: int = 2026,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Générer un rapport hebdomadaire pour une équipe et une semaine donnée.
@@ -604,11 +556,7 @@ def generate_individual_week_report(
     week: int,
     year: int = 2026,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Generate individual player weekly microcycle report.
@@ -737,11 +685,7 @@ def generate_individual_week_report(
 def get_player_stats(
     player_name: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """Get player statistics over the last 3 months"""
     from datetime import datetime, timedelta
@@ -789,11 +733,7 @@ def get_player_stats(
 @router.get("/players")
 async def get_all_players(
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Retourne la liste unique de tous les joueurs ayant des données Catapult
@@ -816,11 +756,7 @@ def get_players_by_week(
     week: int,
     year: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ) -> list:
     """Get list of unique player names who had at least one session in the given ISO week"""
     from datetime import datetime, timedelta
@@ -847,11 +783,7 @@ def get_players_by_week(
 def get_session_players_q(
     session_title: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ) -> list:
     """Get list of unique player names for a specific session (query param)
     """
@@ -871,11 +803,7 @@ def get_session_players_q(
 def get_session_players_by_title(
     session_title: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ) -> list:
     """Get list of unique player names for a specific session (query param, no slashes issues)
     """
@@ -895,11 +823,7 @@ def get_session_players_by_title(
 def get_session_players_global(
     session_title: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ) -> list:
     """Get list of unique player names for a specific session (no path conflicts)
     """

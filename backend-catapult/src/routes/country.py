@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from ..models.country import Country, CountryCreate, CountryUpdate, CountryRead
 from ..models.user import User
 from ..db.database import get_session
-from common.security import require_coach_or_admin, get_current_user
+from ..middleware.security import require_coach_or_admin, get_current_user
 from sqlmodel import select, func, Session
 from sqlalchemy.orm import selectinload
 from typing import List
@@ -13,11 +13,7 @@ router = APIRouter(prefix="/countries", tags=["countries"])
 def create_country(
     country: CountryCreate,
     session: Session=Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     existing = session.exec(
         select(Country).where(func.lower(Country.name) == country.name.lower())
@@ -33,11 +29,7 @@ def create_country(
 @router.get("/", response_model=List[CountryRead])
 def list_countries(
     session: Session=Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     statement = select(Country).options(selectinload(Country.academies))
     country_list = session.exec(statement).all()
@@ -49,11 +41,7 @@ def update_country_by_name(
     country_name: str,
     country: CountryUpdate,
     session: Session=Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     db_country = session.exec(select(Country).where(Country.name == country_name)).first()
     if not db_country:
@@ -68,11 +56,7 @@ def update_country_by_name(
 def delete_country_by_name(
     country_name: str,
     session: Session=Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     db_country = session.exec(select(Country).where(Country.name == country_name)).first()
     if not db_country:

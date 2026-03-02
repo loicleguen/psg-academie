@@ -6,7 +6,7 @@ from datetime import date
 from ..db.database import get_session
 from ..models.injury import Injury, InjuryCreate, InjuryRead, InjuryUpdate
 from ..models.user import User
-from common.security import get_current_user, require_coach_or_admin
+from ..middleware.security import get_current_user, require_coach_or_admin
 
 router = APIRouter(prefix="/players", tags=["Injuries"])
 
@@ -15,11 +15,7 @@ router = APIRouter(prefix="/players", tags=["Injuries"])
 def get_player_injuries(
     player_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Récupérer toutes les blessures d'un joueur triées par date décroissante
@@ -52,11 +48,7 @@ def create_injury(
     player_id: int,
     injury_data: InjuryCreate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Ajouter une blessure pour un joueur
@@ -104,11 +96,7 @@ def update_injury(
     injury_id: int,
     injury_data: InjuryUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Mettre à jour une blessure
@@ -166,11 +154,7 @@ def delete_injury(
     player_id: int,
     injury_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Supprimer une blessure

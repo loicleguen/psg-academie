@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.models import Player, Team
 from app import schemas
-from common.security import require_coach_or_admin, get_current_user
+from app.security import require_coach_or_admin, get_current_user
 from common.user import User
 
 router = APIRouter(prefix="/players", tags=["players"])
@@ -13,11 +13,7 @@ router = APIRouter(prefix="/players", tags=["players"])
 def list_players(
     team_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """List players, optionally filtered by team"""
     query = db.query(Player)
@@ -31,11 +27,7 @@ def list_players(
 def create_player(
     player: schemas.PlayerCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Create a new player"""
     # Verify team exists
@@ -53,11 +45,7 @@ def create_player(
 def get_player(
     player_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get player by ID"""
     player = db.query(Player).get(player_id)
@@ -70,11 +58,7 @@ def update_player(
     player_id: int,
     player_update: schemas.PlayerUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Update player information"""
     player = db.query(Player).get(player_id)
@@ -94,11 +78,7 @@ def update_player(
 def delete_player(
     player_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Delete a player"""
     player = db.query(Player).get(player_id)

@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select, delete
 from datetime import timedelta
 
-from common.security import require_coach_or_admin, get_current_user
+from ..middleware.security import require_coach_or_admin, get_current_user
 from ..db.database import get_session
 from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole, RefreshToken
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -156,7 +156,7 @@ def refresh_access_token(
         expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
 @router.get("/me", response_model=UserRead, tags=["Auth - User"], summary="[Me] Get my profile")
-def read_users_me(current_user: User = Depends(lambda token=Depends(): get_current_user(token, session=Depends(get_session)))):
+def read_users_me(current_user: User = Depends(get_current_user)):
     """
     Récupérer les informations de l'utilisateur connecté
     
@@ -183,7 +183,7 @@ def logout():
 @router.put("/me", response_model=UserRead, tags=["Auth - User"], summary="[Me] Update my profile")
 def update_my_profile(
     user_update: UserUpdateMe,
-    current_user: User = Depends(lambda token=Depends(): get_current_user(token, session=Depends(get_session))),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
@@ -221,7 +221,7 @@ def update_my_profile(
 
 @router.delete("/me", tags=["Auth - User"], summary="[Me] Delete my account")
 def delete_my_account(
-    current_user: User = Depends(lambda token=Depends(): get_current_user(token, session=Depends(get_session))),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
@@ -238,11 +238,7 @@ def delete_my_account(
 @router.get("/users", tags=["Auth - Coach/Admin"], summary="List all users")
 def get_all_users(
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Lister tous les utilisateurs avec leurs équipes complètes (coach or admin uniquement)
@@ -289,11 +285,7 @@ def get_all_users(
 @router.get("/staff", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List admins and coaches")
 def get_admins_and_coaches(
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     stmt = select(User).where(User.role.in_([UserRole.ADMIN, UserRole.COACH]))
     return session.exec(stmt).all()
@@ -302,11 +294,7 @@ def get_admins_and_coaches(
 @router.get("/players-list", response_model=list[UserRead], tags=["Auth - Coach/Admin"], summary="List all players")
 def get_players(
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     stmt = select(User).where(User.role == UserRole.PLAYER)
     return session.exec(stmt).all()
@@ -317,11 +305,7 @@ def update_user(
     user_id: int,
     user_update: UserUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Modifier un utilisateur (coach or admin uniquement)
@@ -422,11 +406,7 @@ def update_user(
 def delete_user(
     user_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     """
     Supprimer un utilisateur (coach or admin uniquement)
@@ -446,7 +426,7 @@ def delete_user(
 @router.post("/me/photo", tags=["Auth - User"], summary="[Me] Upload profile photo")
 def upload_my_photo(
     file: UploadFile = File(...),
-    current_user: User = Depends(lambda token=Depends(): get_current_user(token, session=Depends(get_session))),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     if not file:
@@ -469,11 +449,7 @@ def upload_my_photo(
 def upload_user_photo(
     user_id: int,
     file: UploadFile = File(...),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
     session: Session = Depends(get_session)
 ):
     if not file:

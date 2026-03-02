@@ -4,7 +4,7 @@ from typing import List
 from app.db.session import get_db
 from app.models import Team
 from app import schemas
-from common.security import require_coach_or_admin, get_current_user
+from app.security import require_coach_or_admin, get_current_user
 from common.user import User
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -12,11 +12,7 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 @router.get("", response_model=List[schemas.Team])
 def list_teams(
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """List all teams"""
     teams = db.query(Team).order_by(Team.name).all()
@@ -26,11 +22,7 @@ def list_teams(
 def create_team(
     team: schemas.TeamCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Create a new team"""
     # Check for duplicate name
@@ -48,11 +40,7 @@ def create_team(
 def get_team(
     team_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get team by ID"""
     team = db.query(Team).get(team_id)

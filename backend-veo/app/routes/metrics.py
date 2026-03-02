@@ -8,7 +8,7 @@ from app.models import (
     Match, Player, MetricScope, MetricCategory, MetricSide
 )
 from app import schemas
-from common.security import require_coach_or_admin, get_current_user
+from app.security import require_coach_or_admin, get_current_user
 from common.user import User
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
@@ -70,11 +70,7 @@ def list_metrics(
     category: Optional[MetricCategory] = Query(None),
     is_derived: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """List metric definitions with optional filters"""
     query = db.query(MetricDefinition)
@@ -97,11 +93,7 @@ def get_entry_schema(
         description="Include derived metrics in catalog (default: raw metrics only)",
     ),
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Return a UI-oriented schema for manual data entry.
@@ -227,11 +219,7 @@ def get_entry_schema(
 def get_metric(
     metric_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get metric definition by ID"""
     metric = db.query(MetricDefinition).get(metric_id)
@@ -244,11 +232,7 @@ def get_metric(
 def get_team_metrics(
     match_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get all team metrics for a match"""
     match = db.query(Match).get(match_id)
@@ -277,11 +261,7 @@ def update_team_metrics(
     match_id: int,
     bulk: schemas.TeamMetricValueBulk,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Bulk upsert team metrics for a match"""
     match = db.query(Match).get(match_id)
@@ -342,11 +322,7 @@ def update_team_metrics(
 def get_player_metrics(
     match_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get all player metrics for a match"""
     match = db.query(Match).get(match_id)
@@ -378,11 +354,7 @@ def update_player_metrics(
     match_id: int,
     bulk: schemas.PlayerMetricValueBulk,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Bulk upsert player metrics for a match"""
     match = db.query(Match).get(match_id)

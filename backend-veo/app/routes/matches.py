@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.models import Match, MatchPlayerParticipation, Player, Season, Team
 from app.schemas.summary import MatchSummaryResponse
 from app.services.match_summary import MatchSummaryService
-from common.security import require_coach_or_admin, get_current_user
+from app.security import require_coach_or_admin, get_current_user
 from common.user import User
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -58,11 +58,7 @@ def list_matches(
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """List matches with optional filters"""
     query = db.query(Match)
@@ -84,11 +80,7 @@ def list_matches(
 def create_match(
     match: schemas.MatchCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Create a new match"""
     # Verify team exists
@@ -115,11 +107,7 @@ def create_match(
 def bootstrap_match_from_catapult(
     payload: schemas.MatchBootstrapFromCatapultRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Bootstrap Veo entities from an existing Catapult session context.
@@ -302,11 +290,7 @@ def bootstrap_match_from_catapult(
 def get_match(
     match_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get match by ID"""
     match = db.query(Match).get(match_id)
@@ -320,11 +304,7 @@ def update_match(
     match_id: int,
     match_update: schemas.MatchUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Update match information"""
     match = db.query(Match).get(match_id)
@@ -344,11 +324,7 @@ def update_match(
 def delete_match(
     match_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Delete a match"""
     match = db.query(Match).get(match_id)
@@ -365,11 +341,7 @@ def delete_match(
 def get_match_participations(
     match_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Get all participations for a match"""
     match = db.query(Match).get(match_id)
@@ -389,11 +361,7 @@ def update_match_participations(
     match_id: int,
     bulk: schemas.ParticipationBulk,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Bulk update participations for a match"""
     match = db.query(Match).get(match_id)
@@ -438,11 +406,7 @@ def duplicate_participations(
     match_id: int,
     source_match_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Duplicate participations from another match"""
     match = db.query(Match).get(match_id)
@@ -490,11 +454,7 @@ def duplicate_participations(
 def get_match_summary(
     match_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_db))
-        )
-    ),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Get a complete, Excel-like summary for a match.

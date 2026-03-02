@@ -5,7 +5,7 @@ from ..db.database import get_session
 from ..models.academy import Academy, AcademyCreate, AcademyUpdate, AcademyRead
 from ..models.country import Country
 from ..models.user import User
-from common.security import require_coach_or_admin, get_current_user
+from ..middleware.security import require_coach_or_admin, get_current_user
 
 router = APIRouter(prefix="/academies", tags=["academies"])
 
@@ -13,11 +13,7 @@ router = APIRouter(prefix="/academies", tags=["academies"])
 def create_academy(
     academy: AcademyCreate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     db_academy = Academy(**academy.model_dump())
     session.add(db_academy)
@@ -28,11 +24,7 @@ def create_academy(
 @router.get("/", response_model=list[AcademyRead])
 def read_academies(
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     statement = select(Academy).options(
         selectinload(Academy.country),
@@ -45,11 +37,7 @@ def read_academies(
 def read_academies_by_country_name(
     country_name: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     country = session.exec(select(Country).where(Country.name == country_name)).first()
     if not country:
@@ -65,11 +53,7 @@ def read_academies_by_country_name(
 def read_academy_by_name(
     academy_name: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     statement = select(Academy).where(Academy.name == academy_name).options(
         selectinload(Academy.country),
@@ -85,11 +69,7 @@ def update_academy_by_name(
     academy_name: str,
     academy_update: AcademyUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     academy = session.exec(select(Academy).where(Academy.name == academy_name)).first()
     if not academy:
@@ -104,11 +84,7 @@ def update_academy_by_name(
 def delete_academy_by_name(
     academy_name: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(
-        lambda token=Depends(): require_coach_or_admin(
-            get_current_user(token, session=Depends(get_session))
-        )
-    )
+    current_user: User = Depends(require_coach_or_admin)
 ):
     academy = session.exec(select(Academy).where(Academy.name == academy_name)).first()
     if not academy:
