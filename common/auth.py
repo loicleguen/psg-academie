@@ -1,7 +1,6 @@
 import os
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
-from sqlmodel import select
 from common.user import User, UserRole, TokenData
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -29,6 +28,7 @@ class AuthService:
 
     @staticmethod
     def get_current_user(token: str, session) -> User:
+        from sqlmodel import select  # lazy import: only needed by backends that use SQLModel
         token_data = AuthService.verify_token(token)
         statement = select(User).where(User.email == token_data.email)
         user = session.exec(statement).first()
