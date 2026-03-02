@@ -5,17 +5,26 @@ from datetime import date
 from app.db.session import get_db
 from app.models import Season
 from app import schemas
+from app.security import require_coach_or_admin, get_current_user
+from common.user import User
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
 
 @router.get("", response_model=List[schemas.Season])
-def list_seasons(db: Session = Depends(get_db)):
+def list_seasons(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
+):
     """List all seasons"""
     seasons = db.query(Season).order_by(Season.start_date.desc()).all()
     return seasons
 
 @router.post("", response_model=schemas.Season, status_code=201)
-def create_season(season: schemas.SeasonCreate, db: Session = Depends(get_db)):
+def create_season(
+    season: schemas.SeasonCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
+):
     """Create a new season"""
     # Check for duplicate label
     existing = db.query(Season).filter_by(label=season.label).first()
@@ -33,7 +42,11 @@ def create_season(season: schemas.SeasonCreate, db: Session = Depends(get_db)):
     return db_season
 
 @router.get("/{season_id}", response_model=schemas.Season)
-def get_season(season_id: int, db: Session = Depends(get_db)):
+def get_season(
+    season_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
+):
     """Get season by ID"""
     season = db.query(Season).get(season_id)
     if not season:

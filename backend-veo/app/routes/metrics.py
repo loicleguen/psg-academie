@@ -8,6 +8,8 @@ from app.models import (
     Match, Player, MetricScope, MetricCategory, MetricSide
 )
 from app import schemas
+from app.security import require_coach_or_admin, get_current_user
+from common.user import User
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -67,7 +69,8 @@ def list_metrics(
     scope: Optional[MetricScope] = Query(None),
     category: Optional[MetricCategory] = Query(None),
     is_derived: Optional[bool] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """List metric definitions with optional filters"""
     query = db.query(MetricDefinition)
@@ -90,6 +93,7 @@ def get_entry_schema(
         description="Include derived metrics in catalog (default: raw metrics only)",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Return a UI-oriented schema for manual data entry.
@@ -212,7 +216,11 @@ def get_entry_schema(
     )
 
 @router.get("/{metric_id}", response_model=schemas.MetricDefinition)
-def get_metric(metric_id: int, db: Session = Depends(get_db)):
+def get_metric(
+    metric_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
+):
     """Get metric definition by ID"""
     metric = db.query(MetricDefinition).get(metric_id)
     if not metric:
@@ -221,7 +229,11 @@ def get_metric(metric_id: int, db: Session = Depends(get_db)):
 
 # Team metrics endpoints
 @router.get("/matches/{match_id}/team-metrics", response_model=List[schemas.TeamMetricValueOutput])
-def get_team_metrics(match_id: int, db: Session = Depends(get_db)):
+def get_team_metrics(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
+):
     """Get all team metrics for a match"""
     match = db.query(Match).get(match_id)
     if not match:
@@ -248,7 +260,8 @@ def get_team_metrics(match_id: int, db: Session = Depends(get_db)):
 def update_team_metrics(
     match_id: int,
     bulk: schemas.TeamMetricValueBulk,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Bulk upsert team metrics for a match"""
     match = db.query(Match).get(match_id)
@@ -306,7 +319,11 @@ def update_team_metrics(
 
 # Player metrics endpoints
 @router.get("/matches/{match_id}/player-metrics", response_model=List[schemas.PlayerMetricValueOutput])
-def get_player_metrics(match_id: int, db: Session = Depends(get_db)):
+def get_player_metrics(
+    match_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
+):
     """Get all player metrics for a match"""
     match = db.query(Match).get(match_id)
     if not match:
@@ -336,7 +353,8 @@ def get_player_metrics(match_id: int, db: Session = Depends(get_db)):
 def update_player_metrics(
     match_id: int,
     bulk: schemas.PlayerMetricValueBulk,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """Bulk upsert player metrics for a match"""
     match = db.query(Match).get(match_id)

@@ -706,7 +706,7 @@ export default function SessionDetail() {
   const [availablePlayers, setAvailablePlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [sessionInfo, setSessionInfo] = useState(null);
-  const [, setLoadingSessionInfo] = useState(true);
+  const [, _setLoadingSessionInfo] = useState(true);
   const [selectedVeoMatchId, setSelectedVeoMatchId] = useState('');
   const [veoSummary, setVeoSummary] = useState(null);
   const [loadingVeoSummary, setLoadingVeoSummary] = useState(false);
@@ -730,7 +730,6 @@ export default function SessionDetail() {
   // Récupérer les infos de la session pour le rapport hebdo
   useEffect(() => {
     const fetchSessionInfo = async () => {
-      setLoadingSessionInfo(true);
       try {
         const response = await api.get('/catapult/sessions');
         console.log('All sessions:', response.data);
@@ -745,8 +744,6 @@ export default function SessionDetail() {
         }
       } catch (err) {
         console.error('Erreur récupération session:', err);
-      } finally {
-        setLoadingSessionInfo(false);
       }
     };
     fetchSessionInfo();
@@ -1660,21 +1657,21 @@ export default function SessionDetail() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="max-w-5xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         {/* Header with back button */}
         <div className="mb-6">
           <Link
             to="/catapult/sessions"
-            className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700"
+            className="inline-flex text-xl font-medium text-orange-600 hover:text-black"
           >
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             Retour aux sessions
           </Link>
-          <h1 className="mt-4 text-3xl font-bold text-gray-900">
+          <h1 className="inline-block-center bg-white/50 px-4 py-2 rounded-md text-3xl text-center font-bold text-gray-900">
             {sessionTitle}
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="justify-self-center inline-block-center bg-white/50 rounded-md mt-2 text-m text-center text-black">
             Choisissez un type de rapport à générer
           </p>
         </div>
@@ -1707,10 +1704,7 @@ export default function SessionDetail() {
           </div>
         )}
 
-
-
-
-        {/* Report type cards */}
+        {/* Report type cards with player selection above individual report */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
           {reportTypes.map((report) => {
             const Icon = report.icon;
@@ -1735,17 +1729,6 @@ export default function SessionDetail() {
                     </span>
                   )}
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {report.title}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {report.description}
-                </p>
-                {loading && report.available && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                )}
               </button>
             );
           })}

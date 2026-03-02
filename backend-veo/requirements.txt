@@ -1,18 +1,23 @@
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-sqlalchemy==2.0.25
-alembic==1.13.1
-cryptography==42.0.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
-python-multipart==0.0.6
-python-dotenv==1.0.0
-psycopg[binary]>=3.1
+# === FRAMEWORK WEB ===
+fastapi==0.124.4                 # Framework web moderne et rapide pour créer des APIs REST avec Python
+uvicorn[standard]==0.34.0        # Serveur ASGI ultra-rapide pour exécuter FastAPI
 
-# Testing
-pytest==7.4.4
-pytest-asyncio==0.23.3
-httpx==0.26.0
+# === BASE DE DONNÉES ===
+sqlalchemy==2.0.25               # ORM SQL, utilisé directement dans backend-veo
+alembic==1.14.0                  # Outil de migration de base de données
+psycopg2-binary==2.9.10          # Adaptateur PostgreSQL pour Python (v2)
+psycopg[binary]>=3.1             # Adaptateur PostgreSQL nouvelle génération (v3)
 
-# Validation
-email-validator==2.1.0
+# === VALIDATION & CONFIGURATION ===
+pydantic==2.12.5                 # Validation des données et sérialisation
+pydantic-settings==2.1.0         # Gestion des paramètres via variables d'environnement
+python-dotenv==1.0.0             # Chargement des variables d'environnement depuis .env
+
+# === AUTHENTIFICATION & SÉCURITÉ ===
+python-jose[cryptography]==3.3.0 # Vérification des tokens JWT (émis par backend-catapult)
+cryptography==42.0.0             # Fonctions cryptographiques (utilisé par python-jose)
+
+# === TESTS ===
+pytest==7.4.4                    # Framework de tests unitaires
+pytest-asyncio==0.23.3           # Support des tests asynchrones
+httpx==0.26.0                    # Client HTTP pour tester les APIs

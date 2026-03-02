@@ -5,6 +5,8 @@ from datetime import date
 from app.db.session import get_db
 from app.services.analytics import AnalyticsService
 from app import schemas
+from app.security import require_coach_or_admin, get_current_user
+from common.user import User
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -16,7 +18,8 @@ def get_team_kpis(
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
     compute_delta: bool = Query(False, description="Compute delta vs previous period"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Get aggregated KPIs for a team.
@@ -42,7 +45,8 @@ def get_team_timeseries(
     team_id: int = Query(..., description="Team ID"),
     metric: str = Query(..., description="Metric slug"),
     last_n: int = Query(10, description="Number of recent matches"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Get time series data for a team metric over last N matches.
@@ -66,7 +70,8 @@ def get_team_radar(
     toA: date = Query(..., description="Period A end date"),
     fromB: date = Query(..., description="Period B start date"),
     toB: date = Query(..., description="Period B end date"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Compare two time periods on multiple metrics (for radar chart).
@@ -97,7 +102,8 @@ def get_player_leaderboard(
     metric: str = Query(..., description="Player metric slug"),
     season_id: Optional[int] = Query(None),
     top_n: int = Query(10, description="Number of top players"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_coach_or_admin),
 ):
     """
     Get top players leaderboard for a metric.

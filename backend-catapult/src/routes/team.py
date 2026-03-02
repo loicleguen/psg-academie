@@ -6,7 +6,7 @@ from ..db.database import get_session
 from ..models.team import Team, TeamCreate, TeamUpdate, TeamRead
 from ..models.academy import Academy
 from ..models.user import User, UserRead
-from ..middleware.security import require_coach_or_admin
+from ..middleware.security import require_coach_or_admin, get_current_user
 
 
 def get_team_full_path(session: Session, team_id: int) -> str:
@@ -105,6 +105,35 @@ def get_players_by_team(
 
     stmt = select(User).where(User.team_id.in_(team_ids), User.role == "player")
     players = session.exec(stmt).all()
+    return players
+
+@router.get("/id/{team_id}", response_model=TeamRead)
+def read_team_by_id(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    team = session.exec(
+        select(Team)
+        .where(Team.id == team_id)
+        .options(
+            selectinload(Team.academy).selectinload(Academy.country),
+            selectinload(Team.players)
+        )
+    ).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return team
+
+@router.get("/id/{team_id}/players", response_model=list[UserRead])
+def get_players_by_team_id(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    players = session.exec(
+        select(User).where(User.team_id == team_id, User.role == "player")
+    ).all()
     return players
 
 @router.put("/{team_id}", response_model=TeamRead)

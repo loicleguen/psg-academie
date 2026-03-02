@@ -27,6 +27,7 @@ app.include_router(players.router)
 app.include_router(matches.router)
 app.include_router(metrics.router)
 app.include_router(analytics.router)
+app.include_router(clipboard.router)
 
 
 @app.get("/")

@@ -28,18 +28,28 @@ export const authService = {
       email,
       password,
       full_name: fullName,
-      role: 'admin'
+      role: 'player'
     });
     return response.data;
   },
 
   async getMe() {
-    const response = await api.get('/auth/me');
+    const accessToken = localStorage.getItem('access_token');
+    const response = await api.get('/auth/me', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
     return response.data;
   },
 
   async getAllUsers() {
-    const response = await api.get('/auth/users');
+    const accessToken = localStorage.getItem('access_token');
+    const response = await api.get('/auth/users', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
     return response.data;
   },
 
