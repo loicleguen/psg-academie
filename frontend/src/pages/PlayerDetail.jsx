@@ -387,6 +387,20 @@ export default function PlayerDetail() {
     );
   };;
 
+  // Render a single metric row with label + 1 or 2 values
+  const StatRow = ({ label, value1, value2, color = 'text-gray-900' }) => (
+    <div className="flex items-center justify-between border-t py-2 px-1">
+      <span className="text-sm text-gray-600 font-medium">{label}</span>
+      <div className="flex gap-6">
+        <span className={`text-sm font-bold ${color}`}>{value1}</span>
+        {value2 !== undefined && (
+          <span className="text-sm font-bold text-orange-500">{value2}</span>
+        )}
+      </div>
+    </div>
+  );
+
+
   const formatVeoMetricValue = (value) => {
     if (value === null || value === undefined) {
       return '-';
@@ -440,7 +454,7 @@ export default function PlayerDetail() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
                 }`}
               >
-                Stats Catapult
+                Stats Catapult et VEO
               </button>
               
               <button
@@ -874,7 +888,8 @@ export default function PlayerDetail() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6 mt-8">
+        {activeTab === 'stats' && (
+        <div className="bg-white/80 rounded-lg shadow-lg p-6 space-y-6 mt-8">
           <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
           {veoLoading ? (
             <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
@@ -920,6 +935,7 @@ export default function PlayerDetail() {
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );
