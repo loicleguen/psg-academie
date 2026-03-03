@@ -66,7 +66,7 @@ services:
     container_name: psg_backend_veo
     restart: always
     environment:
-      SECRET_KEY: "b7f2e1c9-4a8d-4e2b-9f3a-2c6d8e7a1b5c$XyZ!pQwErTyUiOp1234567890"
+      SECRET_KEY: "6393013afbfb365ab854ba0f1c6e9aee551ef777a273253fdf18cb219070076ace66e1108f5c551faaef05a3bb06f73fbc9e52ca53bec16ab8f9c77846078b22"
       DATABASE_URL: postgresql+psycopg://veo_user:veo_password@db-veo:5432/veo_db
       API_HOST: 0.0.0.0
       API_PORT: 8001
