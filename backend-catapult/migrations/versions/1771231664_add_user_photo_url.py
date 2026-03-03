@@ -15,8 +15,21 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('user', sa.Column('photo_url', sa.Text(), nullable=True))
+    op.execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'user'
+          AND column_name = 'photo_url'
+      ) THEN
+        ALTER TABLE "user" ADD COLUMN photo_url TEXT;
+      END IF;
+    END
+    $$;
+    """)
 
 
 def downgrade():
-    op.drop_column('user', 'photo_url')
+    op.execute('ALTER TABLE "user" DROP COLUMN IF EXISTS photo_url;')

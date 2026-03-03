@@ -30,6 +30,7 @@ app.include_router(analytics.router)
 app.include_router(clipboard.router)
 
 
+
 @app.get("/")
 def root():
     return {
