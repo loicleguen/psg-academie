@@ -8,9 +8,12 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api/physical': {
-        target: 'http://nginx',  // Point vers nginx qui route vers les backends
+        target: 'http://nginx',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/physical/, '/api/physical')
+      },
+      '/api/tactical': {
+        target: 'http://nginx',
+        changeOrigin: true,
       }
     }
   }
