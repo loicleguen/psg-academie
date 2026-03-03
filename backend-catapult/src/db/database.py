@@ -1,7 +1,7 @@
-from typing import Generator
-from sqlmodel import SQLModel, create_engine, Session
-from typing import Generator
 import os
+from typing import Generator
+
+from sqlmodel import SQLModel, Session, create_engine
 
 # Import models to ensure they're registered with SQLModel
 from ..models.country import Country
@@ -15,12 +15,12 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://psguser:psgpass@db:5432/p
 
 # Augmentation du pool pour gérer plus de connexions simultanées
 engine = create_engine(
-    DATABASE_URL, 
+    DATABASE_URL,
     echo=True,
     pool_size=20,          # Connexions permanentes dans le pool
     max_overflow=30,       # Connexions supplémentaires en cas de pic
     pool_pre_ping=True,    # Vérifier la validité des connexions
-    pool_recycle=3600      # Recycler les connexions après 1h
+    pool_recycle=3600,     # Recycler les connexions après 1h
 )
 
 # Utilitaire pour créer les tables

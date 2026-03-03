@@ -1739,7 +1739,7 @@ export default function SessionDetail() {
                 key={report.id}
                 onClick={report.onClick}
                 disabled={!report.available || loading}
-                className={`
+                  className={`
                   relative rounded-lg border p-6 text-left transition-all
                   ${report.available
                     ? 'border-gray-300 bg-white/80 hover:border-blue-500 hover:shadow-lg cursor-pointer'

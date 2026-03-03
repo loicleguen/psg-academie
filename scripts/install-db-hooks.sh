@@ -25,10 +25,18 @@ chmod +x "${REPO_ROOT}/scripts/auto-restore-db.sh" "${REPO_ROOT}/scripts/sync-db
 
 if [ -f "${REPO_ROOT}/psgdb.dump" ]; then
   sha256sum "${REPO_ROOT}/psgdb.dump" | awk '{print $1}' > "${REPO_ROOT}/.git/.last_psgdb_dump_sha"
+else
+  rm -f "${REPO_ROOT}/.git/.last_psgdb_dump_sha"
+fi
+
+if [ -f "${REPO_ROOT}/veo_db.dump" ]; then
+  sha256sum "${REPO_ROOT}/veo_db.dump" | awk '{print $1}' > "${REPO_ROOT}/.git/.last_veo_db_dump_sha"
+else
+  rm -f "${REPO_ROOT}/.git/.last_veo_db_dump_sha"
 fi
 
 echo "✓ Hooks installés:"
 echo "  - .git/hooks/post-merge"
 echo "  - .git/hooks/post-checkout"
-echo "✓ Auto restore activé quand psgdb.dump change."
-echo "ℹ️  Le push DB reste manuel: ./scripts/sync-db.sh push"
+echo "✓ Auto restore activé quand psgdb.dump et/ou veo_db.dump changent."
+echo "ℹ️  Le push DB reste manuel: ./scripts/sync-db.sh push [all|catapult|veo]"
