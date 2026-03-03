@@ -44,7 +44,7 @@ def register(user_data: UserCreate, session: Session = Depends(get_session)):
         email=user_data.email,
         hashed_password=hashed_password,
         full_name=user_data.full_name,
-        role=UserRole.PLAYER,  # Par défaut, le rôle est 'player' pour les inscriptions publiques
+        role=UserRole.PLAYER.value,  # Par défaut, le rôle est 'player' pour les inscriptions publiques
     )
     
     session.add(db_user)
