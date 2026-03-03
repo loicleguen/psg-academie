@@ -1039,84 +1039,114 @@ class WeeklyReportGenerator:
     @staticmethod
     def _draw_daily_table(ax, day_data, benchmarks):
         """Draw daily breakdown table with borders"""
+        import numpy as np
         ax.axis('off')
-        ax.set_xlim(0, 12)
-        ax.set_ylim(0, 10)
-        
+        ax.set_xlim(0, 14)
+        ax.set_ylim(0, 11)
+
         from matplotlib.patches import Rectangle
-        
-        # Header
-        headers = ['JOUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'DEC', '%DEC', 'PP', '%PP', 'VOL', 'INT']
-        for i, header in enumerate(headers):
-            # Draw header cell background
-            rect = Rectangle((i, 9), 0.9, 0.5,
-                           facecolor=WeeklyReportGenerator.COLORS['header_bg'], 
-                           edgecolor='white', linewidth=0.5)
-            ax.add_patch(rect)
-            
-            ax.text(i + 0.45, 9.25, header, ha='center', va='center', fontsize=8,
-                   fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
-        
-        # Days data
+        HEADER_BG = WeeklyReportGenerator.COLORS['header_bg']
+        ROW_BG    = WeeklyReportGenerator.COLORS['background']
+        WHITE     = WeeklyReportGenerator.COLORS['text_white']
+        BORDER    = '#4a5568'
+
+        def draw_cell(x, y, w=1, h=0.45, bg=ROW_BG, border=BORDER):
+            r = Rectangle((x, y - h/2), w, h, facecolor=bg, edgecolor=border, linewidth=0.5)
+            ax.add_patch(r)
+
+        # ── Header ────────────────────────────────────────────────────────────
+        headers = ['JOUR', 'MIN', 'DIST', '%DIST', 'HSR', '%HSR',
+                   'DEC', '%DEC', 'PP', '%PP', 'VOL', 'INT', 'VOLUME', 'INTENSITE']
+        for i, h in enumerate(headers):
+            draw_cell(i, 10.25, bg=HEADER_BG, border='white')
+            ax.text(i + 0.5, 10.25, h, ha='center', va='center',
+                    fontsize=7, fontweight='bold', color=WHITE)
+
+        # ── Data rows ─────────────────────────────────────────────────────────
         days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
-        row_y = 8.5
-        
-        total_minutes = 0
-        total_distance = 0
-        total_hsr = 0
-        total_impacts = 0
-        total_pp = 0
-        
+        row_y = 9.7
+
+        # Accumulateurs pour TOTAL et MONOTONIE
+        all_minutes, all_distance, all_hsr, all_impacts, all_pp = [], [], [], [], []
+        all_vol, all_int_ = [], []
+
         for day in days_order:
-            if day in day_data:
-                data = day_data[day]
-                minutes = data['duration'] // 60
-                distance = int(data['distance_km'] * 1000)  # Convert km to meters
-                hsr = int(data['sprint_distance_m'])
-                impacts = data['impacts']
-                pp = data['power_plays']
-                
-                total_minutes += minutes
-                total_distance += distance
-                total_hsr += hsr
-                total_impacts += impacts
-                total_pp += pp
-                
-                # Simplified percentages for weekly report
-                dist_pct = 100
-                hsr_pct = 100
-                dec_pct = 100
-                pp_pct = 100
-                
-                # Calculate VOL and INT as percentages
-                # VOL% = (distance / benchmark_distance) * 100
-                vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
-                # INT% = average of (HSR%, DEC%, PP%)
-                hsr_bench_pct = (hsr / benchmarks.get('hsr_total', 5000)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
-                dec_bench_pct = (impacts / benchmarks.get('dec_total', 100)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
-                pp_bench_pct = (pp / benchmarks.get('power_plays', 200)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
-                intensity_pct = int((hsr_bench_pct + dec_bench_pct + pp_bench_pct) / 3)
-                
-                row = [day[:3], minutes, distance, f'{int(dist_pct)}%', hsr, f'{int(hsr_pct)}%',
-                      impacts, f'{int(dec_pct)}%', pp, f'{int(pp_pct)}%', f'{vol_pct}%', f'{intensity_pct}%']
-                
-                for i, value in enumerate(row):
-                    # Draw cell background
-                    rect = Rectangle((i, row_y - 0.2), 0.9, 0.4,
-                                   facecolor=WeeklyReportGenerator.COLORS['background'], 
-                                   edgecolor='#4a5568', linewidth=0.5)
-                    ax.add_patch(rect)
-                    
-                    ax.text(i + 0.5, row_y, str(value), ha='center', va='center', fontsize=8,
-                           color=WeeklyReportGenerator.COLORS['text_white'])
-                
-                row_y -= 0.5
-        
-        # Summary rows
-        ax.text(0, 1, 'MOYENNE', ha='center', va='center', fontsize=8,
-               fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
-        ax.text(0, 0.5, 'TOTAL', ha='center', va='center', fontsize=8,
-               fontweight='bold', color=WeeklyReportGenerator.COLORS['text_white'])
+            if day not in day_data:
+                continue
+            data = day_data[day]
+            minutes  = data['duration'] // 60
+            distance = int(data['distance_km'] * 1000)
+            hsr      = int(data['sprint_distance_m'])
+            impacts  = int(data['impacts'])
+            pp       = int(data['power_plays'])
+
+            # VOL% = distance / benchmark_distance * 100
+            vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 1)) * 100)                       if benchmarks.get('distance_km', 0) > 0 else 0
+            # INT% = moyenne(HSR%, DEC%, PP%)
+            hsr_p = (hsr / benchmarks.get('hsr_total', 1)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
+            dec_p = (impacts / benchmarks.get('dec_total', 1)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
+            pp_p  = (pp / benchmarks.get('power_plays', 1)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
+            int_pct = int((hsr_p + dec_p + pp_p) / 3)
+
+            # VOLUME = (vol_pct / minutes) * 100
+            volume_val    = round((vol_pct / minutes) * 100, 1) if minutes else 0
+            # INTENSITE = (int_pct / minutes) * 100
+            intensite_val = round((int_pct / minutes) * 100, 1) if minutes else 0
+
+            all_minutes.append(minutes);  all_distance.append(distance)
+            all_hsr.append(hsr);          all_impacts.append(impacts)
+            all_pp.append(pp);            all_vol.append(vol_pct)
+            all_int_.append(int_pct)
+
+            row = [day[:3], minutes, distance, '100%', hsr, '100%',
+                   impacts, '100%', pp, '100%',
+                   f'{vol_pct}%', f'{int_pct}%',
+                   f'{volume_val}%', f'{intensite_val}%']
+
+            for i, val in enumerate(row):
+                draw_cell(i, row_y)
+                ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+                        fontsize=7, color=WHITE)
+            row_y -= 0.5
+
+        # ── MONOTONIE ─────────────────────────────────────────────────────────
+        row_y -= 0.1
+        monotonie = (np.mean(all_distance) / np.std(all_distance))                     if len(all_distance) > 1 and np.std(all_distance) > 0 else 0
+        mono_row = ['MONOTONIE', f'{monotonie:.2f}'] + [''] * 12
+        for i, val in enumerate(mono_row):
+            draw_cell(i, row_y, bg='#2d3748')
+            ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+                    fontsize=7, fontweight='bold', color=WHITE)
+        row_y -= 0.5
+
+        # ── TOTAL ─────────────────────────────────────────────────────────────
+        tot_min  = sum(all_minutes)
+        tot_dist = sum(all_distance)
+        tot_hsr  = sum(all_hsr)
+        tot_imp  = sum(all_impacts)
+        tot_pp   = sum(all_pp)
+        tot_vol  = sum(all_vol)
+        tot_int  = sum(all_int_)
+        tot_volume    = round((tot_vol / tot_min) * 100, 1) if tot_min else 0
+        tot_intensite = round((tot_int / tot_min) * 100, 1) if tot_min else 0
+
+        total_row = ['TOTAL', tot_min, tot_dist, '', tot_hsr, '',
+                     tot_imp, '', tot_pp, '',
+                     f'{tot_vol}%', f'{tot_int}%',
+                     f'{tot_volume}%', f'{tot_intensite}%']
+        for i, val in enumerate(total_row):
+            draw_cell(i, row_y, bg='#2d3748')
+            ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+                    fontsize=7, fontweight='bold', color=WHITE)
+        row_y -= 0.5
+
+        # ── OBJECTIF ──────────────────────────────────────────────────────────
+        obj_row = ['OBJECTIF', 297, 28384, '250%', 2700, '150%',
+                   86, '180%', 120, '250%', '', '', '85%', '95%']
+        for i, val in enumerate(obj_row):
+            draw_cell(i, row_y, bg='#2d3748')
+            ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+                    fontsize=7, fontweight='bold', color=WHITE)
     
     @staticmethod
     def _draw_trend_graph(ax, day_data, benchmarks):
