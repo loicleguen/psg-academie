@@ -38,6 +38,7 @@ build/
 
 # Logs
 *.log
+logs.txt
 logs/
 
 # Tests (pour plus tard)
