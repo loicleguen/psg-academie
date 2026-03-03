@@ -90,60 +90,54 @@ export default function Academies() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-white/60 min-h-screen bg-transparent flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-4xl font-bold text-gray-900">ACADEMIES</h1>
-            {isAdminOrCoach && (
-              <button
-                onClick={openCreateModal}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                + Ajouter une académie
-              </button>
-            )}
+          <div className="grid grid-cols-3 items-center gap-4 mb-12">
+            <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
+              ACADEMY
+            </h1>
+            <div className="col-start-2 flex justify-center">
+              {isAdminOrCoach && (
+                <button
+                  onClick={openCreateModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  + Ajouter une académie
+                </button>
+              )}
+            </div>
+            <div className="col-start-3" />
           </div>
           
-          {countryFilter && (
-            <p className="text-center text-gray-600 mb-8">
-              Filtré par : <span className="font-semibold">{countryFilter}</span>
-              <button
-                onClick={() => navigate('/academies')}
-                className="ml-4 text-blue-600 hover:text-blue-800 text-sm"
-              >
-                Voir toutes
-              </button>
-            </p>
-          )}
 
-          <div className="max-w-2xl mx-auto">
-            {academies.length === 0 ? (
-              <div className="text-center text-gray-500">
-                <p className="text-xl">Aucune académie enregistrée</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-lg p-8">
-                <ul className="space-y-4">
+          <div className="max-w-xl mx-auto">
+            <div className="bg-white/70 rounded-lg shadow-lg p-8">
+              {academies.length === 0 ? (
+                <div className="text-center text-gray-500 py-6">
+                  <p className="text-lg">Aucune académie enregistrée</p>
+                </div>
+              ) : (
+                <ul className="space-y-0">
                   {academies.map((academy) => (
                     <li
                       key={academy.id}
                       className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors"
                     >
-                      <div 
+                      <div
                         onClick={() => handleAcademyClick(academy.name)}
                         className="flex items-center flex-1 cursor-pointer"
                       >
                         <span className="mr-4 text-blue-600 text-xl">•</span>
                         <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
-                          {academy.name}
+                          {`${academy.country?.name || academy.country_name || 'Unknown'}/${academy.name}`}
                         </span>
                         {academy.teams && academy.teams.length > 0 && (
                           <span className="ml-4 text-sm text-gray-500">
@@ -151,23 +145,17 @@ export default function Academies() {
                           </span>
                         )}
                       </div>
-                      
+
                       {isAdminOrCoach && (
                         <div className="flex space-x-2 ml-4">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(academy);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); openEditModal(academy); }}
                             className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1"
                           >
                             Modifier
                           </button>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(academy);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(academy); }}
                             className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1"
                           >
                             Supprimer
@@ -177,8 +165,8 @@ export default function Academies() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -186,7 +174,7 @@ export default function Academies() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+          <div className="bg-white/60 rounded-lg p-8 max-w-md w-full mx-4">
             <h2 className="text-2xl font-bold mb-4">
               {modalMode === 'create' ? 'Ajouter une académie' : 'Modifier l\'académie'}
             </h2>

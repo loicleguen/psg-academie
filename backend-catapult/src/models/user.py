@@ -1,10 +1,11 @@
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List
 from datetime import datetime
 from enum import Enum
 
 if TYPE_CHECKING:
     from .team import Team
+    from .injury import Injury
 
 
 class UserRole(str, Enum):
@@ -24,8 +25,18 @@ class User(SQLModel, table=True):
     full_name: Optional[str] = Field(default=None, max_length=255)
     player_name: Optional[str] = Field(default=None, index=True)
     age: Optional[int] = Field(default=None)
+    date_of_birth: Optional[datetime] = Field(default=None, nullable=True)
+    adress: Optional[str] = Field(default=None, max_length=255, nullable=True)
+    height: Optional[float] = Field(default=None, nullable=True)
+    weight: Optional[float] = Field(default=None, nullable=True)
+    strong_foot: Optional[str] = Field(default=None, max_length=10, nullable=True)
+    phone_number: Optional[str] = Field(default=None, max_length=20, nullable=True)
+    emergency_contact: Optional[str] = Field(default=None, max_length=255, nullable=True)
     team_id: Optional[int] = Field(default=None, foreign_key="team.id")
+    position: Optional[str] = Field(default=None, max_length=50)
+    photo_url: Optional[str] = Field(default=None, max_length=1024)
     team: Optional["Team"] = Relationship(back_populates="players")
+    injuries: List["Injury"] = Relationship(back_populates="user")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
@@ -41,6 +52,8 @@ class UserCreate(SQLModel):
     player_name: Optional[str] = None
     age: Optional[int] = None
     team_id: Optional[int] = None
+    position: Optional[str] = None
+    photo_url: Optional[str] = None
 
 
 class UserRead(SQLModel):
@@ -53,7 +66,16 @@ class UserRead(SQLModel):
     player_name: Optional[str] = None
     age: Optional[int] = None
     team_id: Optional[int] = None
+    position: Optional[str] = None
+    photo_url: Optional[str] = None
     created_at: datetime
+    date_of_birth: Optional[datetime] = None
+    adress: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    strong_foot: Optional[str] = None
+    phone_number: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
 
 class UserLogin(SQLModel):
@@ -86,6 +108,15 @@ class UserUpdate(SQLModel):
     team_id: Optional[int] = None
     age: Optional[int] = None
     player_name: Optional[str] = None
+    position: Optional[str] = None
+    photo_url: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
+    adress: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    strong_foot: Optional[str] = None
+    phone_number: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
 
 class UserUpdateMe(SQLModel):
@@ -95,6 +126,15 @@ class UserUpdateMe(SQLModel):
     team_id: Optional[int] = None
     age: Optional[int] = None
     player_name: Optional[str] = None
+    position: Optional[str] = None
+    photo_url: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
+    adress: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    strong_foot: Optional[str] = None
+    phone_number: Optional[str] = None
+    emergency_contact: Optional[str] = None
 
 
 class RefreshToken(SQLModel, table=True):

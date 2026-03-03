@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session, select
+from sqlmodel import Session, select, delete
 from datetime import timedelta
 
-from ..middleware.security import require_coach_or_admin
+from ..middleware.security import require_coach_or_admin, get_current_user
 from ..db.database import get_session
-from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole
+from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole, RefreshToken
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
-from ..middleware.security import get_current_user, require_admin
 
 router = APIRouter(prefix="/auth", )
 
@@ -43,7 +44,7 @@ def register(user_data: UserCreate, session: Session = Depends(get_session)):
         email=user_data.email,
         hashed_password=hashed_password,
         full_name=user_data.full_name,
-        role=user_data.role
+        role=UserRole.PLAYER,  # Par défaut, le rôle est 'player' pour les inscriptions publiques
     )
     
     session.add(db_user)
@@ -197,7 +198,8 @@ def update_my_profile(
     has_player_fields = any([
         user_update.team_id is not None,
         user_update.age is not None,
-        user_update.player_name is not None
+        user_update.player_name is not None,
+        user_update.position is not None
     ])
 
     if has_player_fields:
@@ -226,6 +228,8 @@ def delete_my_account(
     Supprimer son propre compte
     """
     email = current_user.email
+    # Supprimer les refresh tokens liés pour éviter les contraintes FK
+    session.exec(delete(RefreshToken).where(RefreshToken.user_id == current_user.id))
     session.delete(current_user)
     session.commit()
     return {"message": f"Account {email} deleted successfully"}
@@ -254,8 +258,17 @@ def get_all_users(
             "player_name": user.player_name,
             "age": user.age,
             "team_id": user.team_id,
+            "position": user.position,
             "created_at": user.created_at,
-            "team_name": None
+            "team_name": None,
+            "photo_url": user.photo_url,
+            "date_of_birth": user.date_of_birth,
+            "adress": user.adress,
+            "height": user.height,
+            "weight": user.weight,
+            "strong_foot": user.strong_foot,
+            "phone_number": user.phone_number,
+            "emergency_contact": user.emergency_contact,
         }
         
         # Ajouter le chemin complet de l'équipe pour les joueurs
@@ -317,7 +330,8 @@ def update_user(
     has_player_fields = any([
         user_update.team_id is not None,
         user_update.age is not None,
-        user_update.player_name is not None
+        user_update.player_name is not None,
+        user_update.position is not None
     ])
 
     # Si le rôle est défini à 'player', exiger un team_id (soit fourni, soit déjà présent)
@@ -332,6 +346,24 @@ def update_user(
             user.age = user_update.age
         if user_update.team_id is not None:
             user.team_id = user_update.team_id
+        if user_update.position is not None:
+            user.position = user_update.position
+
+    # Champs profil étendus
+    if user_update.date_of_birth is not None:
+        user.date_of_birth = user_update.date_of_birth
+    if user_update.adress is not None:
+        user.adress = user_update.adress
+    if user_update.height is not None:
+        user.height = user_update.height
+    if user_update.weight is not None:
+        user.weight = user_update.weight
+    if user_update.strong_foot is not None:
+        user.strong_foot = user_update.strong_foot
+    if user_update.phone_number is not None:
+        user.phone_number = user_update.phone_number
+    if user_update.emergency_contact is not None:
+        user.emergency_contact = user_update.emergency_contact
 
     session.add(user)
     session.commit()
@@ -349,8 +381,17 @@ def update_user(
         "player_name": user.player_name,
         "age": user.age,
         "team_id": user.team_id,
+        "position": user.position,
         "created_at": user.created_at,
-        "team_name": None
+        "team_name": None,
+        "photo_url": user.photo_url,
+        "date_of_birth": user.date_of_birth,
+        "adress": user.adress,
+        "height": user.height,
+        "weight": user.weight,
+        "strong_foot": user.strong_foot,
+        "phone_number": user.phone_number,
+        "emergency_contact": user.emergency_contact,
     }
     
     if user.team_id:
@@ -375,6 +416,56 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     email = user.email
+    # Supprimer les refresh tokens liés pour éviter les contraintes FK
+    session.exec(delete(RefreshToken).where(RefreshToken.user_id == user.id))
     session.delete(user)
     session.commit()
     return {"message": f"User {email} deleted successfully"}
+
+
+@router.post("/me/photo", tags=["Auth - User"], summary="[Me] Upload profile photo")
+def upload_my_photo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+    filename = file.filename or f"{current_user.id}.jpg"
+    _, ext = os.path.splitext(filename)
+    os.makedirs('static/uploads/players', exist_ok=True)
+    safe_name = f"{current_user.id}{ext}"
+    dest_path = os.path.join('static', 'uploads', 'players', safe_name)
+    with open(dest_path, 'wb') as f:
+        shutil.copyfileobj(file.file, f)
+    current_user.photo_url = f"/static/uploads/players/{safe_name}"
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return {"photo_url": current_user.photo_url}
+
+
+@router.post("/users/{user_id}/photo", tags=["Auth - Coach/Admin"], summary="Upload profile photo for a user (coach/admin)")
+def upload_user_photo(
+    user_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_coach_or_admin),
+    session: Session = Depends(get_session)
+):
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    filename = file.filename or f"{user.id}.jpg"
+    _, ext = os.path.splitext(filename)
+    os.makedirs('static/uploads/players', exist_ok=True)
+    safe_name = f"{user.id}{ext}"
+    dest_path = os.path.join('static', 'uploads', 'players', safe_name)
+    with open(dest_path, 'wb') as f:
+        shutil.copyfileobj(file.file, f)
+    user.photo_url = f"/static/uploads/players/{safe_name}"
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return {"photo_url": user.photo_url}

@@ -81,6 +81,16 @@ export const organizationService = {
     return response.data;
   },
 
+    async getTeamById(id) {
+    const response = await api.get(`/teams/id/${id}`);
+    return response.data;
+  },
+
+  async getTeamPlayersById(id) {
+    const response = await api.get(`/teams/id/${id}/players`);
+    return response.data;
+  },
+
   // Teams - CREATE, UPDATE, DELETE
   async createTeam(name, academyId) {
     const response = await api.post('/teams/', { name, academy_id: academyId });
