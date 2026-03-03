@@ -781,7 +781,7 @@ class WeeklyReportGenerator:
         # === TREND GRAPH === (bottom right)
         graph_ax = plt.axes([0.65, 0.12, 0.30, 0.25])
         WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, weekly_benchmarks)
-        
+
         # Save to bytes
         buf = BytesIO()
         plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
@@ -1223,6 +1223,59 @@ class IndividualWeekReportGenerator:
             day_totals[day_name]['session_count'] += 1
         
         return dict(day_totals)
+
+    @staticmethod
+    def aggregate_by_day_average(session_data: List[Dict]) -> Dict[str, Dict]:
+        """Calculate average data by day of week across all players"""
+        from collections import defaultdict
+        from datetime import datetime
+        
+        # Group sessions by day and player
+        day_player_data = defaultdict(lambda: defaultdict(lambda: {
+            'distance': 0,
+            'hsr': 0,
+            'sprint': 0,
+            'vmax': 0,
+            'dec': 0,
+            'pp': 0,
+            'session_count': 0
+        }))
+        
+        # Accumulate data per player per day
+        for session in session_data:
+            date_str = session['date']
+            date = datetime.strptime(date_str, '%Y-%m-%d')
+            day_name = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'][date.weekday()]
+            player_name = session.get('player_name', 'Unknown')
+            
+            hsr = (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
+            
+            day_player_data[day_name][player_name]['distance'] += session.get('distance_km', 0) * 1000
+            day_player_data[day_name][player_name]['hsr'] += hsr
+            day_player_data[day_name][player_name]['sprint'] += session.get('sprint_distance_m', 0)
+            day_player_data[day_name][player_name]['vmax'] = max(day_player_data[day_name][player_name]['vmax'], session.get('top_speed', 0))
+            day_player_data[day_name][player_name]['dec'] += session.get('impacts', 0)
+            day_player_data[day_name][player_name]['pp'] += session.get('power_plays', 0)
+            day_player_data[day_name][player_name]['session_count'] += 1
+        
+        # Calculate averages across players for each day
+        day_averages = {}
+        for day_name, players in day_player_data.items():
+            player_count = len(players)
+            if player_count == 0:
+                continue
+            
+            day_averages[day_name] = {
+                'distance': sum(p['distance'] for p in players.values()) / player_count,
+                'hsr': sum(p['hsr'] for p in players.values()) / player_count,
+                'sprint': sum(p['sprint'] for p in players.values()) / player_count,
+                'vmax': sum(p['vmax'] for p in players.values()) / player_count,
+                'dec': sum(p['dec'] for p in players.values()) / player_count,
+                'pp': sum(p['pp'] for p in players.values()) / player_count,
+                'session_count': player_count
+            }
+        
+        return day_averages
     
     @staticmethod
     def calculate_totals(session_data: List[Dict]) -> Dict:
@@ -1289,9 +1342,13 @@ class IndividualWeekReportGenerator:
             pass
         
         # Title
-        ax.text(0.5, 0.5, 'MICROCYCLE JOUEUR',
+        ax.text(0.44, 0.55, 'Rapport Hebdomadaire Individuel',
                 ha='center', va='center',
-                fontsize=24, fontweight='bold',
+                fontsize=28, fontweight='bold',
+                color='#1a2332', zorder=10)
+        ax.text(0.44, 0.4, player_name,
+                ha='center', va='center',
+                fontsize=14, fontweight='bold',
                 color='#1a2332', zorder=10)
         
         # Info boxes
@@ -1299,8 +1356,9 @@ class IndividualWeekReportGenerator:
         ax.text(0.70, info_y + 0.15, 'POSTE', ha='center', va='center', fontsize=9, color='#718096', zorder=10)
         ax.text(0.70, info_y - 0.15, position, ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
         
-        ax.text(0.80, info_y + 0.15, week_start, ha='center', va='center', fontsize=9, color='#718096', zorder=10)
-        ax.text(0.80, info_y - 0.15, week_end, ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
+        ax.text(0.80, info_y + 0.15, 'DATE', ha='center', va='center', fontsize=9, color='#718096', zorder=10)
+        ax.text(0.80, info_y - 0.10, f'Du {week_start}', ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
+        ax.text(0.80, info_y - 0.15, f'au {week_end}', ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
         
         ax.text(0.90, info_y + 0.15, 'NUMÉRO DE SEMAINE', ha='center', va='center', fontsize=9, color='#718096', zorder=10)
         ax.text(0.90, info_y - 0.15, str(week_number), ha='center', va='center', fontsize=11, fontweight='bold', color='#1a2332', zorder=10)
@@ -1510,41 +1568,70 @@ class IndividualWeekReportGenerator:
 
     
     @staticmethod
-    def _draw_graphs(ax, daily_data):
-        """Draw 6 mini bar charts for each metric"""
+    def _draw_graphs(ax, player_daily, position_daily, team_daily):
+        """Draw 6 mini bar charts with 3 bars per day (player, position avg, team avg)"""
         ax.axis('off')
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         
         days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
         
-        # Extract data for each metric
-        metrics = {
-            'DISTANCE': [daily_data.get(day, {}).get('distance', 0) / 1000 for day in days_order],
-            'HSR': [daily_data.get(day, {}).get('hsr', 0) for day in days_order],
-            'SPRINT': [daily_data.get(day, {}).get('sprint', 0) for day in days_order],
-            'VMAX': [daily_data.get(day, {}).get('vmax', 0) for day in days_order],
-            'DEC': [daily_data.get(day, {}).get('dec', 0) for day in days_order],
-            'POWER PLAY': [daily_data.get(day, {}).get('pp', 0) for day in days_order]
-        }
+        # Extract data for each metric from all 3 sources
+        import numpy as np
+        
+        def get_metric_data(daily_data, metric_key, divisor=1):
+            return [daily_data.get(day, {}).get(metric_key, 0) / divisor for day in days_order]
+        
+        metrics_config = [
+            ('DISTANCE', 'distance', 1000),
+            ('HSR', 'hsr', 1),
+            ('SPRINT', 'sprint', 1),
+            ('VMAX', 'vmax', 1),
+            ('DEC', 'dec', 1),
+            ('POWER PLAY', 'pp', 1)
+        ]
+        
+        # Colors matching the legend (player=orange, position=red, team=white)
+        colors = ['#FFA500', '#FF0000', '#FFFFFF']
         
         # Position for 6 graphs (2 rows x 3 cols)
         positions = [
-            (0.0, 0.5, 0.33, 0.5),   # DISTANCE
-            (0.33, 0.5, 0.33, 0.5),  # HSR
-            (0.66, 0.5, 0.34, 0.5),  # SPRINT
-            (0.0, 0.0, 0.33, 0.5),   # VMAX
-            (0.33, 0.0, 0.33, 0.5),  # DEC
-            (0.66, 0.0, 0.34, 0.5)   # POWER PLAY
+            (0.0, 0.65, 0.33, 0.47),   # DISTANCE (top row)
+            (0.33, 0.65, 0.33, 0.47),  # HSR
+            (0.66, 0.65, 0.34, 0.47),  # SPRINT
+            (0.0, 0.0, 0.33, 0.47),    # VMAX (bottom row)
+            (0.33, 0.0, 0.33, 0.47),   # DEC
+            (0.66, 0.0, 0.34, 0.47)    # POWER PLAY
         ]
         
-        for (metric_name, values), (x, y, w, h) in zip(metrics.items(), positions):
+        for idx, (metric_name, metric_key, divisor) in enumerate(metrics_config):
+            x, y, w, h = positions[idx]
             graph_ax = ax.inset_axes([x, y, w, h])
-            # Simple bar chart
-            import matplotlib.pyplot as plt
-            x_pos = range(len(days_order))
-            bars = graph_ax.bar(x_pos, values, color='#3182ce', width=0.6)
             
+            # Get data from all 3 sources
+            player_values = get_metric_data(player_daily, metric_key, divisor)
+            position_values = get_metric_data(position_daily, metric_key, divisor)
+            team_values = get_metric_data(team_daily, metric_key, divisor)
+            
+            # Bar width and positions for grouped bars
+            bar_width = 0.25
+            x_pos = np.arange(len(days_order))
+            
+            # Draw 3 bars per day
+            graph_ax.bar(x_pos - bar_width, player_values, bar_width, color=colors[0], label='JOUEUR')
+            graph_ax.bar(x_pos, position_values, bar_width, color=colors[1], label='MAX POSTE')
+            graph_ax.bar(x_pos + bar_width, team_values, bar_width, color=colors[2], label='MOYENNE EQUIPE')
+            
+            # Add value labels on top of each bar
+            for i, (pv, posv, tv) in enumerate(zip(player_values, position_values, team_values)):
+                if pv > 0:
+                    graph_ax.text(i - bar_width, pv, f'{int(pv)}', ha='center', va='bottom', fontsize=5, color='white')
+                if posv > 0:
+                    graph_ax.text(i, posv, f'{int(posv)}', ha='center', va='bottom', fontsize=5, color='white')
+                if tv > 0:
+                    graph_ax.text(i + bar_width, tv, f'{int(tv)}', ha='center', va='bottom', fontsize=5, color='white')
+            
+            # Styling
             graph_ax.set_title(metric_name, fontsize=9, fontweight='bold', color='white', pad=5)
             graph_ax.set_xticks(x_pos)
             graph_ax.set_xticklabels(days_order, fontsize=6, rotation=45, ha='right', color='white')
@@ -1553,128 +1640,114 @@ class IndividualWeekReportGenerator:
             for spine in graph_ax.spines.values():
                 spine.set_edgecolor('#4a5568')
             graph_ax.grid(axis='y', alpha=0.2, color='white')
-    
+
     @staticmethod
-    def _draw_comparison_tables(ax, player_totals, position_avg, team_avg):
-        """Draw 3 comparison tables on the right side"""
+    def _draw_comparison_tables(ax, player_daily, position_daily, team_daily):
+        """Draw 3 comparison tables (player, position, team) with 7 day rows + TOTAL"""
         ax.axis('off')
         ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        
+        ax.set_ylim(0, 1.5)
         from matplotlib.patches import Rectangle
-        
-        # Headers for the 3 tables
+
+        # Layout parameters
         headers = ['DIST', 'HSR', 'SPRINT', 'VMAX', 'DEC', 'PP', 'LOAD']
         col_width = 1.0 / 7
+        days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        row_h = 0.032
+        header_h = 0.035
+        rect_h = 0.032
+        gap = 0.025
+
+        def table_height():
+            return 0.06 + header_h + len(days_order) * row_h + rect_h
+
+        def draw_table(x0, y_top, title, data_daily, title_color):
+            # Title
+            # Draw title background
+            title_rect = Rectangle((x0, y_top + 0.03), 1.0, 0.04,
+                                  facecolor=title_color, edgecolor='white', linewidth=1)
+            ax.add_patch(title_rect)
+            # Title text (white for orange/red, black for white background)
+            text_color = 'black' if title_color == '#FFFFFF' else 'white'
+            ax.text(x0 + 0.5, y_top + 0.05, title, ha='center', va='center', 
+                   fontsize=8, fontweight='bold', color=text_color)
+            
+            # Headers
+            x_pos = x0
+            for header in headers:
+                rect = Rectangle((x_pos, y_top - 0.01), col_width, header_h,
+                               facecolor=IndividualWeekReportGenerator.COLORS['header_bg'],
+                               edgecolor='white', linewidth=0.5)
+                ax.add_patch(rect)
+                ax.text(x_pos + col_width/2, y_top + 0.005, header, ha='center', va='center',
+                       fontsize=7, fontweight='bold', 
+                       color=IndividualWeekReportGenerator.COLORS['text_white'])
+                x_pos += col_width
+
+            # Day rows
+            for i, day in enumerate(days_order):
+                y = y_top - 0.045 - i * row_h
+                vals = data_daily.get(day, {})
+                distance = int(vals.get('distance', 0))
+                hsr = int(vals.get('hsr', 0))
+                sprint = int(vals.get('sprint', 0))
+                vmax = vals.get('vmax', 0)
+                dec = int(vals.get('dec', 0))
+                pp = int(vals.get('pp', 0))
+                load = vals.get('player_load', 0)
+
+                row_values = [f'{distance}', f'{hsr}', f'{sprint}', f'{vmax:.1f}', 
+                            f'{dec}', f'{pp}', f'{load:.1f}']
+                x_pos = x0
+                for value in row_values:
+                    rect = Rectangle((x_pos, y - rect_h/2), col_width, rect_h,
+                                   facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                                   edgecolor='#4a5568', linewidth=0.5)
+                    ax.add_patch(rect)
+                    ax.text(x_pos + col_width/2, y, value, ha='center', va='center',
+                           fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
+                    x_pos += col_width
+
+            # TOTAL row
+            y_total = y_top - 0.045 - len(days_order) * row_h
+            total_distance = sum(int(data_daily.get(d, {}).get('distance', 0)) for d in days_order)
+            total_hsr = sum(int(data_daily.get(d, {}).get('hsr', 0)) for d in days_order)
+            total_sprint = sum(int(data_daily.get(d, {}).get('sprint', 0)) for d in days_order)
+            max_vmax = max((data_daily.get(d, {}).get('vmax', 0) for d in days_order), default=0)
+            total_dec = sum(int(data_daily.get(d, {}).get('dec', 0)) for d in days_order)
+            total_pp = sum(int(data_daily.get(d, {}).get('pp', 0)) for d in days_order)
+            total_load = sum(float(data_daily.get(d, {}).get('player_load', 0)) for d in days_order)
+
+            totals = [f'{total_distance}', f'{total_hsr}', f'{total_sprint}', f'{max_vmax:.1f}', 
+                     f'{total_dec}', f'{total_pp}', f'{total_load:.1f}']
+            x_pos = x0
+            for value in totals:
+                rect = Rectangle((x_pos, y_total - rect_h/2), col_width, rect_h,
+                               facecolor='#2d3748', edgecolor='#4a5568', linewidth=0.5)
+                ax.add_patch(rect)
+                ax.text(x_pos + col_width/2, y_total, value, ha='center', va='center',
+                       fontsize=7, fontweight='bold', 
+                       color=IndividualWeekReportGenerator.COLORS['text_white'])
+                x_pos += col_width
+
+        # Compute table height and place tables non-overlapping
+        th = table_height()
+        top_y = 0.95
+        mid_y = top_y - th - gap
+        bot_y = mid_y - th - gap
         
-        # Player table (top)
-        y_start = 0.7
-        x_pos = 0
-        for header in headers:
-            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
-                           facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
-                           edgecolor='white', linewidth=0.5)
-            ax.add_patch(rect)
-            ax.text(x_pos + col_width/2, y_start-0.025, header, ha='center', va='center',
-                   fontsize=7, fontweight='bold', color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += col_width
-        
-        # Player values
-        y_start -= 0.05
-        player_values = [
-            f'{int(player_totals["distance"])}',
-            f'{int(player_totals["hsr"])}',
-            f'{int(player_totals["sprint"])}',
-            f'{player_totals["vmax"]:.1f}',
-            f'{int(player_totals["dec"])}',
-            f'{int(player_totals["pp"])}',
-            f'{player_totals["player_load"]:.1f}'
-        ]
-        
-        x_pos = 0
-        for value in player_values:
-            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
-                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
-                           edgecolor='#4a5568', linewidth=0.5)
-            ax.add_patch(rect)
-            ax.text(x_pos + col_width/2, y_start-0.025, value, ha='center', va='center',
-                   fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += col_width
-        
-        # Position average table (middle)
-        y_start = 0.4
-        ax.text(0.5, y_start + 0.03, 'MOYENNE POSTE', ha='center', va='center',
-               fontsize=8, fontweight='bold', color='white')
-        
-        x_pos = 0
-        for header in headers:
-            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
-                           facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
-                           edgecolor='white', linewidth=0.5)
-            ax.add_patch(rect)
-            ax.text(x_pos + col_width/2, y_start-0.025, header, ha='center', va='center',
-                   fontsize=7, fontweight='bold', color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += col_width
-        
-        # Position average values
-        y_start -= 0.05
-        pos_values = [
-            f'{int(position_avg["distance"])}',
-            f'{int(position_avg["hsr"])}',
-            f'{int(position_avg["sprint"])}',
-            f'{position_avg["vmax"]:.1f}',
-            f'{int(position_avg["dec"])}',
-            f'{int(position_avg["pp"])}',
-            f'{position_avg["player_load"]:.1f}'
-        ]
-        
-        x_pos = 0
-        for value in pos_values:
-            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
-                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
-                           edgecolor='#4a5568', linewidth=0.5)
-            ax.add_patch(rect)
-            ax.text(x_pos + col_width/2, y_start-0.025, value, ha='center', va='center',
-                   fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += col_width
-        
-        # Team average table (bottom)
-        y_start = 0.1
-        ax.text(0.5, y_start + 0.03, 'MOYENNE ÉQUIPE', ha='center', va='center',
-               fontsize=8, fontweight='bold', color='white')
-        
-        x_pos = 0
-        for header in headers:
-            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
-                           facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
-                           edgecolor='white', linewidth=0.5)
-            ax.add_patch(rect)
-            ax.text(x_pos + col_width/2, y_start-0.025, header, ha='center', va='center',
-                   fontsize=7, fontweight='bold', color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += col_width
-        
-        # Team average values
-        y_start -= 0.05
-        team_values = [
-            f'{int(team_avg["distance"])}',
-            f'{int(team_avg["hsr"])}',
-            f'{int(team_avg["sprint"])}',
-            f'{team_avg["vmax"]:.1f}',
-            f'{int(team_avg["dec"])}',
-            f'{int(team_avg["pp"])}',
-            f'{team_avg["player_load"]:.1f}'
-        ]
-        
-        x_pos = 0
-        for value in team_values:
-            rect = Rectangle((x_pos, y_start-0.05), col_width, 0.05,
-                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
-                           edgecolor='#4a5568', linewidth=0.5)
-            ax.add_patch(rect)
-            ax.text(x_pos + col_width/2, y_start-0.025, value, ha='center', va='center',
-                   fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += col_width
-    
+        # Ensure values are within [0,1]
+        if bot_y < 0.05:
+            scale = (top_y - 0.05) / (3*th + 2*gap)
+            top_y = 0.95
+            mid_y = top_y - (th + gap) * scale
+            bot_y = mid_y - (th + gap) * scale
+
+        # Draw the three tables
+        draw_table(0.0, top_y, 'PLAYER', player_daily, '#FFA500')
+        draw_table(0.0, mid_y, 'MOYENNE POSTE', position_daily, '#FF0000')
+        draw_table(0.0, bot_y, 'MOYENNE EQUIPE', team_daily, '#FFFFFF')
+
     @staticmethod
     def generate_individual_week_report(
         player_sessions: List[Dict[str, Any]],
@@ -1711,17 +1784,41 @@ class IndividualWeekReportGenerator:
         IndividualWeekReportGenerator._draw_header(header_ax, player_name, position, week_start, week_end, week_number)
         
         # === MAIN TABLE ===
-        table_ax = plt.axes([0.05, 0.45, 0.65, 0.40])
+        table_ax = plt.axes([0.05, 0.50, 0.76, 0.42])
         IndividualWeekReportGenerator._draw_daily_table(table_ax, daily_data, player_max, player_name)
+
+        # Daily aggregates for position and team (needed for graphs and comparison)
+        position_daily = IndividualWeekReportGenerator.aggregate_by_day_average(same_position_sessions)
+        team_daily = IndividualWeekReportGenerator.aggregate_by_day_average(team_sessions)
         
         # === GRAPHS ===
-        graph_ax = plt.axes([0.05, 0.05, 0.65, 0.35])
-        IndividualWeekReportGenerator._draw_graphs(graph_ax, daily_data)
+        graph_ax = plt.axes([0.05, 0.1, 0.6, 0.35])
+        IndividualWeekReportGenerator._draw_graphs(graph_ax, daily_data, position_daily, team_daily)
         
         # === COMPARISON TABLES ===
-        comparison_ax = plt.axes([0.75, 0.05, 0.20, 0.80])
-        IndividualWeekReportGenerator._draw_comparison_tables(comparison_ax, player_totals, position_avg, team_avg)
+        comparison_ax = plt.axes([0.67, 0.35, 0.26, 0.80])
+        IndividualWeekReportGenerator._draw_comparison_tables(comparison_ax, daily_data, position_daily, team_daily)
         
+        # === LEGEND (bottom right) ===
+        legend_ax = plt.axes([0.67, 0.1, 0.2, 0.15])
+        legend_ax.axis('off')
+        from matplotlib.patches import Rectangle
+        
+        # Colors matching the graphs
+        legend_items = [
+            ('#FFA500', 'JOUEUR'),
+            ('#FF0000', 'MAX POSTE'),
+            ('#FFFFFF', 'MOYENNE EQUIPE')
+        ]
+        
+        y_start = 0.8
+        for i, (color, label) in enumerate(legend_items):
+            y = y_start - (i * 0.35)
+            rect = Rectangle((0.1, y), 0.15, 0.2, facecolor=color, edgecolor='white', linewidth=0.5)
+            legend_ax.add_patch(rect)
+            legend_ax.text(0.3, y + 0.1, label, fontsize=7, color='white', va='center', fontweight='bold')
+        
+
         # Save to bytes
         buf = BytesIO()
         plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())

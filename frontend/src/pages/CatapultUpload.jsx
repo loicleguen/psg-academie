@@ -45,13 +45,13 @@ export default function CatapultUpload() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="max-w-3xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">
           Upload Catapult CSV
         </h1>
 
-        <div className="bg-white shadow sm:rounded-lg">
+        <div className="bg-white/80 shadow sm:rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
@@ -77,7 +77,7 @@ export default function CatapultUpload() {
                       <div className="flex text-sm text-gray-600">
                         <label
                           htmlFor="file-upload"
-                          className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                          className="relative cursor-pointer rounded-md font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                         >
                           <span>Télécharger un fichier</span>
                           <input

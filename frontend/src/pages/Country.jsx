@@ -80,26 +80,31 @@ export default function Country() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-white/60 min-h-screen bg-transparent flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900">COUNTRY</h1>
-            {isAdminOrCoach && (
-              <button
-                onClick={openCreateModal}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                + Ajouter un pays
-              </button>
-            )}
+          <div className="grid grid-cols-3 items-center gap-4 mb-12">
+            <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
+              COUNTRY
+            </h1>
+            <div className="col-start-2 flex justify-center">
+              {isAdminOrCoach && (
+                <button
+                  onClick={openCreateModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  + Ajouter un pays
+                </button>
+              )}
+            </div>
+            <div className="col-start-3" />
           </div>
 
           {countries.length === 0 ? (
@@ -111,16 +116,16 @@ export default function Country() {
               {countries.map((country) => (
                 <div
                   key={country.id}
-                  className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60"
+                  className="bg-white/50 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60"
                 >
                   <div 
                     onClick={() => handleCountryClick(country.name)}
                     className="py-2 px-4 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform"
                   >
-                    <div className="mb-1">
-                      <CountryBadge countryName={country.name} size="150px" showLabel={false} />
+                    <div className="mb-2">
+                      <CountryBadge countryName={country.name} size="180px" showLabel={false} />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 text-center">
+                    <h2 className="text-3xl font-bold text-gray-900 text-center">
                       {country.name}
                     </h2>
                     {country.academies && country.academies.length > 0 && (
@@ -131,7 +136,7 @@ export default function Country() {
                   </div>
                   
                   {isAdminOrCoach && (
-                    <div className="border-t border-gray-300 bg-gray-50 px-4 py-1 flex justify-end space-x-22">
+                    <div className="border-t border-gray-300 bg-white/50 px-4 py-1 flex justify-end space-x-22">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -146,7 +151,7 @@ export default function Country() {
                           e.stopPropagation();
                           handleDelete(country);
                         }}
-                        className="text-red-600 hover:text-red-800 font-medium text-sm"
+                        className="text-black-600 hover:text-red-800 font-medium text-sm"
                       >
                         Supprimer
                       </button>
@@ -162,13 +167,13 @@ export default function Country() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+          <div className="bg-white/60 rounded-lg p-8 max-w-md w-full mx-4">
             <h2 className="text-2xl font-bold mb-4">
               {modalMode === 'create' ? 'Ajouter un pays' : 'Modifier le pays'}
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xl font-bold text-gray-900 mb-2">
                   Nom du pays
                 </label>
                 <input
@@ -176,7 +181,7 @@ export default function Country() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold placeholder-gray-900"
                   placeholder="France"
                 />
               </div>
@@ -184,7 +189,7 @@ export default function Country() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  className="px-4 py-2 text-gray-900 bg-gray-200 rounded-md hover:bg-gray-300"
                 >
                   Annuler
                 </button>

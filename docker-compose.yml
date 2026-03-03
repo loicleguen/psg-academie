@@ -35,7 +35,9 @@ services:
 
   # Backend Catapult (données physiques: GPS, distance, vitesse...)
   backend-catapult:
-    build: ./backend-catapult
+    build:
+      context: .
+      dockerfile: backend-catapult/Dockerfile
     container_name: psg_backend_catapult
     restart: always
     command: >
@@ -45,10 +47,12 @@ services:
       "
     volumes:
       - ./backend-catapult:/app
+      - ./common:/app/common
     depends_on:
       db-catapult:
         condition: service_healthy
     environment:
+      - SECRET_KEY=6393013afbfb365ab854ba0f1c6e9aee551ef777a273253fdf18cb219070076ace66e1108f5c551faaef05a3bb06f73fbc9e52ca53bec16ab8f9c77846078b22
       - ENV=prod
       - DATABASE_URL=postgresql://psguser:psgpass@db-catapult:5432/psgdb
     ports:
@@ -57,15 +61,16 @@ services:
   # Backend Veo (données tactiques: buts, passes, stats...)
   backend-veo:
     build:
-      context: ./backend-veo
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend-veo/Dockerfile
     container_name: psg_backend_veo
     restart: always
     environment:
+      SECRET_KEY: "b7f2e1c9-4a8d-4e2b-9f3a-2c6d8e7a1b5c$XyZ!pQwErTyUiOp1234567890"
       DATABASE_URL: postgresql+psycopg://veo_user:veo_password@db-veo:5432/veo_db
       API_HOST: 0.0.0.0
       API_PORT: 8001
-      CORS_ORIGINS: http://localhost
+      CORS_ORIGINS: "*"
     depends_on:
       db-veo:
         condition: service_healthy
@@ -73,6 +78,7 @@ services:
       - ./backend-veo/app:/app/app
       - ./backend-veo/alembic:/app/alembic
       - ./backend-veo/alembic.ini:/app/alembic.ini
+      - ./common:/app/common
     command: >
       sh -c "
         echo 'Waiting for Veo database...' &&

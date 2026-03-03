@@ -62,7 +62,7 @@ function App() {
           />
 
           <Route
-            path="/teams/:teamName"
+            path="/teams/:teamId"
             element={
               <ProtectedRoute>
                 <Layout>
@@ -86,7 +86,7 @@ function App() {
           <Route
             path="/veo"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <Veo />
                 </Layout>
@@ -97,7 +97,7 @@ function App() {
           <Route
             path="/catapult/upload"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <CatapultUpload />
                 </Layout>
@@ -108,7 +108,7 @@ function App() {
           <Route
             path="/catapult/sessions"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <SessionsList />
                 </Layout>
@@ -130,7 +130,7 @@ function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole={['admin', 'coach']}>
                 <Layout>
                   <AdminPannel />
                 </Layout>

@@ -39,13 +39,14 @@ export default function Teams() {
     }
   };
 
-  const handleTeamClick = (teamName) => {
-    navigate(`/teams/${encodeURIComponent(teamName)}`);
+  const handleTeamClick = (team) => {
+    navigate(`/teams/${team.id}`);
   };
 
   const openCreateModal = () => {
     setModalMode('create');
     setFormData({ name: '', academy_id: '' });
+    setFormError(null);
     setSelectedTeam(null);
     setShowModal(true);
   };
@@ -56,25 +57,33 @@ export default function Teams() {
       name: team.name,
       academy_id: team.academy?.id || team.academy_id
     });
+    setFormError(null);
     setSelectedTeam(team);
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (modalMode === 'create') {
-        await organizationService.createTeam(formData.name, parseInt(formData.academy_id));
-      } else {
-        await organizationService.updateTeam(selectedTeam.id, formData.name);
-      }
-      setShowModal(false);
-      loadData();
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert(error.response?.data?.detail || 'Une erreur est survenue');
+  e.preventDefault();
+  setFormError(null);
+  const name = (formData.name || '').trim();
+  if (!maleRegex.test(name) && !femaleRegex.test(name)) {
+    setFormError("Nom d'équipe invalide");
+    return;
+  }
+
+  try {
+    if (modalMode === 'create') {
+      await organizationService.createTeam(name, parseInt(formData.academy_id));
+    } else {
+      await organizationService.updateTeam(selectedTeam.id, name);
     }
-  };
+    setShowModal(false);
+    loadData();
+  } catch (error) {
+    console.error('Erreur:', error);
+    setFormError(error.response?.data?.detail || 'Une erreur est survenue');
+  }
+};
 
   const handleDelete = async (team) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) return;
@@ -88,132 +97,152 @@ export default function Teams() {
     }
   };
 
-  const maleTeams = teams.filter(team => 
-    team.name.includes(' H') || team.name.includes('Hommes')
-  );
-  const femaleTeams = teams.filter(team => 
-    team.name.includes(' F') || team.name.includes('Femmes')
-  );
-  const otherTeams = teams.filter(team => 
-    !team.name.includes(' H') && 
-    !team.name.includes(' F') && 
-    !team.name.includes('Hommes') && 
-    !team.name.includes('Femmes')
-  );
+const maleRegex = /(\bH\b|\bHommes\b|\sH$)/i;
+const femaleRegex = /(\bF\b|\bFemmes\b|\sF$)/i;
+
+const [maleTeams, setMaleTeams] = useState([]);
+const [femaleTeams, setFemaleTeams] = useState([]);
+const [formatError, setFormatError] = useState(null);
+const [formError, setFormError] = useState(null);
+
+useEffect(() => {
+  setFormatError(null);
+  const m = [];
+  const f = [];
+  const invalid = [];
+  teams.forEach((team) => {
+    const name = (team.name || '').trim();
+    if (maleRegex.test(name)) m.push(team);
+    else if (femaleRegex.test(name)) f.push(team);
+    else invalid.push(team);
+  });
+
+  if (invalid.length > 0) {
+    setFormatError("Format de nom d'équipe invalide: " + invalid.map(t => t.name).join(', '));
+    setMaleTeams([]);
+    setFemaleTeams([]);
+  } else {
+    setMaleTeams(m);
+    setFemaleTeams(f);
+  }
+}, [teams]);
+
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-white/60 min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
+  if (formatError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-md max-w-xl text-center">
+          <p className="font-bold mb-2">Erreur</p>
+          <p>{formatError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  
   const TeamCard = ({ teams, title }) => (
-    <div className="bg-white rounded-lg shadow-lg p-8">
+    <div className="bg-white/80 rounded-lg shadow-lg p-2">
       <h2 className="text-xl font-bold text-gray-700 mb-4">{title}</h2>
-      <ul className="space-y-4">
-        {teams.map((team) => (
-          <li
-            key={team.id}
-            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <div 
-              onClick={() => handleTeamClick(team.name)}
-              className="flex items-center flex-1 cursor-pointer"
+      {(!teams || teams.length === 0) ? (
+        <div className="text-center text-gray-500 py-6">
+          <p className="text-lg">Aucune équipe enregistrée</p>
+        </div>
+      ) : (
+        <ul className="space-y-1">
+          {teams.map((team) => (
+            <li
+              key={team.id}
+              className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors"
             >
-              <span className="mr-4 text-blue-600 text-xl">•</span>
-              <span className="text-2xl font-medium text-gray-900 hover:text-blue-600">
-                {team.name}
-              </span>
-              {team.players && team.players.length > 0 && (
-                <span className="ml-4 text-sm text-gray-500">
-                  {team.players.length} joueur{team.players.length > 1 ? 's' : ''}
+              <div 
+                onClick={() => handleTeamClick(team)}
+                className="flex items-center flex-1 cursor-pointer"
+              >
+                <span className="mr-4 text-blue-600 text-xl">•</span>
+                <span className="text-xl font-medium text-gray-900 hover:text-blue-600 whitespace-nowrap">
+                  {`${team.academy?.country?.name || team.country?.name || team.academy?.country_name || team.country_name || 'Unknown'}/${team.academy?.name || team.academy_name || 'Unknown'}/${team.name}`}
                 </span>
-              )}
-            </div>
-            
-            {isAdminOrCoach && (
-              <div className="flex space-x-2 ml-4">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openEditModal(team);
-                  }}
-                  className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1"
-                >
-                  Modifier
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(team);
-                  }}
-                  className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1"
-                >
-                  Supprimer
-                </button>
+                {team.players && team.players.length > 0 && (
+                  <span className="ml-4 text-sm text-gray-500">
+                    {team.players.length} joueur{team.players.length > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
-            )}
-          </li>
-        ))}
-      </ul>
+              
+              {isAdminOrCoach && (
+                <div className="flex space-x-2 ml-4">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditModal(team);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(team);
+                    }}
+                    className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-4xl font-bold text-gray-900">TEAMS</h1>
-            {isAdminOrCoach && (
-              <button
-                onClick={openCreateModal}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                + Ajouter une équipe
-              </button>
-            )}
-          </div>
-
-          {academyFilter && (
-            <p className="text-center text-gray-600 mb-8">
-              Filtré par : <span className="font-semibold">{academyFilter}</span>
-              <button
-                onClick={() => navigate('/teams')}
-                className="ml-4 text-blue-600 hover:text-blue-800 text-sm"
-              >
-                Voir toutes
-              </button>
-            </p>
-          )}
-
-          {teams.length === 0 ? (
-            <div className="text-center text-gray-500">
-              <p className="text-xl">Aucune équipe enregistrée</p>
-            </div>
-          ) : (
-            <div className="max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {maleTeams.length > 0 && <TeamCard teams={maleTeams} title="Hommes" />}
-                {femaleTeams.length > 0 && <TeamCard teams={femaleTeams} title="Femmes" />}
-              </div>
-              
-              {otherTeams.length > 0 && (
-                <div className="mt-8">
-                  <TeamCard teams={otherTeams} title="Autres" />
-                </div>
+          <div className="grid grid-cols-3 items-center gap-4 mb-12">
+            <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
+              TEAMS
+            </h1>
+            <div className="col-start-2 flex justify-center">
+              {isAdminOrCoach && (
+                <button
+                  onClick={openCreateModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  + Ajouter une équipe
+                </button>
               )}
             </div>
-          )}
+            <div className="col-start-3" />
+          </div>
+
+
+          { /* Afficher systématiquement les cards Hommes / Femmes */ }
+          <div className="max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 gap-8">
+              <TeamCard teams={maleTeams} title="Hommes" />
+              <TeamCard teams={femaleTeams} title="Femmes" />
+            </div>
+          </div>
+
         </div>
       </div>
 
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+          <div className="bg-white/60 rounded-lg p-8 max-w-md w-full mx-4">
             <h2 className="text-2xl font-bold mb-4">
               {modalMode === 'create' ? 'Ajouter une équipe' : 'Modifier l\'équipe'}
             </h2>
@@ -231,6 +260,10 @@ export default function Teams() {
                   placeholder="N1 H"
                 />
               </div>
+              {formError && (
+                <p className="text-red-600 text-sm mb-2">{formError}</p>
+              )}
+
               {modalMode === 'create' && (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
