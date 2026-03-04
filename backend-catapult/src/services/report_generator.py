@@ -1627,10 +1627,10 @@ class IndividualWeekReportGenerator:
             x_pos = 0
             for (value, bgcolor, align), width in zip(row_data, col_widths):
                 if bgcolor:
-                    rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                    rect = Rectangle((x_pos, y-0.5), width, 1.0, 
                                    facecolor=bgcolor, edgecolor='#4a5568', linewidth=0.5)
                 else:
-                    rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                    rect = Rectangle((x_pos, y-0.5), width, 1.0, 
                                    facecolor=IndividualWeekReportGenerator.COLORS['background'], 
                                    edgecolor='#4a5568', linewidth=0.5)
                 ax.add_patch(rect)
@@ -1641,7 +1641,7 @@ class IndividualWeekReportGenerator:
                 x_pos += width
         
         # TOTAL row
-        y -= 0.3
+        y -= 1.1
         total_row_data = [
             ('TOTAL', None, 'center'),
             (str(total_minutes), None, 'center'),
@@ -1662,7 +1662,7 @@ class IndividualWeekReportGenerator:
         
         x_pos = 0
         for (value, _, align), width in zip(total_row_data, col_widths):
-            rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+            rect = Rectangle((x_pos, y-0.5), width, 1.0, 
                            facecolor='#2d3748', edgecolor='#4a5568', linewidth=0.5)
             ax.add_patch(rect)
             
@@ -1693,7 +1693,7 @@ class IndividualWeekReportGenerator:
         
         x_pos = 0
         for (value, _, align), width in zip(objectif_row_data, col_widths):
-            rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+            rect = Rectangle((x_pos, y-0.5), width, 1.0, 
                            facecolor=IndividualWeekReportGenerator.COLORS['background'], 
                            edgecolor='#4a5568', linewidth=0.5)
             ax.add_patch(rect)
@@ -1713,10 +1713,10 @@ class IndividualWeekReportGenerator:
         x_pos = 0
         for i, ((value, bgcolor, align), width) in enumerate(zip(mono_row_data, col_widths)):
             if i == 1 and bgcolor:
-                rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                rect = Rectangle((x_pos, y-0.5), width, 1.0, 
                                facecolor=bgcolor, edgecolor='#4a5568', linewidth=0.5)
             else:
-                rect = Rectangle((x_pos, y-0.4), width, 0.8, 
+                rect = Rectangle((x_pos, y-0.5), width, 1.0, 
                                facecolor=IndividualWeekReportGenerator.COLORS['background'], 
                                edgecolor='#4a5568', linewidth=0.5)
             ax.add_patch(rect)
