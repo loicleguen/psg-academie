@@ -202,6 +202,13 @@ class SessionReportGenerator:
                     'max_top_speed': 0,
                     'max_impacts': 0,
                     'max_power_plays': 0,
+                    'max_duration': 0,
+                    'max_accel_count': 0,
+                    'max_decel_count': 0,
+                    'max_z3_secs': 0,
+                    'max_z4_secs': 0,
+                    'max_z5_secs': 0,
+                    'max_temps_ad_secs': 0,
                 }
             
             # Update max values if current session is higher
@@ -230,6 +237,23 @@ class SessionReportGenerator:
             player_max[player]['max_top_speed'] = max(
                 player_max[player]['max_top_speed'],
                 session.get('top_speed', 0)
+            )
+            player_max[player]['max_duration'] = max(
+                player_max[player]['max_duration'],
+                session.get('duration', 0)
+            )
+            player_max[player]['max_accel_count'] = max(
+                player_max[player]['max_accel_count'], session.get('accel_count', 0)
+            )
+            player_max[player]['max_decel_count'] = max(
+                player_max[player]['max_decel_count'], session.get('decel_count', 0)
+            )
+            player_max[player]['max_z3_secs'] = max(player_max[player]['max_z3_secs'], session.get('speed_zone_3_secs', 0))
+            player_max[player]['max_z4_secs'] = max(player_max[player]['max_z4_secs'], session.get('speed_zone_4_secs', 0))
+            player_max[player]['max_z5_secs'] = max(player_max[player]['max_z5_secs'], session.get('speed_zone_5_secs', 0))
+            player_max[player]['max_temps_ad_secs'] = max(
+                player_max[player]['max_temps_ad_secs'],
+                session.get('temps_ad_secs', 0)
             )
         
         return player_max
@@ -543,6 +567,30 @@ class SessionReportGenerator:
             pct_sprint = (sprint / personal_max.get('max_sprint', 1) * 100) if personal_max.get('max_sprint', 0) > 0 else 0
             pct_dec = (dec / personal_max.get('max_impacts', 1) * 100) if personal_max.get('max_impacts', 0) > 0 else 0
             pct_pp = (pp / personal_max.get('max_power_plays', 1) * 100) if personal_max.get('max_power_plays', 0) > 0 else 0
+
+            # VOL = moyenne de 4 ratios personnels : dist, HSR, sprint, (DEC+ACC counts)
+            # dénominateur = max_DEC + max_ACC (somme des maxes séparés, comme Excel)
+            max_ad_denom = personal_max.get('max_accel_count', 0) + personal_max.get('max_decel_count', 0)
+            ad_count     = player.get('accel_count', 0) + player.get('decel_count', 0)
+            r_dist   = (distance / personal_max['max_distance_km']) if personal_max.get('max_distance_km', 0) > 0 else 0
+            r_hsr    = (hsr / personal_max['max_hsr'])               if personal_max.get('max_hsr', 0) > 0 else 0
+            r_sprint = (sprint / personal_max['max_sprint'])         if personal_max.get('max_sprint', 0) > 0 else 0
+            r_ad     = (ad_count / max_ad_denom)                     if max_ad_denom > 0 else 0
+            vol_pct  = int((r_dist + r_hsr + r_sprint + r_ad) / 4 * 100)
+
+            # INT = moyenne de 4 ratios personnels : duration, z345_secs, z45_secs, temps_ad
+            # dénominateurs = max_z3+max_z4+max_z5 et max_z4+max_z5 (somme des maxes séparés)
+            duration_s   = player.get('duration', 0)
+            z345_val     = player.get('speed_zone_3_secs', 0) + player.get('speed_zone_4_secs', 0) + player.get('speed_zone_5_secs', 0)
+            z45_val      = player.get('speed_zone_4_secs', 0) + player.get('speed_zone_5_secs', 0)
+            temps_ad     = player.get('temps_ad_secs', 0)
+            max_z345_den = personal_max.get('max_z3_secs', 0) + personal_max.get('max_z4_secs', 0) + personal_max.get('max_z5_secs', 0)
+            max_z45_den  = personal_max.get('max_z4_secs', 0) + personal_max.get('max_z5_secs', 0)
+            r_dur  = (duration_s / personal_max['max_duration'])   if personal_max.get('max_duration', 0) > 0 else 0
+            r_z345 = (z345_val / max_z345_den)                     if max_z345_den > 0 else 0
+            r_z45  = (z45_val  / max_z45_den)                      if max_z45_den  > 0 else 0
+            r_tad  = (temps_ad / personal_max['max_temps_ad_secs']) if personal_max.get('max_temps_ad_secs', 0) > 0 else 0
+            int_pct = int((r_dur + r_z345 + r_z45 + r_tad) / 4 * 100)
             
             # Row data
             row_data = [
@@ -560,8 +608,8 @@ class SessionReportGenerator:
                 f"{int(pp)}",
                 f"{int(pct_pp)}%",
                 f"{dist_per_min:.2f}",
-                "40%",  # Placeholder
-                f"{int(player_load / duration_min * 100)}%" if duration_min > 0 else "0%"
+                f"{vol_pct}%",
+                f"{int_pct}%"
             ]
             
             # Determine colors for specific columns

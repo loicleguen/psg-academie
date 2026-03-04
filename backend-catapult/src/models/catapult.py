@@ -51,7 +51,12 @@ class CatapultSession(SQLModel, table=True):
     # Acceleration/Deceleration
     max_acceleration: float  # m/s/s
     max_deceleration: float  # m/s/s
-    
+
+    # Zone counts and times (for VOL/INT calculation)
+    accel_count: int = Field(default=0)    # total number of accelerations across all zones
+    decel_count: int = Field(default=0)    # total number of decelerations across all zones
+    temps_ad_secs: float = Field(default=0.0)  # total time in accel+decel zones >=1 m/s/s (secs)
+
     # Work ratio
     work_ratio: float
     
@@ -98,6 +103,9 @@ class CatapultSessionCreate(SQLModel):
     speed_zone_5_secs: int
     max_acceleration: float
     max_deceleration: float
+    accel_count: int = 0
+    decel_count: int = 0
+    temps_ad_secs: float = 0.0
     work_ratio: float
 
 

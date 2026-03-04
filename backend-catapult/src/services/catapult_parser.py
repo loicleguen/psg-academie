@@ -303,10 +303,31 @@ class CatapultCSVParser:
         impact_zone_cols = [col for col in df.columns if "impact zones:" in col.lower() and "(impacts)" in col.lower()]
         power_zone_cols = [col for col in df.columns if "power play duration zones:" in col.lower() and "(power plays)" in col.lower()]
         logger.warning(f"🔍 Found {len(impact_zone_cols)} impact zones, {len(power_zone_cols)} power play zones")
-        
+
+        # Acceleration / Deceleration zone counts (for VOL)
+        accel_count_cols = [col for col in df.columns if "accelerations zone count:" in col.lower()]
+        decel_count_cols = [col for col in df.columns if "deceleration zone count:" in col.lower()]
+
+        # TEMPS A/D = time in accel zones >=1 m/s/s + decel zones >=1 m/s/s (for INT)
+        decel_time_cols = [col for col in df.columns
+                           if "time in deceleration zones:" in col.lower() and "(secs)" in col.lower()
+                           and not col.lower().startswith("time in deceleration zones: 0")]
+        accel_time_cols = [col for col in df.columns
+                           if "time in acceleration zones:" in col.lower() and "(secs)" in col.lower()
+                           and not col.lower().startswith("time in acceleration zones: 0")]
+
+        def _sum_cols(cols):
+            if not cols:
+                return pd.Series([0] * len(df))
+            return df[cols].apply(lambda x: sum(pd.to_numeric(x, errors='coerce').fillna(0)), axis=1)
+
         # Add calculated total columns to dataframe BEFORE renaming
-        df['_calculated_total_impacts'] = df[impact_zone_cols].apply(lambda x: sum(pd.to_numeric(x, errors='coerce').fillna(0)), axis=1).astype(int) if len(impact_zone_cols) > 0 else 0
-        df['_calculated_total_power_plays'] = df[power_zone_cols].apply(lambda x: sum(pd.to_numeric(x, errors='coerce').fillna(0)), axis=1).astype(int) if len(power_zone_cols) > 0 else 0
+        df['_calculated_total_impacts'] = _sum_cols(impact_zone_cols).astype(int)
+        df['_calculated_total_power_plays'] = _sum_cols(power_zone_cols).astype(int)
+        df['_calculated_accel_count'] = _sum_cols(accel_count_cols).astype(int)
+        df['_calculated_decel_count'] = _sum_cols(decel_count_cols).astype(int)
+        df['_calculated_temps_ad_secs'] = (_sum_cols(decel_time_cols) + _sum_cols(accel_time_cols)).astype(float)
+        logger.warning(f"🔍 Found {len(accel_count_cols)} accel count cols, {len(decel_count_cols)} decel count cols, {len(decel_time_cols)} decel time cols, {len(accel_time_cols)} accel time cols")
         
         logger.warning(f"📊 Sample impacts total: {df['_calculated_total_impacts'].iloc[0] if len(df) > 0 else 'N/A'}")
         logger.warning(f"📊 Sample power plays total: {df['_calculated_total_power_plays'].iloc[0] if len(df) > 0 else 'N/A'}")
@@ -362,6 +383,9 @@ class CatapultCSVParser:
             # Use pre-calculated totals from dataframe
             parsed["impacts"] = int(row.get("_calculated_total_impacts", 0))
             parsed["power_plays"] = int(row.get("_calculated_total_power_plays", 0))
+            parsed["accel_count"] = int(row.get("_calculated_accel_count", 0))
+            parsed["decel_count"] = int(row.get("_calculated_decel_count", 0))
+            parsed["temps_ad_secs"] = float(row.get("_calculated_temps_ad_secs", 0.0))
             if parsed["impacts"] > 0 or parsed["power_plays"] > 0:
                 logger.warning(f"📊 {row.get('player_name')}: impacts={parsed['impacts']}, power_plays={parsed['power_plays']}")
 
