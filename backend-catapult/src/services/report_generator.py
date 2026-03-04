@@ -1357,11 +1357,21 @@ class IndividualWeekReportGenerator:
 
     @staticmethod
     def aggregate_by_day_average(session_data: List[Dict]) -> Dict[str, Dict]:
-        """Calculate average data by day of week across all players"""
+        """Calculate average data by day of week across all players, with MA/AP slot support"""
         from collections import defaultdict
         from datetime import datetime
-        
-        # Group sessions by day and player
+
+        def get_slot(title: str) -> str:
+            t = str(title).upper()
+            if 'MATIN' in t:
+                return 'MA'
+            if any(kw in t for kw in ['AM', 'APRES MIDI', 'APRÈS MIDI', 'APRES-MIDI', 'APRÈS-MIDI', 'APREM', 'PM']):
+                return 'AP'
+            if t.rstrip().endswith((' AP', '/AP', '-AP')):
+                return 'AP'
+            return ''
+
+        # Group sessions by (day + slot) and player
         day_player_data = defaultdict(lambda: defaultdict(lambda: {
             'distance': 0,
             'hsr': 0,
@@ -1369,25 +1379,29 @@ class IndividualWeekReportGenerator:
             'vmax': 0,
             'dec': 0,
             'pp': 0,
+            'player_load': 0,
             'session_count': 0
         }))
         
-        # Accumulate data per player per day
+        # Accumulate data per player per day+slot
         for session in session_data:
             date_str = session['date']
             date = datetime.strptime(date_str, '%Y-%m-%d')
             day_name = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'][date.weekday()]
+            slot = get_slot(session.get('session_title', '') or '')
+            key = f'{day_name} {slot}' if slot else day_name
             player_name = session.get('player_name', 'Unknown')
             
             hsr = (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
             
-            day_player_data[day_name][player_name]['distance'] += session.get('distance_km', 0) * 1000
-            day_player_data[day_name][player_name]['hsr'] += hsr
-            day_player_data[day_name][player_name]['sprint'] += session.get('sprint_distance_m', 0)
-            day_player_data[day_name][player_name]['vmax'] = max(day_player_data[day_name][player_name]['vmax'], session.get('top_speed', 0))
-            day_player_data[day_name][player_name]['dec'] += session.get('impacts', 0)
-            day_player_data[day_name][player_name]['pp'] += session.get('power_plays', 0)
-            day_player_data[day_name][player_name]['session_count'] += 1
+            day_player_data[key][player_name]['distance'] += session.get('distance_km', 0) * 1000
+            day_player_data[key][player_name]['hsr'] += hsr
+            day_player_data[key][player_name]['sprint'] += session.get('sprint_distance_m', 0)
+            day_player_data[key][player_name]['vmax'] = max(day_player_data[key][player_name]['vmax'], session.get('top_speed', 0))
+            day_player_data[key][player_name]['dec'] += session.get('impacts', 0)
+            day_player_data[key][player_name]['pp'] += session.get('power_plays', 0)
+            day_player_data[key][player_name]['player_load'] += session.get('player_load', 0)
+            day_player_data[key][player_name]['session_count'] += 1
         
         # Calculate averages across players for each day
         day_averages = {}
@@ -1403,6 +1417,7 @@ class IndividualWeekReportGenerator:
                 'vmax': sum(p['vmax'] for p in players.values()) / player_count,
                 'dec': sum(p['dec'] for p in players.values()) / player_count,
                 'pp': sum(p['pp'] for p in players.values()) / player_count,
+                'player_load': sum(p['player_load'] for p in players.values()) / player_count,
                 'session_count': player_count
             }
         
@@ -1788,7 +1803,7 @@ class IndividualWeekReportGenerator:
                     graph_ax.text(i + bar_width, tv, f'{int(tv)}', ha='center', va='bottom', fontsize=5, color='white')
             
             # Styling
-            graph_ax.set_title(metric_name, fontsize=9, fontweight='bold', color='white', pad=5)
+            graph_ax.set_title(metric_name, fontsize=12, fontweight='bold', color='white', pad=5)
             graph_ax.set_xticks(x_pos)
             graph_ax.set_xticklabels(day_labels, fontsize=6, rotation=45, ha='right', color='white')
             graph_ax.tick_params(axis='y', labelsize=6, colors='white')
@@ -1971,7 +1986,7 @@ class IndividualWeekReportGenerator:
         
         # === LEGEND (horizontal, alignée en bas des graphiques) ===
         # [x, y_bottom, width, height] — bottom à 0.10 = bas des graphiques
-        legend_ax = plt.axes([0.67, 0.05, 0.26, 0.08])
+        legend_ax = plt.axes([0.7, 0.1, 0.10, 0.20])
         legend_ax.axis('off')
         legend_ax.set_xlim(0, 1)
         legend_ax.set_ylim(0, 1)
@@ -1983,19 +1998,13 @@ class IndividualWeekReportGenerator:
             ('#FFFFFF', 'MOYENNE EQUIPE')
         ]
 
-        n = len(legend_items)
-        item_w = 1.0 / n
-        sq_w = 0.10
-        sq_h = 0.40
-        sq_y = 0.30
-
         for i, (color, label) in enumerate(legend_items):
-            x0 = i * item_w + 0.01
-            rect = Rectangle((x0, sq_y), sq_w, sq_h,
+            y = 0.75 - i * 0.30
+            rect = Rectangle((0.05, y - 0.08), 0.12, 0.16,
                               facecolor=color, edgecolor='white', linewidth=0.8)
             legend_ax.add_patch(rect)
-            legend_ax.text(x0 + sq_w + 0.02, 0.50, label,
-                           fontsize=6, color='white', va='center', fontweight='bold')
+            legend_ax.text(0.22, y, label,
+                           fontsize=12, color='white', va='center', fontweight='bold')
         
 
         # Save to bytes
