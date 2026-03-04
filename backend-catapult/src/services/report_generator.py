@@ -198,6 +198,8 @@ class SessionReportGenerator:
                 player_max[player] = {
                     'max_distance_km': 0,
                     'max_hsr': 0,
+                    'max_sprint': 0,
+                    'max_top_speed': 0,
                     'max_impacts': 0,
                     'max_power_plays': 0,
                 }
@@ -220,6 +222,14 @@ class SessionReportGenerator:
             player_max[player]['max_power_plays'] = max(
                 player_max[player]['max_power_plays'],
                 session.get('power_plays', 0)
+            )
+            player_max[player]['max_sprint'] = max(
+                player_max[player]['max_sprint'],
+                session.get('sprint_distance_m', 0)
+            )
+            player_max[player]['max_top_speed'] = max(
+                player_max[player]['max_top_speed'],
+                session.get('top_speed', 0)
             )
         
         return player_max
@@ -518,7 +528,7 @@ class SessionReportGenerator:
             distance = player.get('distance_km', 0)
             hsr = (player.get('speed_zone_3_km', 0) + player.get('speed_zone_4_km', 0) + player.get('speed_zone_5_km', 0)) * 1000
             sprint = sprint_by_player.get(player.get('player_name', 'Unknown'), player.get('sprint_distance_m', hsr))
-            vmax = player.get('top_speed', 0)
+            vmax = player.get('top_speed', 0) * 3.6  # m/s → km/h
             dec = player.get('impacts', 0)
             pp = player.get('power_plays', 0)
             dist_per_min = player.get('distance_per_min', 0)
@@ -530,7 +540,7 @@ class SessionReportGenerator:
             personal_max = personal_max_by_player.get(player_name, {})
             pct_dist = (distance / personal_max.get('max_distance_km', 1) * 100) if personal_max.get('max_distance_km', 0) > 0 else 0
             pct_hsr = (hsr / personal_max.get('max_hsr', 1) * 100) if personal_max.get('max_hsr', 0) > 0 else 0
-            pct_sprint = (sprint / personal_max.get('max_hsr', 1) * 100) if personal_max.get('max_hsr', 0) > 0 else 0
+            pct_sprint = (sprint / personal_max.get('max_sprint', 1) * 100) if personal_max.get('max_sprint', 0) > 0 else 0
             pct_dec = (dec / personal_max.get('max_impacts', 1) * 100) if personal_max.get('max_impacts', 0) > 0 else 0
             pct_pp = (pp / personal_max.get('max_power_plays', 1) * 100) if personal_max.get('max_power_plays', 0) > 0 else 0
             
@@ -1011,7 +1021,8 @@ class WeeklyReportGenerator:
             hsr = int(player['sprint_distance_m'])
             impacts = player['impacts']
             pp = player['power_plays']
-            pmax = player['power_score']
+            vmax_raw = player['top_speed']  # m/s, pour calcul du %
+            pmax = vmax_raw * 3.6  # m/s → km/h, pour affichage
             sessions = player['session_count']
             
             # Calculate percentages (simplified for now)
@@ -1033,7 +1044,8 @@ class WeeklyReportGenerator:
             dist_pct = int((avg_dist_per_session / personal_max_dist) * 100) if personal_max_dist > 0 else 0
             hsr_pct = int((avg_hsr_per_session / personal_max_hsr) * 100) if personal_max_hsr > 0 else 0
             spr_pct = hsr_pct  # Same as HSR for sprint distance
-            pmax_pct = int((pmax / 10) * 100) if pmax > 0 else 0  # Simplified
+            personal_max_vmax = player_personal_max.get('max_top_speed', 0)
+            pmax_pct = int((vmax_raw / personal_max_vmax) * 100) if personal_max_vmax > 0 else 0
             dec_pct = int((avg_impacts_per_session / personal_max_impacts) * 100) if personal_max_impacts > 0 else 0
             pp_pct = int((avg_pp_per_session / personal_max_pp) * 100) if personal_max_pp > 0 else 0
             
@@ -1288,7 +1300,7 @@ class IndividualWeekReportGenerator:
         max_distance = max((s.get('distance_km', 0) * 1000 for s in all_sessions), default=0)
         max_hsr = max(((s.get('speed_zone_3_km', 0) + s.get('speed_zone_4_km', 0) + s.get('speed_zone_5_km', 0)) * 1000 for s in all_sessions), default=0)
         max_sprint = max((s.get('sprint_distance_m', 0) for s in all_sessions), default=0)
-        max_vmax = max((s.get('top_speed', 0) for s in all_sessions), default=0)
+        max_vmax = max((s.get('top_speed', 0) for s in all_sessions), default=0) * 3.6  # m/s → km/h
         max_dec = max((s.get('impacts', 0) for s in all_sessions), default=0)
         max_pp = max((s.get('power_plays', 0) for s in all_sessions), default=0)
         
@@ -1582,7 +1594,7 @@ class IndividualWeekReportGenerator:
         total_distance = sum(daily_data[day].get('distance', 0) for day in days_order)
         total_hsr = sum(daily_data[day].get('hsr', 0) for day in days_order)
         total_sprint = sum(daily_data[day].get('sprint', 0) for day in days_order)
-        max_vmax = max((daily_data[day].get('vmax', 0) for day in days_order), default=0)
+        max_vmax = max((daily_data[day].get('vmax', 0) for day in days_order), default=0) * 3.6  # m/s → km/h
         total_dec = sum(daily_data[day].get('dec', 0) for day in days_order)
         total_pp = sum(daily_data[day].get('pp', 0) for day in days_order)
         total_player_load = sum(player_loads)
@@ -1605,7 +1617,7 @@ class IndividualWeekReportGenerator:
                 distance = int(day_info['distance'])
                 hsr = int(day_info['hsr'])
                 sprint = int(day_info['sprint'])
-                vmax = day_info['vmax']
+                vmax = day_info['vmax'] * 3.6  # m/s → km/h
                 dec = day_info['dec']
                 pp = day_info['pp']
                 pl = day_info['player_load']
@@ -1893,7 +1905,7 @@ class IndividualWeekReportGenerator:
                 distance = int(vals.get('distance', 0))
                 hsr = int(vals.get('hsr', 0))
                 sprint = int(vals.get('sprint', 0))
-                vmax = vals.get('vmax', 0)
+                vmax = vals.get('vmax', 0) * 3.6  # m/s → km/h
                 dec = int(vals.get('dec', 0))
                 pp = int(vals.get('pp', 0))
                 load = vals.get('player_load', 0)
@@ -1915,7 +1927,7 @@ class IndividualWeekReportGenerator:
             total_distance = sum(int(data_daily.get(d, {}).get('distance', 0)) for d in days_order)
             total_hsr = sum(int(data_daily.get(d, {}).get('hsr', 0)) for d in days_order)
             total_sprint = sum(int(data_daily.get(d, {}).get('sprint', 0)) for d in days_order)
-            max_vmax = max((data_daily.get(d, {}).get('vmax', 0) for d in days_order), default=0)
+            max_vmax = max((data_daily.get(d, {}).get('vmax', 0) for d in days_order), default=0) * 3.6  # m/s → km/h
             total_dec = sum(int(data_daily.get(d, {}).get('dec', 0)) for d in days_order)
             total_pp = sum(int(data_daily.get(d, {}).get('pp', 0)) for d in days_order)
             total_load = sum(float(data_daily.get(d, {}).get('player_load', 0)) for d in days_order)
