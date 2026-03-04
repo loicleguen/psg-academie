@@ -1752,12 +1752,12 @@ class IndividualWeekReportGenerator:
         
         # Position for 6 graphs (2 rows x 3 cols)
         positions = [
-            (0.0, 0.65, 0.33, 0.47),   # DISTANCE (top row)
-            (0.33, 0.65, 0.33, 0.47),  # HSR
-            (0.66, 0.65, 0.34, 0.47),  # SPRINT
-            (0.0, 0.0, 0.33, 0.47),    # VMAX (bottom row)
-            (0.33, 0.0, 0.33, 0.47),   # DEC
-            (0.66, 0.0, 0.34, 0.47)    # POWER PLAY
+            (0.0, 0.65, 0.3, 0.47),   # DISTANCE (top row)
+            (0.33, 0.65, 0.3, 0.47),  # HSR
+            (0.66, 0.65, 0.3, 0.47),  # SPRINT
+            (0.0, 0.0, 0.3, 0.47),    # VMAX (bottom row)
+            (0.33, 0.0, 0.3, 0.47),   # DEC
+            (0.66, 0.0, 0.3, 0.47)    # POWER PLAY
         ]
         
         for idx, (metric_name, metric_key, divisor) in enumerate(metrics_config):
@@ -1801,13 +1801,15 @@ class IndividualWeekReportGenerator:
     def _draw_comparison_tables(ax, player_daily, position_daily, team_daily):
         """Draw 3 comparison tables (player, position, team) with 7 day rows + TOTAL"""
         ax.axis('off')
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1.5)
+        # xlim/ylim set dynamically below after position computation
         from matplotlib.patches import Rectangle
 
         # Layout parameters
-        headers = ['DIST', 'HSR', 'SPRINT', 'VMAX', 'DEC', 'PP', 'LOAD']
-        col_width = 1.0 / 7
+        headers = ['JOUR', 'DIST', 'HSR', 'SPRINT', 'VMAX', 'DEC', 'PP', 'LOAD']
+        jour_w = 0.11
+        data_w = (1.0 - jour_w) / 7
+        col_widths = [jour_w] + [data_w] * 7
+        col_width = data_w  # compatibilité
         DAY_BASE = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
         all_keys_comp = set(list(player_daily.keys()) + list(position_daily.keys()) + list(team_daily.keys()))
         days_order = []
@@ -1822,12 +1824,12 @@ class IndividualWeekReportGenerator:
             parts = k.split(' ', 1)
             return parts[0][:3] + (f' {parts[1]}' if len(parts) > 1 else '')
         row_h = 0.032
-        header_h = 0.035
+        header_h = 0.04
         rect_h = 0.032
         gap = 0.025
 
         def table_height():
-            return 0.06 + header_h + len(days_order) * row_h + rect_h
+            return 0.115 + len(days_order) * row_h + rect_h / 2
 
         def draw_table(x0, y_top, title, data_daily, title_color):
             # Title
@@ -1842,19 +1844,19 @@ class IndividualWeekReportGenerator:
             
             # Headers
             x_pos = x0
-            for header in headers:
-                rect = Rectangle((x_pos, y_top - 0.01), col_width, header_h,
+            for header, cw in zip(headers, col_widths):
+                rect = Rectangle((x_pos, y_top - 0.01), cw, header_h,
                                facecolor=IndividualWeekReportGenerator.COLORS['header_bg'],
                                edgecolor='white', linewidth=0.5)
                 ax.add_patch(rect)
-                ax.text(x_pos + col_width/2, y_top + 0.005, header, ha='center', va='center',
-                       fontsize=7, fontweight='bold', 
+                ax.text(x_pos + cw/2, y_top + 0.005, header, ha='center', va='center',
+                       fontsize=7, fontweight='bold',
                        color=IndividualWeekReportGenerator.COLORS['text_white'])
-                x_pos += col_width
+                x_pos += cw
 
             # Day rows
             for i, day in enumerate(days_order):
-                y = y_top - 0.045 - i * row_h
+                y = y_top - 0.03 - i * row_h
                 vals = data_daily.get(day, {})
                 distance = int(vals.get('distance', 0))
                 hsr = int(vals.get('hsr', 0))
@@ -1864,20 +1866,20 @@ class IndividualWeekReportGenerator:
                 pp = int(vals.get('pp', 0))
                 load = vals.get('player_load', 0)
 
-                row_values = [f'{distance}', f'{hsr}', f'{sprint}', f'{vmax:.1f}', 
-                            f'{dec}', f'{pp}', f'{load:.1f}']
+                row_values = [_daylabel(day), f'{distance}', f'{hsr}', f'{sprint}', f'{vmax:.1f}',
+                              f'{dec}', f'{pp}', f'{load:.1f}']
                 x_pos = x0
-                for value in row_values:
-                    rect = Rectangle((x_pos, y - rect_h/2), col_width, rect_h,
-                                   facecolor=IndividualWeekReportGenerator.COLORS['background'], 
+                for value, cw in zip(row_values, col_widths):
+                    rect = Rectangle((x_pos, y - rect_h/2), cw, rect_h,
+                                   facecolor=IndividualWeekReportGenerator.COLORS['background'],
                                    edgecolor='#4a5568', linewidth=0.5)
                     ax.add_patch(rect)
-                    ax.text(x_pos + col_width/2, y, value, ha='center', va='center',
+                    ax.text(x_pos + cw/2, y, value, ha='center', va='center',
                            fontsize=7, color=IndividualWeekReportGenerator.COLORS['text_white'])
-                    x_pos += col_width
+                    x_pos += cw
 
             # TOTAL row
-            y_total = y_top - 0.045 - len(days_order) * row_h
+            y_total = y_top - 0.035 - len(days_order) * row_h
             total_distance = sum(int(data_daily.get(d, {}).get('distance', 0)) for d in days_order)
             total_hsr = sum(int(data_daily.get(d, {}).get('hsr', 0)) for d in days_order)
             total_sprint = sum(int(data_daily.get(d, {}).get('sprint', 0)) for d in days_order)
@@ -1886,30 +1888,30 @@ class IndividualWeekReportGenerator:
             total_pp = sum(int(data_daily.get(d, {}).get('pp', 0)) for d in days_order)
             total_load = sum(float(data_daily.get(d, {}).get('player_load', 0)) for d in days_order)
 
-            totals = [f'{total_distance}', f'{total_hsr}', f'{total_sprint}', f'{max_vmax:.1f}', 
-                     f'{total_dec}', f'{total_pp}', f'{total_load:.1f}']
+            totals = ['TOTAL', f'{total_distance}', f'{total_hsr}', f'{total_sprint}', f'{max_vmax:.1f}',
+                      f'{total_dec}', f'{total_pp}', f'{total_load:.1f}']
             x_pos = x0
-            for value in totals:
-                rect = Rectangle((x_pos, y_total - rect_h/2), col_width, rect_h,
+            for value, cw in zip(totals, col_widths):
+                rect = Rectangle((x_pos, y_total - rect_h/2), cw, rect_h,
                                facecolor='#2d3748', edgecolor='#4a5568', linewidth=0.5)
                 ax.add_patch(rect)
-                ax.text(x_pos + col_width/2, y_total, value, ha='center', va='center',
-                       fontsize=7, fontweight='bold', 
+                ax.text(x_pos + cw/2, y_total, value, ha='center', va='center',
+                       fontsize=7, fontweight='bold',
                        color=IndividualWeekReportGenerator.COLORS['text_white'])
-                x_pos += col_width
+                x_pos += cw
 
         # Compute table height and place tables non-overlapping
         th = table_height()
         top_y = 0.95
         mid_y = top_y - th - gap
         bot_y = mid_y - th - gap
-        
-        # Ensure values are within [0,1]
-        if bot_y < 0.05:
-            scale = (top_y - 0.05) / (3*th + 2*gap)
-            top_y = 0.95
-            mid_y = top_y - (th + gap) * scale
-            bot_y = mid_y - (th + gap) * scale
+
+        # Bas réel = bord inférieur de la ligne TOTAL du 3e tableau
+        actual_bottom = bot_y - 0.045 - len(days_order) * row_h - rect_h / 2
+
+        # Pas de scaling : on laisse le ylim dynamique couvrir tout le contenu
+        ax.set_xlim(-0.005, 1.005)
+        ax.set_ylim(actual_bottom - 0.03, top_y + 0.60)
 
         # Draw the three tables
         draw_table(0.0, top_y, 'PLAYER', player_daily, '#FFA500')
@@ -1967,24 +1969,33 @@ class IndividualWeekReportGenerator:
         comparison_ax = plt.axes([0.67, 0.35, 0.26, 0.80])
         IndividualWeekReportGenerator._draw_comparison_tables(comparison_ax, daily_data, position_daily, team_daily)
         
-        # === LEGEND (bottom right) ===
-        legend_ax = plt.axes([0.67, 0.1, 0.2, 0.15])
+        # === LEGEND (horizontal, alignée en bas des graphiques) ===
+        # [x, y_bottom, width, height] — bottom à 0.10 = bas des graphiques
+        legend_ax = plt.axes([0.67, 0.05, 0.26, 0.08])
         legend_ax.axis('off')
+        legend_ax.set_xlim(0, 1)
+        legend_ax.set_ylim(0, 1)
         from matplotlib.patches import Rectangle
-        
-        # Colors matching the graphs
+
         legend_items = [
             ('#FFA500', 'JOUEUR'),
-            ('#FF0000', 'MAX POSTE'),
+            ('#FF0000', 'MOYENNE POSTE'),
             ('#FFFFFF', 'MOYENNE EQUIPE')
         ]
-        
-        y_start = 0.8
+
+        n = len(legend_items)
+        item_w = 1.0 / n
+        sq_w = 0.10
+        sq_h = 0.40
+        sq_y = 0.30
+
         for i, (color, label) in enumerate(legend_items):
-            y = y_start - (i * 0.35)
-            rect = Rectangle((0.1, y), 0.15, 0.2, facecolor=color, edgecolor='white', linewidth=0.5)
+            x0 = i * item_w + 0.01
+            rect = Rectangle((x0, sq_y), sq_w, sq_h,
+                              facecolor=color, edgecolor='white', linewidth=0.8)
             legend_ax.add_patch(rect)
-            legend_ax.text(0.3, y + 0.1, label, fontsize=7, color='white', va='center', fontweight='bold')
+            legend_ax.text(x0 + sq_w + 0.02, 0.50, label,
+                           fontsize=6, color='white', va='center', fontweight='bold')
         
 
         # Save to bytes
