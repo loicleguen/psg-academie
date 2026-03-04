@@ -47,6 +47,7 @@ COLUMN_MAPPING = {
 }
 
 NUMERIC_FIELDS_INT = {
+    "hr_max",
     "hr_load",
     "speed_zone_1_secs",
     "speed_zone_2_secs",
@@ -229,10 +230,45 @@ class CatapultCSVParser:
         - Casts numeric columns to int/float where applicable
         """
         # Use pandas for robust CSV support
-        df = pd.read_csv(StringIO(csv_content), dtype=object, keep_default_na=False)
         logger = logging.getLogger(__name__)
+        # Strip BOM if present
+        if csv_content.startswith('﻿'):
+            csv_content = csv_content[1:]
+        df = pd.read_csv(StringIO(csv_content), dtype=object, keep_default_na=False)
+        # If only 1 column detected, the file might be wrapped in quotes or use a different separator
+        if len(df.columns) < 5:
+            logger.warning(f"⚠️ Only {len(df.columns)} columns detected, retrying with sep=None (auto-detect)")
+            try:
+                df = pd.read_csv(StringIO(csv_content), dtype=object, keep_default_na=False, sep=None, engine='python')
+            except Exception as e_retry:
+                logger.warning(f"⚠️ Auto-detect sep failed: {e_retry}, trying sep=';'")
+                df = pd.read_csv(StringIO(csv_content), dtype=object, keep_default_na=False, sep=';')
         logger.warning(f"📋 CSV Columns detected: {list(df.columns)}")
 
+        # Detect "Excel single-cell" format: headers are split into many columns,
+        # but data rows have all values jammed into the first column as a quoted CSV string.
+        # This happens when Excel saves a file where data cells contain commas.
+        if len(df.columns) >= 5 and len(df) > 0:
+            first_col = df.columns[0]
+            first_val = str(df[first_col].iloc[0])
+            # If the first data cell contains many commas, it's a row-in-a-cell situation
+            if first_val.count(',') >= 5:
+                logger.warning(f"⚠️ Detected Excel 'row-in-a-cell' format, re-parsing data rows using header columns")
+                col_names = list(df.columns)
+                new_rows = []
+                for _, row in df.iterrows():
+                    raw = str(row.iloc[0])
+                    try:
+                        import csv as csv_mod
+                        values = next(csv_mod.reader([raw]))
+                    except Exception:
+                        values = raw.split(',')
+                    # Pad or truncate to match number of columns
+                    if len(values) < len(col_names):
+                        values += [''] * (len(col_names) - len(values))
+                    new_rows.append(dict(zip(col_names, values[:len(col_names)])))
+                df = pd.DataFrame(new_rows, dtype=object).fillna('')
+                logger.warning(f"✅ Re-parsed {len(df)} rows from single-cell format")
 
         # Map raw columns to canonical CSV column names
         rename_map = {}
