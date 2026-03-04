@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { veoService } from '../services/veoService';
+import ShotmapOverview from "../components/veo/ShotmapOverview";
+import SmartPastePanel from '../components/veo/SmartPastePanel';
+import StatsBarsPanel from "../components/veo/StatsBarsPanel";
 import { catapultService } from '../services/catapultService';
+import { veoService } from '../services/veoService';
 
 const MATCH_TYPES = ['LEAGUE', 'CUP', 'FRIENDLY', 'TOURNAMENT'];
 
@@ -90,6 +93,9 @@ const UNIT_LABELS = {
 const OPPONENT_ALIAS_BY_OWN_SLUG = {
   team_goals_scored: 'team_goals_conceded',
   team_shots: 'team_shots_conceded',
+  team_total_attempts: "team_total_attempts_conceded",
+  team_fouls: "team_fouls_conceded",
+  team_penalties: "team_penalties_conceded",
 };
 
 const HIDDEN_TEAM_METRIC_SLUGS = new Set([
@@ -278,25 +284,57 @@ export default function Veo() {
   const [catapultSessions, setCatapultSessions] = useState([]);
   const [catapultTeams, setCatapultTeams] = useState([]);
   const [selectedCatapultSessionTitle, setSelectedCatapultSessionTitle] = useState('');
-  const [showAllMetrics, setShowAllMetrics] = useState(false);
+  const [teamMetricsView, setTeamMetricsView] = useState("BARS");
   const [teamMetricsMenu, setTeamMetricsMenu] = useState('OWN');
   const [rosterSyncMessage, setRosterSyncMessage] = useState('');
+  const [smartPasteParsed, setSmartPasteParsed] = useState(null);
   const latestSelectedMatchRequest = useRef(0);
 
   const teamMetricsByCategory = entrySchema?.team_metrics_by_category ?? [];
   const playerMetricsByCategory = entrySchema?.player_metrics_by_category ?? [];
 
-  const visibleTeamMetricsByCategory = useMemo(() => {
-    if (showAllMetrics) {
-      return teamMetricsByCategory;
-    }
-    return teamMetricsByCategory
-      .map((group) => ({
-        ...group,
-        metrics: group.metrics.filter((metric) => ESSENTIAL_TEAM_METRICS.has(metric.slug)),
-      }))
-      .filter((group) => group.metrics.length > 0);
-  }, [teamMetricsByCategory, showAllMetrics]);
+  const persistedShotmapParsed = useMemo(() => {
+    const getOwn = (slug) => teamMetricInputs?.[`${slug}__OWN`];
+
+    const conv = getOwn("team_shotmap_conversion_rate_pct");
+    const convIn = getOwn("team_shotmap_inside_box_conversion_rate_pct");
+    const convOut = getOwn("team_shotmap_outside_box_conversion_rate_pct");
+    const attIn = getOwn("team_shotmap_attempts_inside_box_pct");
+    const attOut = getOwn("team_shotmap_attempts_outside_box_pct");
+
+    const goals = getOwn("team_goals_scored");
+    const shots = getOwn("team_shots");
+    const totalAttempts = getOwn("team_total_attempts");
+
+    const hasAnything =
+      [conv, convIn, convOut, attIn, attOut, goals, shots, totalAttempts].some(
+        (v) => v !== null && v !== undefined && v !== ""
+      );
+
+    if (!hasAnything) return null;
+
+    return {
+      type: "carte_des_tirs",
+      data: {
+        type: "carte_des_tirs",
+        data: {
+          Buts: goals ?? "",
+          Tirs: shots ?? "",
+          "Total des tentatives": totalAttempts ?? "",
+          team_shotmap_conversion_rate_pct: conv ?? "",
+          team_shotmap_inside_box_conversion_rate_pct: convIn ?? "",
+          team_shotmap_outside_box_conversion_rate_pct: convOut ?? "",
+          team_shotmap_attempts_inside_box_pct: attIn ?? "",
+          team_shotmap_attempts_outside_box_pct: attOut ?? "",
+        },
+      },
+    };
+  }, [teamMetricInputs]);
+
+  const shotmapToDisplay =
+    smartPasteParsed?.type === "carte_des_tirs"
+    ? smartPasteParsed
+    : persistedShotmapParsed;
 
   const visiblePlayerMetricsByCategory = useMemo(() => {
     return playerMetricsByCategory
@@ -314,20 +352,25 @@ export default function Veo() {
       ),
     [teamMetricsByCategory]
   );
-  const visibleTeamMetricFieldsByCategory = useMemo(
+
+  const allTeamMetricFieldsByCategory = useMemo(
     () =>
-      visibleTeamMetricsByCategory
+      teamMetricsByCategory
         .map((group) => ({
           ...group,
-          fields: group.metrics.flatMap((metric) => buildTeamMetricFieldConfigs(metric)),
+          fields: group.metrics.flatMap((metric) =>
+            buildTeamMetricFieldConfigs(metric)
+          ),
         }))
         .filter((group) => group.fields.length > 0),
-    [visibleTeamMetricsByCategory]
+    [teamMetricsByCategory]
   );
+
   const allFlatPlayerMetrics = useMemo(
     () => playerMetricsByCategory.flatMap((group) => group.metrics),
     [playerMetricsByCategory]
   );
+
   const teamMetricFieldByInputKey = useMemo(() => {
     const index = new Map();
     allTeamMetricFields.forEach((field) => {
@@ -335,10 +378,12 @@ export default function Veo() {
     });
     return index;
   }, [allTeamMetricFields]);
+
   const knownPlayerMetricSlugs = useMemo(
     () => new Set(allFlatPlayerMetrics.map((metric) => metric.slug)),
     [allFlatPlayerMetrics]
   );
+
   const visibleFlatPlayerMetrics = useMemo(
     () =>
       visiblePlayerMetricsByCategory
@@ -762,6 +807,7 @@ export default function Veo() {
 
   useEffect(() => {
     loadVeoBootstrap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -772,6 +818,7 @@ export default function Veo() {
       latestSelectedMatchRequest.current = 0;
       resetSelectedMatchState();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMatchId]);
 
   useEffect(() => {
@@ -951,25 +998,18 @@ export default function Veo() {
   };
 
   const handleSaveTeamMetrics = async () => {
-    if (!selectedMatchId) {
-      return;
-    }
+    if (!selectedMatchId) return;
 
     const payloadByKey = new Map();
 
     Object.entries(teamMetricInputs).forEach(([key, raw]) => {
       const metricField = teamMetricFieldByInputKey.get(key);
-      if (!metricField) {
-        return;
-      }
+      if (!metricField) return;
 
-      if (raw === '' || raw === null || raw === undefined) {
-        return;
-      }
+      if (raw === "" || raw === null || raw === undefined) return;
+
       const value = Number(raw);
-      if (Number.isNaN(value)) {
-        return;
-      }
+      if (Number.isNaN(value)) return;
 
       payloadByKey.set(makeTeamMetricKey(metricField.saveSlug, metricField.inputSide), {
         metric_slug: metricField.saveSlug,
@@ -982,19 +1022,23 @@ export default function Veo() {
 
     try {
       setSaving(true);
+
       const result = await veoService.updateTeamMetrics(Number(selectedMatchId), values);
+
       if (result.errors?.length) {
-        setFlash(`Sauvegarde partielle: ${result.errors.join(' | ')}`, 'error');
+        setFlash(`Sauvegarde partielle: ${result.errors.join(" | ")}`, "error");
+        // Stay in EDIT so user can fix
       } else {
-        setFlash('Metriques equipe enregistrees');
+        setFlash("Metriques equipe enregistrees");
+
+        // ✅ Back to bars after a clean save
+        setTeamMetricsView("BARS");
       }
+
       await loadSelectedMatch(selectedMatchId);
     } catch (err) {
       console.error(err);
-      setFlash(
-        err.response?.data?.detail || "Erreur lors de la sauvegarde des metriques equipe",
-        'error'
-      );
+      setFlash(err.response?.data?.detail || "Erreur lors de la sauvegarde des metriques equipe", "error");
     } finally {
       setSaving(false);
     }
@@ -1075,6 +1119,162 @@ export default function Veo() {
     );
   };
 
+  /**
+   * Team metrics renderer (BARS by default, EDIT on demand).
+   *
+   * UX:
+   * - Default view = bars (read-only summary).
+   * - Button switches to EDIT (inputs).
+   * - In EDIT, you can choose essential vs full catalog.
+   * - After saving, we automatically return to BARS.
+   *
+   * Prereqs in Veo.jsx:
+   *   const [teamMetricsView, setTeamMetricsView] = useState("BARS"); // "BARS" | "EDIT"
+   *   const [showAllMetrics, setShowAllMetrics] = useState(false);   // essential by default in EDIT
+   *
+   * In handleSaveTeamMetrics (on success), add:
+   *   setTeamMetricsView("BARS");
+   *   setShowAllMetrics(false);
+   *
+   * And make sure you imported your bars component:
+   *   import StatsBarsPanel from "../components/veo/StatsBarsPanel";
+   */
+  const renderTeamMetricsInputs = ({ embedded = false } = {}) => {
+    const isBars = teamMetricsView === "BARS";
+
+    return (
+      <details
+        className={embedded ? "group" : "bg-white rounded-lg shadow group"}
+        open
+      >
+        <summary
+          className={`cursor-pointer select-none flex items-center justify-between ${
+            embedded ? "px-0 py-0" : "px-6 py-4"
+          }`}
+        >
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">
+              Metriques equipe
+            </h3>
+            <p className="text-xs text-gray-500">
+              Clique pour replier / déplier
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Toggle view button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault(); // empêche le toggle du <details>
+                setTeamMetricsView(isBars ? "EDIT" : "BARS");
+              }}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {isBars ? "Afficher / Modifier les champs" : "Retour aux barres"}
+            </button>
+
+            {/* Save button (unique) */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                handleSaveTeamMetrics();
+              }}
+              disabled={saving}
+              className="bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              Enregistrer metriques equipe
+            </button>
+
+            {/* Chevron */}
+            <span className="text-xs text-gray-400 ml-2 transition-transform duration-200 group-open:rotate-180">
+              ▼
+            </span>
+          </div>
+        </summary>
+
+        <div className={`${embedded ? "px-0 pb-0" : "px-6 pb-6"} space-y-4`}>
+          {isBars ? (
+            <>
+            <StatsBarsPanel
+              summary={summary}
+              teamMetricInputs={teamMetricInputs}
+              clubShortLabel="Notre equipe"
+              opponentShortLabel="Adversaire"
+              embedded
+            />
+            {shotmapToDisplay ? (
+              <div className="mt-4">
+                <ShotmapOverview parsedShotmap={shotmapToDisplay} embedded />
+              </div>
+            ) : null}
+          </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setTeamMetricsMenu("OWN")}
+                    className={`px-3 py-2 text-sm font-medium ${
+                      teamMetricsMenu === "OWN"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Notre equipe
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTeamMetricsMenu("OPPONENT")}
+                    className={`px-3 py-2 text-sm font-medium ${
+                      teamMetricsMenu === "OPPONENT"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Adversaire
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  {teamMetricsMenu === "OWN"
+                    ? "Saisie des indicateurs de notre equipe."
+                    : "Saisie des indicateurs miroir de l'adversaire."}
+                </p>
+              </div>
+
+              {allTeamMetricFieldsByCategory.map((group) => {
+                const sideFields = group.fields.filter(
+                  (field) => field.inputSide === teamMetricsMenu
+                );
+                if (sideFields.length === 0) return null;
+
+                return (
+                  <details
+                    key={`${group.category}-${teamMetricsMenu}`}
+                    className="border rounded-md p-4"
+                    open
+                  >
+                    <summary className="font-semibold text-gray-800 mb-3 cursor-pointer">
+                      {group.category_label_fr}
+                    </summary>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {sideFields.map(renderTeamMetricInput)}
+                    </div>
+                  </details>
+                );
+              })}
+            </>
+          )}
+        </div>
+      </details>
+    );
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -1089,7 +1289,9 @@ export default function Veo() {
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0 space-y-6">
         <div>
-          <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">VEO</h1>
+          <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
+            VEO
+          </h1>
           <p className="block w-fit bg-white/50 px-4 py-2 rounded-md text-xl text-black">
             Saisie manuelle des matchs et stats Veo pour centraliser les rapports.
           </p>
@@ -1108,10 +1310,12 @@ export default function Veo() {
 
         <div className="bg-blue-50/80 border border-blue-100 rounded-lg p-4">
           <p className="text-sm font-semibold text-blue-900">
-            Catalogue exhaustif VEO: {metricCatalogStats.totalTeam} metriques equipe, {metricCatalogStats.totalPlayer} metriques joueurs.
+            Catalogue exhaustif VEO: {metricCatalogStats.totalTeam} metriques equipe,{' '}
+            {metricCatalogStats.totalPlayer} metriques joueurs.
           </p>
           <p className="mt-1 text-xs text-blue-800">
-            Les champs sont regroupes par categories. Le bouton "Afficher tous les champs" permet la saisie complete pour un rapport VEO detaille.
+            Les champs sont regroupes par categories. Le bouton "Afficher tous les champs" permet la saisie complete
+            pour un rapport VEO detaille.
           </p>
           <details className="mt-3">
             <summary className="cursor-pointer text-xs font-medium text-blue-900">
@@ -1143,7 +1347,10 @@ export default function Veo() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <form onSubmit={handleCreateVeoSession} className="bg-white/80 rounded-lg shadow p-6 space-y-4">
+          <form
+            onSubmit={handleCreateVeoSession}
+            className="bg-white/80 rounded-lg shadow p-6 space-y-4"
+          >
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Creer une nouvelle session VEO</h2>
               <p className="mt-1 text-sm text-gray-600">
@@ -1276,8 +1483,8 @@ export default function Veo() {
                 Reference video (facultatif)
               </summary>
               <p className="mt-2 text-xs text-gray-600">
-                Ces champs servent uniquement a garder la trace de la video Veo (lien, duree, camera). Ils
-                n'impactent pas le calcul des statistiques ni le rapport.
+                Ces champs servent uniquement a garder la trace de la video Veo (lien, duree, camera). Ils n'impactent
+                pas le calcul des statistiques ni le rapport.
               </p>
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
@@ -1381,187 +1588,154 @@ export default function Veo() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">Participations</h3>
-                <button
-                  type="button"
-                  onClick={handleSaveParticipations}
-                  disabled={saving}
-                  className="bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Enregistrer participations
-                </button>
-              </div>
-              <div className="overflow-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left border-b">
-                      <th className="py-2 pr-3">Joueur</th>
-                      <th className="py-2 pr-3">Selection</th>
-                      <th className="py-2 pr-3">Titulaire</th>
-                      <th className="py-2 pr-3">Capitaine</th>
-                      <th className="py-2 pr-3">Minutes</th>
-                      <th className="py-2 pr-3">Poste joue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {players.map((player) => {
-                      const state = participationState[player.id] || {};
-                      return (
-                        <tr key={player.id} className="border-b last:border-b-0">
-                          <td className="py-2 pr-3">{formatPlayerDisplayName(player)}</td>
-                          <td className="py-2 pr-3">
-                            <input
-                              type="checkbox"
-                              checked={!!state.selected}
-                              onChange={(e) =>
-                                handleParticipationChange(player.id, 'selected', e.target.checked)
-                              }
-                            />
-                          </td>
-                          <td className="py-2 pr-3">
-                            <input
-                              type="checkbox"
-                              checked={!!state.is_starter}
-                              disabled={!state.selected}
-                              onChange={(e) =>
-                                handleParticipationChange(player.id, 'is_starter', e.target.checked)
-                              }
-                            />
-                          </td>
-                          <td className="py-2 pr-3">
-                            <input
-                              type="checkbox"
-                              checked={!!state.is_captain}
-                              disabled={!state.selected}
-                              onChange={(e) =>
-                                handleParticipationChange(player.id, 'is_captain', e.target.checked)
-                              }
-                            />
-                          </td>
-                          <td className="py-2 pr-3">
-                            <input
-                              type="number"
-                              className="h-9 w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              value={state.minutes_played ?? ''}
-                              disabled={!state.selected}
-                              onChange={(e) =>
-                                handleParticipationChange(player.id, 'minutes_played', e.target.value)
-                              }
-                            />
-                          </td>
-                          <td className="py-2 pr-3">
-                            <input
-                              className="h-9 w-32 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              value={state.position_played ?? ''}
-                              disabled={!state.selected}
-                              onChange={(e) =>
-                                handleParticipationChange(player.id, 'position_played', e.target.value)
-                              }
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <SmartPastePanel
+              entrySchema={entrySchema}
+              selectedMatchId={selectedMatchId ? Number(selectedMatchId) : null}
+              teamMetricInputs={teamMetricInputs}
+              setTeamMetricInputs={setTeamMetricInputs}
+              setFlash={setFlash}
+              onParsedChange={setSmartPasteParsed} 
+            />
 
-            <div className="bg-white rounded-lg shadow p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-gray-900">Metriques equipe</h3>
-                <div className="flex items-center gap-2">
+            <details className="bg-white rounded-lg shadow group" open>
+              <summary className="cursor-pointer select-none px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Participations</h3>
+                  <p className="text-xs text-gray-500 ">Clique pour replier / déplier</p>
+                </div>
+                <span className="text-xs text-gray-400 transition-transform duration-200 group-open:rotate-180">▼</span>
+              </summary>
+
+              <div className="px-6 pb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div />
                   <button
                     type="button"
-                    onClick={() => setShowAllMetrics((prev) => !prev)}
-                    className="border border-gray-300 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    {showAllMetrics ? 'Mode simplifie' : 'Afficher tous les champs'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveTeamMetrics}
+                    onClick={(e) => {
+                      e.preventDefault(); // évite de toggle le details
+                      handleSaveParticipations();
+                    }}
                     disabled={saving}
                     className="bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                   >
-                    Enregistrer metriques equipe
+                    Enregistrer participations
                   </button>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setTeamMetricsMenu('OWN')}
-                    className={`px-3 py-2 text-sm font-medium ${
-                      teamMetricsMenu === 'OWN'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Notre equipe
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTeamMetricsMenu('OPPONENT')}
-                    className={`px-3 py-2 text-sm font-medium ${
-                      teamMetricsMenu === 'OPPONENT'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Adversaire
-                  </button>
+
+                <div className="overflow-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left border-b">
+                        <th className="py-2 pr-3">Joueur</th>
+                        <th className="py-2 pr-3">Selection</th>
+                        <th className="py-2 pr-3">Titulaire</th>
+                        <th className="py-2 pr-3">Capitaine</th>
+                        <th className="py-2 pr-3">Minutes</th>
+                        <th className="py-2 pr-3">Poste joue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {players.map((player) => {
+                        const state = participationState[player.id] || {};
+                        return (
+                          <tr key={player.id} className="border-b last:border-b-0">
+                            <td className="py-2 pr-3">{formatPlayerDisplayName(player)}</td>
+                            <td className="py-2 pr-3">
+                              <input
+                                type="checkbox"
+                                checked={!!state.selected}
+                                onChange={(e) =>
+                                  handleParticipationChange(player.id, "selected", e.target.checked)
+                                }
+                              />
+                            </td>
+                            <td className="py-2 pr-3">
+                              <input
+                                type="checkbox"
+                                checked={!!state.is_starter}
+                                disabled={!state.selected}
+                                onChange={(e) =>
+                                  handleParticipationChange(player.id, "is_starter", e.target.checked)
+                                }
+                              />
+                            </td>
+                            <td className="py-2 pr-3">
+                              <input
+                                type="checkbox"
+                                checked={!!state.is_captain}
+                                disabled={!state.selected}
+                                onChange={(e) =>
+                                  handleParticipationChange(player.id, "is_captain", e.target.checked)
+                                }
+                              />
+                            </td>
+                            <td className="py-2 pr-3">
+                              <input
+                                type="number"
+                                className="h-9 w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={state.minutes_played ?? ""}
+                                disabled={!state.selected}
+                                onChange={(e) =>
+                                  handleParticipationChange(player.id, "minutes_played", e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="py-2 pr-3">
+                              <input
+                                className="h-9 w-32 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={state.position_played ?? ""}
+                                disabled={!state.selected}
+                                onChange={(e) =>
+                                  handleParticipationChange(player.id, "position_played", e.target.value)
+                                }
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-                <p className="text-xs text-gray-500">
-                  {teamMetricsMenu === 'OWN'
-                    ? 'Saisie des indicateurs de notre equipe.'
-                    : "Saisie des indicateurs miroir de l'adversaire."}
-                </p>
               </div>
+            </details>
 
-              {visibleTeamMetricFieldsByCategory.map((group) => {
-                const sideFields = group.fields.filter((field) => field.inputSide === teamMetricsMenu);
-                if (sideFields.length === 0) {
-                  return null;
-                }
-
-                return (
-                  <details key={`${group.category}-${teamMetricsMenu}`} className="border rounded-md p-4" open>
-                    <summary className="font-semibold text-gray-800 mb-3 cursor-pointer">
-                      {group.category_label_fr}
-                    </summary>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {sideFields.map((field) => renderTeamMetricInput(field))}
-                    </div>
-                  </details>
-                );
-              })}
+            {/* ✅ Metrics team: use renderer (no duplicated JSX, no "mode simplifie") */}
+            <div className="bg-white rounded-lg shadow p-6 space-y-4">
+              {renderTeamMetricsInputs({ embedded: true })}
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-gray-900">Metriques joueurs</h3>
-                <button
-                  type="button"
-                  onClick={handleSavePlayerMetrics}
-                  disabled={saving}
-                  className="bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Enregistrer metriques joueurs
-                </button>
-              </div>
-              {rosterSyncMessage && (
-                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md px-3 py-2">
-                  {rosterSyncMessage}
-                </p>
+            <details className="bg-white rounded-lg shadow group" open>
+              <summary className="cursor-pointer select-none px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Metriques joueurs</h3>
+                  <p className="text-xs text-gray-500">Clique pour replier / déplier</p>
+                </div>
+                <span className="text-xs text-gray-400 transition-transform duration-200 group-open:rotate-180">▼</span>
+              </summary>
+
+              <div className="px-6 pb-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleSavePlayerMetrics();
+                    }}
+                    disabled={saving}
+                    className="bg-blue-600 text-white rounded-md px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Enregistrer metriques joueurs
+                  </button>
+                </div>
+
+                {rosterSyncMessage && (
+                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md px-3 py-2">
+                    {rosterSyncMessage}
+                  </p>
               )}
               {playersForMetricsGrid.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Aucun joueur disponible pour cette equipe.
-                </p>
+                <p className="text-sm text-gray-500">Aucun joueur disponible pour cette equipe.</p>
               ) : (
                 <div className="overflow-auto border rounded-md">
                   <table className="min-w-full text-sm">
@@ -1582,7 +1756,9 @@ export default function Veo() {
                     <tbody>
                       {playersForMetricsGrid.map((player) => (
                         <tr key={player.id} className="border-b last:border-b-0">
-                          <td className="py-2 px-3 font-medium whitespace-nowrap">{formatPlayerDisplayName(player)}</td>
+                          <td className="py-2 px-3 font-medium whitespace-nowrap">
+                            {formatPlayerDisplayName(player)}
+                          </td>
                           {visibleFlatPlayerMetrics.map((metric) => {
                             const key = makePlayerMetricKey(player.id, metric.slug);
                             return (
@@ -1608,8 +1784,9 @@ export default function Veo() {
                   </table>
                 </div>
               )}
-            </div>
-          </div>
+              </div>
+          </details>
+        </div>  
         )}
       </div>
     </div>
