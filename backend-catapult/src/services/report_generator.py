@@ -125,32 +125,52 @@ class SessionReportGenerator:
         # Filter sessions from last N months
         cutoff_date = datetime.now() - timedelta(days=months * 30)
         
-        # Group by session_title and aggregate
+        # Filtrer les 3 derniers mois
+        recent_sessions = [
+            s for s in all_sessions
+            if datetime.strptime(s.get('date', '2000-01-01'), '%Y-%m-%d') >= cutoff_date
+        ]
+        if not recent_sessions:
+            recent_sessions = all_sessions  # fallback si pas assez de données
+
+        # Grouper par session_title, calculer la moyenne par joueur (pour comparer
+        # des séances avec des effectifs différents)
         session_totals = {}
-        for session in all_sessions:
+        for session in recent_sessions:
             title = session.get('session_title', '')
             if title not in session_totals:
                 session_totals[title] = {
                     'distance_km': 0,
-                    'hsr_total': 0,  # Will calculate from speed zones
+                    'hsr_total': 0,
                     'power_plays': 0,
                     'impacts': 0,
+                    'player_count': 0,
                 }
-            
             session_totals[title]['distance_km'] += session.get('distance_km', 0)
-            # Calculate HSR from speed zones 3+4+5
             hsr = (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
             session_totals[title]['hsr_total'] += hsr
             session_totals[title]['power_plays'] += session.get('power_plays', 0)
             session_totals[title]['impacts'] += session.get('impacts', 0)
-        
-        # Get max values
-        totals = list(session_totals.values())
+            session_totals[title]['player_count'] += 1
+
+        # Max de la MOYENNE par joueur → comparable quelle que soit la taille de l'effectif
+        avgs = []
+        for t in session_totals.values():
+            if t['player_count'] < 6:
+                continue
+            n = t['player_count']
+            avgs.append({
+                'distance_km': t['distance_km'] / n,
+                'hsr_total': t['hsr_total'] / n,
+                'dec_total': t['impacts'] / n,
+                'power_plays': t['power_plays'] / n,
+            })
+
         benchmarks = {
-            'distance_km': max([t['distance_km'] for t in totals]) if totals else 100.0,
-            'hsr_total': max([t['hsr_total'] for t in totals]) if totals else 5000.0,
-            'dec_total': max([t['impacts'] for t in totals]) if totals else 100.0,
-            'power_plays': max([t['power_plays'] for t in totals]) if totals else 200.0,
+            'distance_km': max([a['distance_km'] for a in avgs]) if avgs else 100.0,
+            'hsr_total': max([a['hsr_total'] for a in avgs]) if avgs else 5000.0,
+            'dec_total': max([a['dec_total'] for a in avgs]) if avgs else 100.0,
+            'power_plays': max([a['power_plays'] for a in avgs]) if avgs else 200.0,
         }
         
         return benchmarks
@@ -313,11 +333,12 @@ class SessionReportGenerator:
         # Create figure with dark background
         fig = plt.figure(figsize=(20, 14), facecolor=SessionReportGenerator.COLORS['background'])
         
-        # Calculate totals
-        total_distance = sum(s.get('distance_km', 0) for s in session_data)
-        total_hsr = sum((s.get('speed_zone_3_km', 0) + s.get('speed_zone_4_km', 0) + s.get('speed_zone_5_km', 0)) * 1000 for s in session_data)
-        total_dec = sum(s.get('impacts', 0) for s in session_data)
-        total_pp = sum(s.get('power_plays', 0) for s in session_data)
+        # Calculer la MOYENNE par joueur (comparable quelle que soit la taille de l'effectif)
+        nb_players = len(session_data) or 1
+        total_distance = sum(s.get('distance_km', 0) for s in session_data) / nb_players
+        total_hsr = sum((s.get('speed_zone_3_km', 0) + s.get('speed_zone_4_km', 0) + s.get('speed_zone_5_km', 0)) * 1000 for s in session_data) / nb_players
+        total_dec = sum(s.get('impacts', 0) for s in session_data) / nb_players
+        total_pp = sum(s.get('power_plays', 0) for s in session_data) / nb_players
         
         # Get benchmarks
         benchmarks = SessionReportGenerator.calculate_benchmarks(all_sessions)
