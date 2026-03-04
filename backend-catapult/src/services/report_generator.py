@@ -701,39 +701,81 @@ class WeeklyReportGenerator:
     
     @staticmethod
     def aggregate_by_day(session_data: List[Dict]) -> Dict[str, Dict]:
-        """Agrège les données par jour de la semaine"""
+        """Agrège les données par jour de la semaine.
+        Si un jour a deux séances (matin/après-midi détectées dans le titre),
+        elles sont retournées sous des clés séparées : 'MARDI MA' et 'MARDI AP'.
+        """
         from collections import defaultdict
-        
-        day_totals = defaultdict(lambda: {
-            'duration': 0,
-            'distance_km': 0,
-            'sprint_distance_m': 0,
-            'impacts': 0,
-            'power_plays': 0,
-            'top_speed': 0,
-            'player_count': set()
-        })
-        
+        from datetime import datetime
+
+        DAY_NAMES = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+
+        def get_slot(title: str) -> str:
+            """Retourne 'MA' (matin) ou 'AP' (après-midi) ou '' selon le titre.
+            Convention PSG : AM = Après Midi, MATIN = matin.
+            """
+            t = str(title).upper()
+            # Matin
+            if 'MATIN' in t:
+                return 'MA'
+            # Après-midi : AM (convention PSG), APRES MIDI, PM, etc.
+            if any(kw in t for kw in ['AM', 'APRES MIDI', 'APRÈS MIDI', 'APRES-MIDI', 'APRÈS-MIDI', 'APREM', 'PM']):
+                return 'AP'
+            return ''
+
+        # Regrouper les sessions par jour
+        day_sessions = defaultdict(list)
         for session in session_data:
-            from datetime import datetime
-            date_str = session['date']
-            # Parser la date YYYY-MM-DD
-            date = datetime.strptime(date_str, '%Y-%m-%d')
-            day_name = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'][date.weekday()]
-            
-            day_totals[day_name]['duration'] += session.get('duration', 0)
-            day_totals[day_name]['distance_km'] += session.get('distance_km', 0)
-            day_totals[day_name]['sprint_distance_m'] += session.get('sprint_distance_m', 0)
-            day_totals[day_name]['impacts'] += session.get('impacts', 0)
-            day_totals[day_name]['power_plays'] += session.get('power_plays', 0)
-            day_totals[day_name]['top_speed'] = max(day_totals[day_name]['top_speed'], session.get('top_speed', 0))
-            day_totals[day_name]['player_count'].add(session['player_name'])
-        
-        # Convert sets to counts
-        for day in day_totals:
-            day_totals[day]['player_count'] = len(day_totals[day]['player_count'])
-        
-        return dict(day_totals)
+            date_str = session.get('date', '')
+            try:
+                date = datetime.strptime(date_str, '%Y-%m-%d')
+            except Exception:
+                continue
+            day_name = DAY_NAMES[date.weekday()]
+            day_sessions[day_name].append(session)
+
+        def _sum_sessions(sessions):
+            totals = {
+                'duration': 0, 'distance_km': 0.0, 'sprint_distance_m': 0.0,
+                'impacts': 0, 'power_plays': 0, 'top_speed': 0.0,
+                'player_count': set()
+            }
+            for s in sessions:
+                totals['duration']         += s.get('duration', 0)
+                totals['distance_km']      += s.get('distance_km', 0)
+                totals['sprint_distance_m']+= s.get('sprint_distance_m', 0)
+                totals['impacts']          += s.get('impacts', 0)
+                totals['power_plays']      += s.get('power_plays', 0)
+                totals['top_speed']         = max(totals['top_speed'], s.get('top_speed', 0))
+                if s.get('player_name'):
+                    totals['player_count'].add(s['player_name'])
+            totals['player_count'] = len(totals['player_count'])
+            return totals
+
+        result = {}
+        for day_name, sessions in day_sessions.items():
+            slots = {get_slot(s.get('session_title', '')) for s in sessions}
+            has_ma = 'MA' in slots
+            has_ap = 'AP' in slots
+
+            if has_ma or has_ap:
+                # Séparer matin et après-midi
+                ma_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'MA']
+                ap_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'AP']
+                # Sessions sans marqueur → rattacher à l'après-midi (ou matin si pas d'AM)
+                other = [s for s in sessions if get_slot(s.get('session_title', '')) == '']
+                if has_ap:
+                    ap_sessions += other
+                else:
+                    ma_sessions += other
+                if ma_sessions:
+                    result[f'{day_name} MA'] = _sum_sessions(ma_sessions)
+                if ap_sessions:
+                    result[f'{day_name} AP'] = _sum_sessions(ap_sessions)
+            else:
+                result[day_name] = _sum_sessions(sessions)
+
+        return result
     
     @staticmethod
     def generate_weekly_report(
@@ -1069,17 +1111,28 @@ class WeeklyReportGenerator:
                     fontsize=7, fontweight='bold', color=WHITE)
 
         # ── Data rows ─────────────────────────────────────────────────────────
-        days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        DAY_BASE = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        # Construire la liste ordonnée des clés (jour seul, puis MAx2, puis AP)
+        ordered_keys = []
+        for base in DAY_BASE:
+            if base in day_data:
+                ordered_keys.append(base)
+            if f'{base} MA' in day_data:
+                ordered_keys.append(f'{base} MA')
+            if f'{base} AP' in day_data:
+                ordered_keys.append(f'{base} AP')
+
         row_y = 9.7
 
         # Accumulateurs pour TOTAL et MONOTONIE
         all_minutes, all_distance, all_hsr, all_impacts, all_pp = [], [], [], [], []
         all_vol, all_int_ = [], []
 
-        for day in days_order:
-            if day not in day_data:
-                continue
+        for day in ordered_keys:
             data = day_data[day]
+            # Libellé affiché : 'MERCREDI' → 'MER', 'MARDI MA' → 'MAR MA'
+            parts = day.split(' ', 1)
+            label = parts[0][:3] + (f' {parts[1]}' if len(parts) > 1 else '')
             minutes  = data['duration'] // 60
             distance = int(data['distance_km'] * 1000)
             hsr      = int(data['sprint_distance_m'])
@@ -1104,7 +1157,7 @@ class WeeklyReportGenerator:
             all_pp.append(pp);            all_vol.append(vol_pct)
             all_int_.append(int_pct)
 
-            row = [day[:3], minutes, distance, '100%', hsr, '100%',
+            row = [label, minutes, distance, '100%', hsr, '100%',
                    impacts, '100%', pp, '100%',
                    f'{vol_pct}%', f'{int_pct}%',
                    f'{volume_val}%', f'{intensite_val}%']
@@ -1158,37 +1211,45 @@ class WeeklyReportGenerator:
     def _draw_trend_graph(ax, day_data, benchmarks):
         """Draw volume/intensity trend graph with percentages"""
         ax.set_facecolor(WeeklyReportGenerator.COLORS['background'])
-        
-        days_order = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
+
+        DAY_BASE = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        # Même logique que _draw_daily_table : clés ordonnées avec MA/AP
+        ordered_keys = []
+        for base in DAY_BASE:
+            if base in day_data:
+                ordered_keys.append(base)
+            if f'{base} MA' in day_data:
+                ordered_keys.append(f'{base} MA')
+            if f'{base} AP' in day_data:
+                ordered_keys.append(f'{base} AP')
+
+        labels = []
         volumes = []
         intensities = []
-        
-        for day in ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']:
-            if day in day_data:
-                data = day_data[day]
-                # VOL% = (distance / benchmark_distance) * 100
-                vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
-                # INT% = combined intensity percentage
-                hsr_pct = (data['sprint_distance_m'] / benchmarks.get('hsr_total', 5000)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
-                dec_pct = (data['impacts'] / benchmarks.get('dec_total', 100)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
-                pp_pct = (data['power_plays'] / benchmarks.get('power_plays', 200)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
-                intensity_pct = int((hsr_pct + dec_pct + pp_pct) / 3)
-                volumes.append(vol_pct)
-                intensities.append(intensity_pct)
-            else:
-                volumes.append(0)
-                intensities.append(0)
-        
-        x = range(len(days_order))
-        ax.plot(x, volumes, marker='o', color=WeeklyReportGenerator.COLORS['green'], 
+
+        for day in ordered_keys:
+            parts = day.split(' ', 1)
+            label = parts[0][:3] + (f'\n{parts[1]}' if len(parts) > 1 else '')
+            labels.append(label)
+            data = day_data[day]
+            vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
+            hsr_pct = (data['sprint_distance_m'] / benchmarks.get('hsr_total', 5000)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
+            dec_pct = (data['impacts'] / benchmarks.get('dec_total', 100)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
+            pp_pct = (data['power_plays'] / benchmarks.get('power_plays', 200)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
+            intensity_pct = int((hsr_pct + dec_pct + pp_pct) / 3)
+            volumes.append(vol_pct)
+            intensities.append(intensity_pct)
+
+        x = range(len(labels))
+        ax.plot(x, volumes, marker='o', color=WeeklyReportGenerator.COLORS['green'],
                linewidth=2, label='VOLUME')
         ax.plot(x, intensities, marker='s', color=WeeklyReportGenerator.COLORS['orange'],
                linewidth=2, label='INTENSITÉ')
-        
+
         ax.set_xticks(x)
-        ax.set_xticklabels(days_order, color=WeeklyReportGenerator.COLORS['text_white'])
+        ax.set_xticklabels(labels, color=WeeklyReportGenerator.COLORS['text_white'], fontsize=7)
         ax.tick_params(colors=WeeklyReportGenerator.COLORS['text_white'])
-        ax.legend(facecolor=WeeklyReportGenerator.COLORS['gauge_bg'], 
+        ax.legend(facecolor=WeeklyReportGenerator.COLORS['gauge_bg'],
                  edgecolor=WeeklyReportGenerator.COLORS['text_gray'],
                  labelcolor=WeeklyReportGenerator.COLORS['text_white'])
         ax.grid(True, alpha=0.2, color=WeeklyReportGenerator.COLORS['text_gray'])
@@ -1225,40 +1286,74 @@ class IndividualWeekReportGenerator:
     
     @staticmethod
     def aggregate_by_day_individual(session_data: List[Dict]) -> Dict[str, Dict]:
-        """Aggregate player data by day of week"""
+        """Aggregate player data by day of week.
+        Si un jour a deux séances (MA/AP), crée des clés séparées : 'MARDI MA', 'MARDI AP'.
+        """
         from collections import defaultdict
         from datetime import datetime
-        
-        day_totals = defaultdict(lambda: {
-            'duration': 0,
-            'distance': 0,
-            'hsr': 0,
-            'sprint': 0,
-            'vmax': 0,
-            'dec': 0,
-            'pp': 0,
-            'player_load': 0,
-            'session_count': 0
-        })
-        
+
+        DAY_NAMES = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+
+        def get_slot(title: str) -> str:
+            t = str(title).upper()
+            if 'MATIN' in t:
+                return 'MA'
+            if any(kw in t for kw in ['AM', 'APRES MIDI', 'APRÈS MIDI', 'APRES-MIDI', 'APRÈS-MIDI', 'APREM', 'PM']):
+                return 'AP'
+            if t.rstrip().endswith((' AP', '/AP', '-AP')):
+                return 'AP'
+            return ''
+
+        def _empty():
+            return {'duration': 0, 'distance': 0.0, 'hsr': 0.0, 'sprint': 0.0,
+                    'vmax': 0.0, 'dec': 0, 'pp': 0, 'player_load': 0.0, 'session_count': 0}
+
+        day_sessions = defaultdict(list)
         for session in session_data:
-            date_str = session['date']
-            date = datetime.strptime(date_str, '%Y-%m-%d')
-            day_name = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'][date.weekday()]
-            
-            hsr = (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
-            
-            day_totals[day_name]['duration'] += session.get('duration', 0)
-            day_totals[day_name]['distance'] += session.get('distance_km', 0) * 1000
-            day_totals[day_name]['hsr'] += hsr
-            day_totals[day_name]['sprint'] += session.get('sprint_distance_m', 0)
-            day_totals[day_name]['vmax'] = max(day_totals[day_name]['vmax'], session.get('top_speed', 0))
-            day_totals[day_name]['dec'] += session.get('impacts', 0)
-            day_totals[day_name]['pp'] += session.get('power_plays', 0)
-            day_totals[day_name]['player_load'] += session.get('player_load', 0)
-            day_totals[day_name]['session_count'] += 1
-        
-        return dict(day_totals)
+            date_str = session.get('date', '')
+            try:
+                date = datetime.strptime(date_str, '%Y-%m-%d')
+            except Exception:
+                continue
+            day_name = DAY_NAMES[date.weekday()]
+            day_sessions[day_name].append(session)
+
+        def _sum(sessions):
+            totals = _empty()
+            for s in sessions:
+                hsr = (s.get('speed_zone_3_km', 0) + s.get('speed_zone_4_km', 0) + s.get('speed_zone_5_km', 0)) * 1000
+                totals['duration']     += s.get('duration', 0)
+                totals['distance']     += s.get('distance_km', 0) * 1000
+                totals['hsr']          += hsr
+                totals['sprint']       += s.get('sprint_distance_m', 0)
+                totals['vmax']          = max(totals['vmax'], s.get('top_speed', 0))
+                totals['dec']          += s.get('impacts', 0)
+                totals['pp']           += s.get('power_plays', 0)
+                totals['player_load']  += s.get('player_load', 0)
+                totals['session_count'] += 1
+            return totals
+
+        result = {}
+        for day_name, sessions in day_sessions.items():
+            slots = {get_slot(s.get('session_title', '')) for s in sessions}
+            has_ma = 'MA' in slots
+            has_ap = 'AP' in slots
+            if has_ma or has_ap:
+                ma_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'MA']
+                ap_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'AP']
+                other = [s for s in sessions if get_slot(s.get('session_title', '')) == '']
+                if has_ap:
+                    ap_sessions += other
+                else:
+                    ma_sessions += other
+                if ma_sessions:
+                    result[f'{day_name} MA'] = _sum(ma_sessions)
+                if ap_sessions:
+                    result[f'{day_name} AP'] = _sum(ap_sessions)
+            else:
+                result[day_name] = _sum(sessions)
+
+        return result
 
     @staticmethod
     def aggregate_by_day_average(session_data: List[Dict]) -> Dict[str, Dict]:
@@ -1430,19 +1525,34 @@ class IndividualWeekReportGenerator:
             x_pos += width
         
         # Days
-        days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
-        
+        DAY_BASE = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        def _ordered_keys(d):
+            keys = []
+            for base in DAY_BASE:
+                if base in d:
+                    keys.append(base)
+                if f'{base} MA' in d:
+                    keys.append(f'{base} MA')
+                if f'{base} AP' in d:
+                    keys.append(f'{base} AP')
+            return keys
+        def _day_label(key):
+            parts = key.split(' ', 1)
+            return parts[0][:3] + (f' {parts[1]}' if len(parts) > 1 else '')
+
+        days_order = _ordered_keys(daily_data)
+
         # Aggregate player loads for monotonie calculation
-        player_loads = [daily_data.get(day, {}).get('player_load', 0) for day in days_order if daily_data.get(day, {}).get('session_count', 0) > 0]
-        
+        player_loads = [daily_data[day].get('player_load', 0) for day in days_order if daily_data[day].get('session_count', 0) > 0]
+
         # Calculate totals
-        total_minutes = sum(daily_data.get(day, {}).get('duration', 0) for day in days_order) // 60
-        total_distance = sum(daily_data.get(day, {}).get('distance', 0) for day in days_order)
-        total_hsr = sum(daily_data.get(day, {}).get('hsr', 0) for day in days_order)
-        total_sprint = sum(daily_data.get(day, {}).get('sprint', 0) for day in days_order)
-        max_vmax = max((daily_data.get(day, {}).get('vmax', 0) for day in days_order), default=0)
-        total_dec = sum(daily_data.get(day, {}).get('dec', 0) for day in days_order)
-        total_pp = sum(daily_data.get(day, {}).get('pp', 0) for day in days_order)
+        total_minutes = sum(daily_data[day].get('duration', 0) for day in days_order) // 60
+        total_distance = sum(daily_data[day].get('distance', 0) for day in days_order)
+        total_hsr = sum(daily_data[day].get('hsr', 0) for day in days_order)
+        total_sprint = sum(daily_data[day].get('sprint', 0) for day in days_order)
+        max_vmax = max((daily_data[day].get('vmax', 0) for day in days_order), default=0)
+        total_dec = sum(daily_data[day].get('dec', 0) for day in days_order)
+        total_pp = sum(daily_data[day].get('pp', 0) for day in days_order)
         total_player_load = sum(player_loads)
         
         # Calculate monotonie
@@ -1455,10 +1565,9 @@ class IndividualWeekReportGenerator:
         for day in days_order:
             y -= 1
             day_info = daily_data.get(day, {})
-            
+
             if day_info.get('session_count', 0) == 0:
-                # Empty row
-                row_data = [(day, None, 'center')] + [('', None, 'center')] * 14
+                row_data = [(_day_label(day), None, 'center')] + [('', None, 'center')] * 14
             else:
                 minutes = day_info['duration'] // 60
                 distance = int(day_info['distance'])
@@ -1483,7 +1592,7 @@ class IndividualWeekReportGenerator:
                 sprint_color = SessionReportGenerator.COLORS['green'] if sprint_pct >= 50 else (SessionReportGenerator.COLORS['orange'] if sprint_pct >= 30 else SessionReportGenerator.COLORS['red'])
                 
                 row_data = [
-                    (day, None, 'center'),
+                    (_day_label(day), None, 'center'),
                     (str(minutes), None, 'center'),
                     (str(distance), dist_color, 'center'),
                     (f'{dist_pct}%', None, 'center'),
@@ -1610,11 +1719,22 @@ class IndividualWeekReportGenerator:
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         
-        days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
-        
+        # Construire la liste ordonnée des jours en tenant compte des séances MA/AP
+        DAY_BASE = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        all_keys = set(list(player_daily.keys()) + list(position_daily.keys()) + list(team_daily.keys()))
+        days_order = []
+        for base in DAY_BASE:
+            if base in all_keys:
+                days_order.append(base)
+            if f'{base} MA' in all_keys:
+                days_order.append(f'{base} MA')
+            if f'{base} AP' in all_keys:
+                days_order.append(f'{base} AP')
+        day_labels = [p[:3] + (' ' + p.split(' ', 1)[1] if ' ' in p else '') for p in days_order]
+
         # Extract data for each metric from all 3 sources
         import numpy as np
-        
+
         def get_metric_data(daily_data, metric_key, divisor=1):
             return [daily_data.get(day, {}).get(metric_key, 0) / divisor for day in days_order]
         
@@ -1670,7 +1790,7 @@ class IndividualWeekReportGenerator:
             # Styling
             graph_ax.set_title(metric_name, fontsize=9, fontweight='bold', color='white', pad=5)
             graph_ax.set_xticks(x_pos)
-            graph_ax.set_xticklabels(days_order, fontsize=6, rotation=45, ha='right', color='white')
+            graph_ax.set_xticklabels(day_labels, fontsize=6, rotation=45, ha='right', color='white')
             graph_ax.tick_params(axis='y', labelsize=6, colors='white')
             graph_ax.set_facecolor('#1a202c')
             for spine in graph_ax.spines.values():
@@ -1688,7 +1808,19 @@ class IndividualWeekReportGenerator:
         # Layout parameters
         headers = ['DIST', 'HSR', 'SPRINT', 'VMAX', 'DEC', 'PP', 'LOAD']
         col_width = 1.0 / 7
-        days_order = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        DAY_BASE = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
+        all_keys_comp = set(list(player_daily.keys()) + list(position_daily.keys()) + list(team_daily.keys()))
+        days_order = []
+        for base in DAY_BASE:
+            if base in all_keys_comp:
+                days_order.append(base)
+            if f'{base} MA' in all_keys_comp:
+                days_order.append(f'{base} MA')
+            if f'{base} AP' in all_keys_comp:
+                days_order.append(f'{base} AP')
+        def _daylabel(k):
+            parts = k.split(' ', 1)
+            return parts[0][:3] + (f' {parts[1]}' if len(parts) > 1 else '')
         row_h = 0.032
         header_h = 0.035
         rect_h = 0.032
