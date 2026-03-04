@@ -1041,7 +1041,7 @@ class WeeklyReportGenerator:
         """Draw daily breakdown table with borders"""
         import numpy as np
         ax.axis('off')
-        ax.set_xlim(0, 14)
+        ax.set_xlim(-0.1, 15.1)
         ax.set_ylim(0, 11)
 
         from matplotlib.patches import Rectangle
@@ -1054,12 +1054,18 @@ class WeeklyReportGenerator:
             r = Rectangle((x, y - h/2), w, h, facecolor=bg, edgecolor=border, linewidth=0.5)
             ax.add_patch(r)
 
+        def col_x(i):
+            return 0 if i == 0 else i + 1
+
+        def col_w(i):
+            return 2 if i == 0 else 1
+
         # ── Header ────────────────────────────────────────────────────────────
         headers = ['JOUR', 'MIN', 'DIST', '%DIST', 'HSR', '%HSR',
                    'DEC', '%DEC', 'PP', '%PP', 'VOL', 'INT', 'VOLUME', 'INTENSITE']
         for i, h in enumerate(headers):
-            draw_cell(i, 10.25, bg=HEADER_BG, border='white')
-            ax.text(i + 0.5, 10.25, h, ha='center', va='center',
+            draw_cell(col_x(i), 10.25, w=col_w(i), bg=HEADER_BG, border='white')
+            ax.text(col_x(i) + col_w(i)/2, 10.25, h, ha='center', va='center',
                     fontsize=7, fontweight='bold', color=WHITE)
 
         # ── Data rows ─────────────────────────────────────────────────────────
@@ -1104,8 +1110,8 @@ class WeeklyReportGenerator:
                    f'{volume_val}%', f'{intensite_val}%']
 
             for i, val in enumerate(row):
-                draw_cell(i, row_y)
-                ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+                draw_cell(col_x(i), row_y, w=col_w(i))
+                ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
                         fontsize=7, color=WHITE)
             row_y -= 0.5
 
@@ -1114,8 +1120,8 @@ class WeeklyReportGenerator:
         monotonie = (np.mean(all_distance) / np.std(all_distance))                     if len(all_distance) > 1 and np.std(all_distance) > 0 else 0
         mono_row = ['MONOTONIE', f'{monotonie:.2f}'] + [''] * 12
         for i, val in enumerate(mono_row):
-            draw_cell(i, row_y, bg='#2d3748')
-            ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+            draw_cell(col_x(i), row_y, w=col_w(i), bg='#2d3748')
+            ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
                     fontsize=7, fontweight='bold', color=WHITE)
         row_y -= 0.5
 
@@ -1135,8 +1141,8 @@ class WeeklyReportGenerator:
                      f'{tot_vol}%', f'{tot_int}%',
                      f'{tot_volume}%', f'{tot_intensite}%']
         for i, val in enumerate(total_row):
-            draw_cell(i, row_y, bg='#2d3748')
-            ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+            draw_cell(col_x(i), row_y, w=col_w(i), bg='#2d3748')
+            ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
                     fontsize=7, fontweight='bold', color=WHITE)
         row_y -= 0.5
 
@@ -1144,8 +1150,8 @@ class WeeklyReportGenerator:
         obj_row = ['OBJECTIF', 297, 28384, '250%', 2700, '150%',
                    86, '180%', 120, '250%', '', '', '85%', '95%']
         for i, val in enumerate(obj_row):
-            draw_cell(i, row_y, bg='#2d3748')
-            ax.text(i + 0.5, row_y, str(val), ha='center', va='center',
+            draw_cell(col_x(i), row_y, w=col_w(i), bg='#2d3748')
+            ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
                     fontsize=7, fontweight='bold', color=WHITE)
     
     @staticmethod
