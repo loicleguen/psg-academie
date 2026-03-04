@@ -1911,7 +1911,7 @@ class IndividualWeekReportGenerator:
 
         # Pas de scaling : on laisse le ylim dynamique couvrir tout le contenu
         ax.set_xlim(-0.005, 1.005)
-        ax.set_ylim(actual_bottom - 0.03, top_y + 0.60)
+        ax.set_ylim(actual_bottom - 0.03, top_y + 0.6)
 
         # Draw the three tables
         draw_table(0.0, top_y, 'PLAYER', player_daily, '#FFA500')
