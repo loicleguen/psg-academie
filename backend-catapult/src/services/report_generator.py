@@ -671,7 +671,7 @@ class WeeklyReportGenerator:
                     'impacts': 0,
                     'power_plays': 0,
                     'top_speed': 0,
-                    'session_dates': set(),  # Track unique dates
+                    'session_count': 0,  # Track total sessions
                     'speed_zone_3_km': 0,
                     'speed_zone_4_km': 0,
                     'speed_zone_5_km': 0
@@ -687,14 +687,11 @@ class WeeklyReportGenerator:
             player_totals[player]['impacts'] += session.get('impacts', 0)
             player_totals[player]['power_plays'] += session.get('power_plays', 0)
             player_totals[player]['top_speed'] = max(player_totals[player]['top_speed'], session.get('top_speed', 0))
-            # Add date to set (only unique dates will be counted)
-            player_totals[player]['session_dates'].add(session.get('date', ''))
+            # Compter toutes les séances (y compris double séance le même jour)
+            player_totals[player]['session_count'] += 1
         
-        # Convert set of dates to count
         result = []
         for player_name, data in player_totals.items():
-            data['session_count'] = len(data['session_dates'])
-            del data['session_dates']  # Remove the set, keep only the count
             result.append(data)
         
         return result
@@ -809,8 +806,7 @@ class WeeklyReportGenerator:
         # === GAUGES === (below header)
         gauge_ax = plt.axes([0.05, 0.68, 0.9, 0.12])
         # Calculate number of unique sessions (dates)
-        unique_dates = set(s.get("session_date", s.get("date")) for s in session_data)
-        session_count = len(unique_dates)
+        session_count = len(session_data)
         WeeklyReportGenerator._draw_gauges(gauge_ax, player_data, weekly_benchmarks, session_count)
         # === PLAYER TABLE === (main table)
         table_ax = plt.axes([0.05, 0.4, 0.9, 0.3])
