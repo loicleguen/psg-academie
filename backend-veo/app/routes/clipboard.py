@@ -4,14 +4,14 @@ clipboard.py
 Expose une route FastAPI pour parser du contenu brut copié depuis l’interface VEO,
 et le transformer en un format structuré exploitable par le frontend.
 
-Le système détecte automatiquement le type de menu (statistiques, carte de tirs, etc.) via
+Le système détecte automatiquement le type de menu (statistiques, carte des tirs, etc.) via
 des heuristiques de contenu, puis redirige le parsing vers le module adapté.
 
 Routes:
     POST /parse-veo-clipboard: Analyse le collage VEO et retourne les données structurées.
 """
 
-from typing import Annotated
+from typing import Annotated, Optional, Literal
 
 from app.services.clipboard_parser import parse_veo_clipboard
 from app.services.menu_detector import detect_veo_menu_type
@@ -40,6 +40,15 @@ class ClipboardInput(BaseModel):
     text: Annotated[str, constr(strip_whitespace=True, min_length=10)]
     club_prefix: Annotated[str, constr(strip_whitespace=True, min_length=2)] = "TEG"
 
+    # ✅ menu choisi côté front
+    menu_type: Optional[Literal[
+        "statistiques",
+        "carte_des_tirs",
+        "zone_de_passes",
+        "zone_de_possession",
+        "enchaînements_collectifs",
+    ]] = None
+
 
 @router.post("/parse-veo-clipboard")
 def parse_veo_clipboard_endpoint(
@@ -55,18 +64,20 @@ def parse_veo_clipboard_endpoint(
     Raises:
         HTTPException: Si le type de menu n'est pas reconnu ou si le parsing échoue.
     """
-    menu_type = detect_veo_menu_type(data.text)
+    if not data.menu_type:
+        raise HTTPException(status_code=422, detail="menu_type is required")
+    menu_type = data.menu_type
 
     try:
         if menu_type == "statistiques":
             parsed = parse_veo_clipboard(data.text, club_prefix=data.club_prefix)
-        elif menu_type == "carte_de_tirs":
+        elif menu_type == "carte_des_tirs":
             parsed = parse_veo_shotmap(data.text, club_prefix=data.club_prefix)
-        elif menu_type == "emplacement_des_passes":
+        elif menu_type == "zone_de_passes":
             parsed = parse_veo_pass_location(data.text)
         elif menu_type == "zone_de_possession":
             parsed = parse_veo_possession_zone(data.text)
-        elif menu_type == "enchaînements_de_passes":
+        elif menu_type == "enchaînements_collectifs":
             parsed = parse_veo_pass_sequence(data.text)
         else:
             raise HTTPException(
