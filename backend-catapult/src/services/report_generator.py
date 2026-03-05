@@ -24,6 +24,8 @@ class SessionReportGenerator:
         'text_gray': '#a0aec0',
         'pink': '#f687b3',
         'green': '#48bb78',
+        'light_green': '#68d391',
+        'yellow': '#ecc94b',
         'orange': '#ed8936',
         'red': '#f56565',
         'dark_green': '#2f855a',
@@ -282,7 +284,46 @@ class SessionReportGenerator:
                 player_max[player]['max_temps_ad_secs'],
                 session.get('temps_ad_secs', 0)
             )
-        
+
+        # Second pass: compute max weekly average per player (used by weekly report % columns)
+        # Group sessions by (player, iso_week)
+        from collections import defaultdict
+        player_weeks: Dict[str, Dict[str, Dict]] = defaultdict(lambda: defaultdict(lambda: {
+            'distance_km': 0, 'hsr': 0, 'sprint': 0,
+            'impacts': 0, 'power_plays': 0, 'dates': set()
+        }))
+        for session in all_sessions:
+            player = session.get('player_name', 'Unknown')
+            if player not in player_max:
+                continue
+            sd = session.get('session_date')
+            if sd is None:
+                continue
+            d = sd if isinstance(sd, datetime) else datetime.combine(sd, datetime.min.time())
+            wk = f"{d.year}-W{d.isocalendar()[1]:02d}"
+            pw = player_weeks[player][wk]
+            pw['distance_km'] += session.get('distance_km', 0)
+            pw['hsr'] += (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
+            pw['sprint'] += session.get('sprint_distance_m', 0)
+            pw['impacts'] += session.get('impacts', 0)
+            pw['power_plays'] += session.get('power_plays', 0)
+            pw['dates'].add(str(d.date()))
+
+        for player, weeks in player_weeks.items():
+            max_wk_dist = max_wk_hsr = max_wk_sprint = max_wk_imp = max_wk_pp = 0.0
+            for wk, data in weeks.items():
+                n = len(data['dates']) or 1
+                max_wk_dist   = max(max_wk_dist,   data['distance_km'] / n)
+                max_wk_hsr    = max(max_wk_hsr,    data['hsr']         / n)
+                max_wk_sprint = max(max_wk_sprint,  data['sprint']      / n)
+                max_wk_imp    = max(max_wk_imp,     data['impacts']     / n)
+                max_wk_pp     = max(max_wk_pp,      data['power_plays'] / n)
+            player_max[player]['max_weekly_avg_distance_km'] = max_wk_dist
+            player_max[player]['max_weekly_avg_hsr']         = max_wk_hsr
+            player_max[player]['max_weekly_avg_sprint']      = max_wk_sprint
+            player_max[player]['max_weekly_avg_impacts']     = max_wk_imp
+            player_max[player]['max_weekly_avg_pp']          = max_wk_pp
+
         return player_max
 
     @staticmethod
@@ -349,22 +390,23 @@ class SessionReportGenerator:
         ax.axis('off')
     
     @staticmethod
-    def get_color_for_percentile(value: float, percentile_33: float, percentile_66: float) -> str:
+    def get_color_for_pct(value: float) -> str:
         """
-        Get background color based on percentile
-        
-        Args:
-            value: The value to evaluate
-            percentile_33: 33rd percentile (bottom threshold)
-            percentile_66: 66th percentile (top threshold)
-            
-        Returns:
-            Hex color code
+        Get background color based on fixed percentage thresholds:
+          0-20  -> dark red
+          21-40 -> orange
+          41-60 -> yellow
+          61-80 -> light green
+          81+   -> dark green
         """
-        if value >= percentile_66:
+        if value > 80:
             return SessionReportGenerator.COLORS['dark_green']
-        elif value >= percentile_33:
-            return SessionReportGenerator.COLORS['dark_orange']
+        elif value > 60:
+            return SessionReportGenerator.COLORS['light_green']
+        elif value > 40:
+            return SessionReportGenerator.COLORS['yellow']
+        elif value > 20:
+            return SessionReportGenerator.COLORS['orange']
         else:
             return SessionReportGenerator.COLORS['dark_red']
     
@@ -527,20 +569,45 @@ class SessionReportGenerator:
         table_ax.set_facecolor(SessionReportGenerator.COLORS['background'])
         table_ax.axis('off')
         
-        # Calculate percentiles for color coding
-        distances = [s.get('distance_km', 0) for s in session_data]
-        hsrs = [s.get('sprint_distance_m', 0) for s in session_data]
-        decs = [s.get('impacts', 0) for s in session_data]
-        pps = [s.get('power_plays', 0) for s in session_data]
-        
-        p33_dist = np.percentile(distances, 33) if distances else 0
-        p66_dist = np.percentile(distances, 66) if distances else 0
-        p33_hsr = np.percentile(hsrs, 33) if hsrs else 0
-        p66_hsr = np.percentile(hsrs, 66) if hsrs else 0
-        p33_dec = np.percentile(decs, 33) if decs else 0
-        p66_dec = np.percentile(decs, 66) if decs else 0
-        p33_pp = np.percentile(pps, 33) if pps else 0
-        p66_pp = np.percentile(pps, 66) if pps else 0
+        # Pre-compute per-player % values and VOL/INT needed for percentile thresholds
+        _precomp = {}
+        for _p in session_data:
+            _name = _p.get('player_name', 'Unknown')
+            _pm = personal_max_by_player.get(_name, {})
+            _dist   = _p.get('distance_km', 0)
+            _hsr    = (_p.get('speed_zone_3_km', 0) + _p.get('speed_zone_4_km', 0) + _p.get('speed_zone_5_km', 0)) * 1000
+            _sprint = sprint_by_player.get(_name, _p.get('sprint_distance_m', _hsr))
+            _dec    = _p.get('impacts', 0)
+            _pp_val = _p.get('power_plays', 0)
+            _pct_dist   = (_dist   / _pm['max_distance_km']  * 100) if _pm.get('max_distance_km', 0)  > 0 else 0
+            _pct_hsr    = (_hsr    / _pm['max_hsr']          * 100) if _pm.get('max_hsr', 0)          > 0 else 0
+            _pct_sprint = (_sprint / _pm['max_sprint']       * 100) if _pm.get('max_sprint', 0)       > 0 else 0
+            _pct_dec    = (_dec    / _pm['max_impacts']      * 100) if _pm.get('max_impacts', 0)      > 0 else 0
+            _pct_pp     = (_pp_val / _pm['max_power_plays']  * 100) if _pm.get('max_power_plays', 0)  > 0 else 0
+            _max_ad = _pm.get('max_accel_count', 0) + _pm.get('max_decel_count', 0)
+            _ad     = _p.get('accel_count', 0) + _p.get('decel_count', 0)
+            _vol = int(((
+                (_dist   / _pm['max_distance_km'] if _pm.get('max_distance_km', 0) > 0 else 0) +
+                (_hsr    / _pm['max_hsr']          if _pm.get('max_hsr', 0)         > 0 else 0) +
+                (_sprint / _pm['max_sprint']       if _pm.get('max_sprint', 0)      > 0 else 0) +
+                (_ad     / _max_ad                 if _max_ad > 0 else 0)
+            ) / 4) * 100)
+            _dur   = _p.get('duration', 0)
+            _z345  = _p.get('speed_zone_3_secs', 0) + _p.get('speed_zone_4_secs', 0) + _p.get('speed_zone_5_secs', 0)
+            _z45   = _p.get('speed_zone_4_secs', 0) + _p.get('speed_zone_5_secs', 0)
+            _tad   = _p.get('temps_ad_secs', 0)
+            _int = int(((
+                (_dur  / _pm['max_duration']      if _pm.get('max_duration', 0)      > 0 else 0) +
+                (_z345 / _pm.get('max_z345', 0)   if _pm.get('max_z345', 0)          > 0 else 0) +
+                (_z45  / _pm.get('max_z45', 0)    if _pm.get('max_z45', 0)           > 0 else 0) +
+                (_tad  / _pm['max_temps_ad_secs'] if _pm.get('max_temps_ad_secs', 0) > 0 else 0)
+            ) / 4) * 100)
+            _precomp[_name] = {
+                'pct_dist': _pct_dist, 'pct_hsr': _pct_hsr, 'pct_sprint': _pct_sprint,
+                'pct_dec': _pct_dec, 'pct_pp': _pct_pp, 'vol': _vol, 'int': _int
+            }
+
+        # Colors are based on fixed % thresholds, no percentile computation needed
         
         # Column headers
         headers = ['JOUEUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 
@@ -645,12 +712,16 @@ class SessionReportGenerator:
                 f"{int_pct}%"
             ]
             
-            # Determine colors for specific columns
+            # Determine colors for specific columns (fixed % thresholds)
+            _pc = _precomp.get(player_name, {})
             colors = [SessionReportGenerator.COLORS['background']] * num_cols
-            colors[2] = SessionReportGenerator.get_color_for_percentile(distance, p33_dist, p66_dist)
-            colors[4] = SessionReportGenerator.get_color_for_percentile(hsr, p33_hsr, p66_hsr)
-            colors[9] = SessionReportGenerator.get_color_for_percentile(dec, p33_dec, p66_dec)
-            colors[11] = SessionReportGenerator.get_color_for_percentile(pp, p33_pp, p66_pp)
+            colors[3]  = SessionReportGenerator.get_color_for_pct(_pc.get('pct_dist',   0))
+            colors[5]  = SessionReportGenerator.get_color_for_pct(_pc.get('pct_hsr',    0))
+            colors[7]  = SessionReportGenerator.get_color_for_pct(_pc.get('pct_sprint', 0))
+            colors[10] = SessionReportGenerator.get_color_for_pct(_pc.get('pct_dec',    0))
+            colors[12] = SessionReportGenerator.get_color_for_pct(_pc.get('pct_pp',     0))
+            colors[14] = SessionReportGenerator.get_color_for_pct(_pc.get('vol',        0))
+            colors[15] = SessionReportGenerator.get_color_for_pct(_pc.get('int',        0))
             
             for col_idx, (value, bg_color) in enumerate(zip(row_data, colors)):
                 x = sum(col_widths[:col_idx])  # Position cumulative
@@ -666,12 +737,13 @@ class SessionReportGenerator:
                 # Text alignment
                 alignment = 'left' if col_idx == 0 else 'center'
                 x_text = x + 0.01 if col_idx == 0 else x + current_width/2
+                cell_text_color = '#000000' if bg_color != SessionReportGenerator.COLORS['background'] else SessionReportGenerator.COLORS['text_white']
                 
                 table_ax.text(
                     x_text, y + row_height/2, value,
                     ha=alignment, va='center',
                     fontsize=7,
-                    color=SessionReportGenerator.COLORS['text_white']
+                    color=cell_text_color
                 )
         
         table_ax.set_xlim(0, 1)
@@ -728,9 +800,10 @@ class WeeklyReportGenerator:
             # Get date string for counting unique sessions
             date_str = session_date.strftime('%Y-%m-%d')
             
-            # Add totals
+            # Add totals — HSR from speed zones 3+4+5 (consistent with session report)
+            session_hsr = (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
             weekly_data[week_key]['distance_km'] += session.get('distance_km', 0)
-            weekly_data[week_key]['sprint_distance_m'] += session.get('sprint_distance_m', 0)
+            weekly_data[week_key]['sprint_distance_m'] += session_hsr
             weekly_data[week_key]['impacts'] += session.get('impacts', 0)
             weekly_data[week_key]['power_plays'] += session.get('power_plays', 0)
             weekly_data[week_key]['dates'].add(date_str)
@@ -919,8 +992,9 @@ class WeeklyReportGenerator:
         
         # === GAUGES === (below header)
         gauge_ax = plt.axes([0.05, 0.68, 0.9, 0.12])
-        # Calculate number of unique sessions (dates)
-        session_count = len(session_data)
+        # Count unique session dates (not player-session rows)
+        unique_dates = len(set(s.get('session_date', s.get('date', '')) for s in session_data))
+        session_count = unique_dates if unique_dates > 0 else 1
         WeeklyReportGenerator._draw_gauges(gauge_ax, player_data, weekly_benchmarks, session_count)
         # === PLAYER TABLE === (main table)
         table_ax = plt.axes([0.05, 0.4, 0.9, 0.3])
@@ -1062,21 +1136,10 @@ class WeeklyReportGenerator:
         ax.set_xlim(0, 15)
         ax.set_ylim(0, max(len(player_data) + 2, 10))
         
-        # Calculate percentiles for color coding
-        if player_data:
-            distances = [p['distance_km'] for p in player_data]
-            hsrs = [p['sprint_distance_m'] for p in player_data]
-            impacts_list = [p['impacts'] for p in player_data]
-            pp_list = [p['power_plays'] for p in player_data]
-            
-            import numpy as np
-            dist_p33, dist_p66 = np.percentile(distances, [33, 66]) if distances else (0, 0)
-            hsr_p33, hsr_p66 = np.percentile(hsrs, [33, 66]) if hsrs else (0, 0)
-            imp_p33, imp_p66 = np.percentile(impacts_list, [33, 66]) if impacts_list else (0, 0)
-            pp_p33, pp_p66 = np.percentile(pp_list, [33, 66]) if pp_list else (0, 0)
+        # Colors based on fixed % thresholds — no percentile computation needed
         
         # Headers
-        headers = ['JOUEUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'SPRINT', '%SPRINT', 'VMAX', '%VMAX', 'DEC', '%DEC', 'POWER PLAT', '%PP', 'VOL', 'INT', 'NB SEANCES']
+        headers = ['JOUEUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'SPRINT', '%SPRINT', 'VMAX', '%VMAX', 'DEC', '%DEC', 'POWER PLAY', '%PP', 'VOL', 'INT', 'NB SEANCES']
         col_widths = [2.5, 0.8, 0.8, 0.8, 0.9, 0.7, 0.9, 0.7, 0.7, 0.7, 0.7, 0.7, 0.9, 0.7, 0.7, 0.7, 0.9]
         
         x_pos = 0
@@ -1101,7 +1164,8 @@ class WeeklyReportGenerator:
             y -= 1
             minutes = player['duration'] // 60
             distance = int(player['distance_km'] * 1000)  # Convert to meters
-            hsr = int(player['sprint_distance_m'])
+            hsr = int((player.get('speed_zone_3_km', 0) + player.get('speed_zone_4_km', 0) + player.get('speed_zone_5_km', 0)) * 1000)
+            sprint = int(player.get('sprint_distance_m', 0))
             impacts = player['impacts']
             pp = player['power_plays']
             vmax_raw = player['top_speed']  # m/s, pour calcul du %
@@ -1112,21 +1176,24 @@ class WeeklyReportGenerator:
             # Get personal max for this player
             player_name = player['player_name']
             player_personal_max = personal_max.get(player_name, {})
-            personal_max_dist = player_personal_max.get('max_distance_km', 1) * 1000  # Convert to meters
-            personal_max_hsr = player_personal_max.get('max_hsr', 1)
-            personal_max_impacts = player_personal_max.get('max_impacts', 1)
-            personal_max_pp = player_personal_max.get('max_power_plays', 1)
-            
-            # Calculate average per session
-            avg_dist_per_session = distance / sessions if sessions > 0 else 0
-            avg_hsr_per_session = hsr / sessions if sessions > 0 else 0
-            avg_impacts_per_session = impacts / sessions if sessions > 0 else 0
-            avg_pp_per_session = pp / sessions if sessions > 0 else 0
-            
-            # Calculate percentages: (Average per session) / (Personal max) * 100
-            dist_pct = int((avg_dist_per_session / personal_max_dist) * 100) if personal_max_dist > 0 else 0
-            hsr_pct = int((avg_hsr_per_session / personal_max_hsr) * 100) if personal_max_hsr > 0 else 0
-            spr_pct = hsr_pct  # Same as HSR for sprint distance
+            # Use max weekly average as denominator (already in same unit as avg/séance)
+            personal_max_dist    = player_personal_max.get('max_weekly_avg_distance_km', 1) * 1000  # km → m
+            personal_max_hsr     = player_personal_max.get('max_weekly_avg_hsr', 1)
+            personal_max_sprint  = player_personal_max.get('max_weekly_avg_sprint', 1)
+            personal_max_impacts = player_personal_max.get('max_weekly_avg_impacts', 1)
+            personal_max_pp      = player_personal_max.get('max_weekly_avg_pp', 1)
+
+            # Average per session this week
+            avg_dist_per_session    = distance / sessions if sessions > 0 else 0
+            avg_hsr_per_session     = hsr      / sessions if sessions > 0 else 0
+            avg_sprint_per_session  = sprint   / sessions if sessions > 0 else 0
+            avg_impacts_per_session = impacts  / sessions if sessions > 0 else 0
+            avg_pp_per_session      = pp       / sessions if sessions > 0 else 0
+
+            # % = (avg this week) / (best avg week historically) * 100
+            dist_pct = int((avg_dist_per_session   / personal_max_dist)    * 100) if personal_max_dist    > 0 else 0
+            hsr_pct  = int((avg_hsr_per_session    / personal_max_hsr)     * 100) if personal_max_hsr     > 0 else 0
+            spr_pct  = int((avg_sprint_per_session / personal_max_sprint)  * 100) if personal_max_sprint  > 0 else 0
             personal_max_vmax = player_personal_max.get('max_top_speed', 0)
             pmax_pct = int((vmax_raw / personal_max_vmax) * 100) if personal_max_vmax > 0 else 0
             dec_pct = int((avg_impacts_per_session / personal_max_impacts) * 100) if personal_max_impacts > 0 else 0
@@ -1138,36 +1205,28 @@ class WeeklyReportGenerator:
             vol_pct = int((avg_distance_per_session / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
             
             # INT% = average intensity per session as percentage of benchmark
-            avg_hsr_per_session = player['sprint_distance_m'] / sessions if sessions > 0 else 0
-            avg_impacts_per_session = impacts / sessions if sessions > 0 else 0
-            avg_pp_per_session = pp / sessions if sessions > 0 else 0
             intensity_pct = int((avg_hsr_per_session / benchmarks.get('hsr_total', 5000) + 
                                 avg_impacts_per_session / benchmarks.get('dec_total', 100) + 
                                 avg_pp_per_session / benchmarks.get('power_plays', 200)) / 3 * 100)
             
-            # Get colors based on percentiles
-            dist_color = SessionReportGenerator.get_color_for_percentile(player['distance_km'], dist_p33, dist_p66)
-            hsr_color = SessionReportGenerator.get_color_for_percentile(player['sprint_distance_m'], hsr_p33, hsr_p66)
-            imp_color = SessionReportGenerator.get_color_for_percentile(impacts, imp_p33, imp_p66)
-            pp_color = SessionReportGenerator.get_color_for_percentile(pp, pp_p33, pp_p66)
-            
+            # Get colors based on fixed % thresholds
             row_data = [
                 (player['player_name'][:20], None, 'center'),
                 (str(minutes), None, 'center'),
-                (str(distance), dist_color, 'center'),
-                (f'{dist_pct}%', None, 'center'),
-                (str(hsr), hsr_color, 'center'),
-                (f'{hsr_pct}%', None, 'center'),
-                (str(hsr), hsr_color, 'center'),
-                (f'{spr_pct}%', None, 'center'),
+                (str(distance), None, 'center'),
+                (f'{dist_pct}%', SessionReportGenerator.get_color_for_pct(dist_pct), 'center'),
+                (str(hsr), None, 'center'),
+                (f'{hsr_pct}%', SessionReportGenerator.get_color_for_pct(hsr_pct), 'center'),
+                (str(sprint), None, 'center'),
+                (f'{spr_pct}%', SessionReportGenerator.get_color_for_pct(spr_pct), 'center'),
                 (f'{pmax:.1f}', None, 'center'),
-                (f'{pmax_pct}%', None, 'center'),
-                (str(impacts), imp_color, 'center'),
-                (f'{dec_pct}%', None, 'center'),
-                (str(pp), pp_color, 'center'),
-                (f'{pp_pct}%', None, 'center'),
-                (f'{vol_pct}%', None, 'center'),
-                (f'{intensity_pct}%', None, 'center'),
+                (f'{pmax_pct}%', SessionReportGenerator.get_color_for_pct(pmax_pct), 'center'),
+                (str(impacts), None, 'center'),
+                (f'{dec_pct}%', SessionReportGenerator.get_color_for_pct(dec_pct), 'center'),
+                (str(pp), None, 'center'),
+                (f'{pp_pct}%', SessionReportGenerator.get_color_for_pct(pp_pct), 'center'),
+                (f'{vol_pct}%', SessionReportGenerator.get_color_for_pct(vol_pct), 'center'),
+                (f'{intensity_pct}%', SessionReportGenerator.get_color_for_pct(intensity_pct), 'center'),
                 (str(sessions), None, 'center')
             ]
             
@@ -1185,7 +1244,7 @@ class WeeklyReportGenerator:
                 ax.add_patch(rect)
                 
                 # Draw text
-                text_color = WeeklyReportGenerator.COLORS['text_white'] if bgcolor else WeeklyReportGenerator.COLORS['text_white']
+                text_color = '#000000' if bgcolor else WeeklyReportGenerator.COLORS['text_white']
                 ax.text(x_pos + (0 if align == 'left' else width/2), y, value,
                        ha=align, va='center', fontsize=6, color=text_color)
                 x_pos += width
@@ -1713,26 +1772,21 @@ class IndividualWeekReportGenerator:
                 dec_pct = int((dec / player_max['dec'] * 100)) if player_max['dec'] > 0 else 0
                 pp_pct = int((pp / player_max['pp'] * 100)) if player_max['pp'] > 0 else 0
                 
-                # Color coding based on percentages
-                dist_color = SessionReportGenerator.COLORS['green'] if dist_pct >= 50 else (SessionReportGenerator.COLORS['orange'] if dist_pct >= 30 else SessionReportGenerator.COLORS['red'])
-                hsr_color = SessionReportGenerator.COLORS['green'] if hsr_pct >= 50 else (SessionReportGenerator.COLORS['orange'] if hsr_pct >= 30 else SessionReportGenerator.COLORS['red'])
-                sprint_color = SessionReportGenerator.COLORS['green'] if sprint_pct >= 50 else (SessionReportGenerator.COLORS['orange'] if sprint_pct >= 30 else SessionReportGenerator.COLORS['red'])
-                
                 row_data = [
                     (_day_label(day), None, 'center'),
                     (str(minutes), None, 'center'),
-                    (str(distance), dist_color, 'center'),
-                    (f'{dist_pct}%', None, 'center'),
-                    (str(hsr), hsr_color, 'center'),
-                    (f'{hsr_pct}%', None, 'center'),
-                    (str(sprint), sprint_color, 'center'),
-                    (f'{sprint_pct}%', None, 'center'),
+                    (str(distance), None, 'center'),
+                    (f'{dist_pct}%', SessionReportGenerator.get_color_for_pct(dist_pct), 'center'),
+                    (str(hsr), None, 'center'),
+                    (f'{hsr_pct}%', SessionReportGenerator.get_color_for_pct(hsr_pct), 'center'),
+                    (str(sprint), None, 'center'),
+                    (f'{sprint_pct}%', SessionReportGenerator.get_color_for_pct(sprint_pct), 'center'),
                     (f'{vmax:.1f}', None, 'center'),
-                    (f'{vmax_pct}%', None, 'center'),
+                    (f'{vmax_pct}%', SessionReportGenerator.get_color_for_pct(vmax_pct), 'center'),
                     (str(dec), None, 'center'),
-                    (f'{dec_pct}%', None, 'center'),
+                    (f'{dec_pct}%', SessionReportGenerator.get_color_for_pct(dec_pct), 'center'),
                     (str(pp), None, 'center'),
-                    (f'{pp_pct}%', None, 'center'),
+                    (f'{pp_pct}%', SessionReportGenerator.get_color_for_pct(pp_pct), 'center'),
                     (f'{pl:.1f}', None, 'center')
                 ]
             
@@ -1747,7 +1801,7 @@ class IndividualWeekReportGenerator:
                                    edgecolor='#4a5568', linewidth=0.5)
                 ax.add_patch(rect)
                 
-                text_color = IndividualWeekReportGenerator.COLORS['text_white']
+                text_color = '#000000' if bgcolor else IndividualWeekReportGenerator.COLORS['text_white']
                 ax.text(x_pos + width/2, y, value,
                        ha='center', va='center', fontsize=7, color=text_color)
                 x_pos += width
