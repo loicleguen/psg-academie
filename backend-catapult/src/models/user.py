@@ -2,6 +2,8 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import Column
+from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -14,6 +16,7 @@ class UserRole(str, Enum):
 
     ADMIN = "admin"
     COACH = "coach"
+    ANALYST = "analyst"
     PLAYER = "player"
 
 
@@ -23,7 +26,17 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True, max_length=255)
     hashed_password: str = Field(max_length=255)
-    role: UserRole = Field(default=UserRole.PLAYER)
+    role: UserRole = Field(
+        default=UserRole.PLAYER,
+        sa_column=Column(
+            SAEnum(
+                UserRole,
+                name="userrole",
+                values_callable=lambda enum_cls: [e.value for e in enum_cls],
+            ),
+            nullable=False,
+        ),
+    )
     is_active: bool = Field(default=True)
     full_name: Optional[str] = Field(default=None, max_length=255)
     player_name: Optional[str] = Field(default=None, index=True)
