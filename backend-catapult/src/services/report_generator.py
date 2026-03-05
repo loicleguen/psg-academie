@@ -1016,7 +1016,7 @@ class WeeklyReportGenerator:
         WeeklyReportGenerator._draw_daily_table(daily_table_ax, day_data, weekly_benchmarks)
 
         # === TREND GRAPH === (pleine largeur, en dessous)
-        graph_ax = plt.axes([0.05, 0.03, 0.9, 0.17])
+        graph_ax = plt.axes([0.05, 0.12, 0.9, 0.17])
         WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, weekly_benchmarks)
 
         # Save to bytes
@@ -1333,6 +1333,7 @@ class WeeklyReportGenerator:
         all_minutes, all_dist_km, all_hsr_m, all_sprint_m = [], [], [], []
         all_vmax_kh, all_dec, all_pp = [], [], []
         all_vol_pct, all_int_pct, all_volume, all_intensite = [], [], [], []
+        all_dist_pct, all_hsr_pct, all_sprint_pct, all_dec_pct, all_pp_pct = [], [], [], [], []
 
         for day in ordered_keys:
             data = day_data[day]
@@ -1382,6 +1383,9 @@ class WeeklyReportGenerator:
             all_pp.append(pp_val);         all_vol_pct.append(vol_pct)
             all_int_pct.append(int_pct);   all_volume.append(volume_val)
             all_intensite.append(intensite_val)
+            all_dist_pct.append(dist_pct); all_hsr_pct.append(hsr_pct)
+            all_sprint_pct.append(sprint_pct)
+            all_dec_pct.append(dec_pct);   all_pp_pct.append(pp_pct)
 
             # Cellules valeur
             draw_cell(0, row_y); cell_text(0, row_y, label)
@@ -1426,8 +1430,8 @@ class WeeklyReportGenerator:
                             (8, all_vmax_kh), (10, all_dec),   (12, all_pp)]:
             draw_cell(col_i, row_y, span=2, bg=DARK_BG)
             cell_text(col_i, row_y, _mono(vals), span=2, bold=True)
-        draw_cell(14, row_y, bg=DARK_BG); cell_text(14, row_y, _mono(all_vol_pct), bold=True)
-        draw_cell(15, row_y, bg=DARK_BG); cell_text(15, row_y, _mono(all_int_pct), bold=True)
+        draw_cell(14, row_y, bg=DARK_BG)
+        draw_cell(15, row_y, bg=DARK_BG)
         draw_cell(16, row_y, bg=DARK_BG)
         draw_cell(17, row_y, bg=DARK_BG)
         row_y -= 0.5
@@ -1439,21 +1443,26 @@ class WeeklyReportGenerator:
         tot_sprint = sum(all_sprint_m)
         tot_dec    = sum(all_dec)
         tot_pp     = sum(all_pp)
-        avg_vol    = int(sum(all_vol_pct)    / len(all_vol_pct))    if all_vol_pct    else 0
-        avg_int    = int(sum(all_int_pct)    / len(all_int_pct))    if all_int_pct    else 0
-        avg_vol2   = round(sum(all_volume)   / len(all_volume),   1) if all_volume   else 0
-        avg_int2   = round(sum(all_intensite) / len(all_intensite), 1) if all_intensite else 0
+        # % totaux = somme des % journaliers
+        tot_dist_pct   = sum(all_dist_pct)
+        tot_hsr_pct    = sum(all_hsr_pct)
+        tot_sprint_pct = sum(all_sprint_pct)
+        tot_dec_pct    = sum(all_dec_pct)
+        tot_pp_pct     = sum(all_pp_pct)
+        # VMAX = moyenne des valeurs journalières, %VMAX vs objectif 31.51
+        avg_vmax       = round(sum(all_vmax_kh) / len(all_vmax_kh), 2) if all_vmax_kh else 0
+        tot_vmax_pct   = int(avg_vmax / 31.51 * 100) if avg_vmax > 0 else 0
 
         total_vals = [
-            'TOTAL',           str(tot_min),
-            f'{tot_dist:.2f}', '',
-            str(tot_hsr),      '',
-            str(tot_sprint),   '',
-            '',                '',
-            str(tot_dec),      '',
-            str(tot_pp),       '',
-            f'{avg_vol}%',     f'{avg_int}%',
-            f'{avg_vol2}%',    f'{avg_int2}%',
+            'TOTAL',                       str(tot_min),
+            f'{tot_dist:.2f}',             f'{tot_dist_pct}%',
+            str(tot_hsr),                  f'{tot_hsr_pct}%',
+            str(tot_sprint),               f'{tot_sprint_pct}%',
+            f'{avg_vmax:.2f}',             f'{tot_vmax_pct}%',
+            str(tot_dec),                  f'{tot_dec_pct}%',
+            str(tot_pp),                   f'{tot_pp_pct}%',
+            '',                            '',
+            '',                            '',
         ]
         for i, val in enumerate(total_vals):
             draw_cell(i, row_y, bg=DARK_BG)
@@ -1462,8 +1471,8 @@ class WeeklyReportGenerator:
 
         # ── OBJECTIF ─────────────────────────────────────────────────────
         obj_vals = ['OBJECTIF', '', '28.38', '250%', '2700', '150%',
-                    '', '85%', '', '', '86', '180%', '120', '250%',
-                    '', '', '85%', '95%']
+                    '909', '85%', '31.51', '95%', '120', '250%', '185', '200%',
+                    '', '', '', '']
         for i, val in enumerate(obj_vals):
             draw_cell(i, row_y, bg=DARK_BG)
             cell_text(i, row_y, val, bold=True)
