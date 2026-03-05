@@ -941,15 +941,13 @@ class WeeklyReportGenerator:
             has_ap = 'AP' in slots
 
             if has_ma or has_ap:
-                # Séparer matin et après-midi
+                # Séparer matin, après-midi et séances sans marqueur
                 ma_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'MA']
                 ap_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'AP']
-                # Sessions sans marqueur → rattacher à l'après-midi (ou matin si pas d'AM)
                 other = [s for s in sessions if get_slot(s.get('session_title', '')) == '']
-                if has_ap:
-                    ap_sessions += other
-                else:
-                    ma_sessions += other
+                # Garder les séances sans tag séparément (poids, récup…)
+                if other:
+                    result[day_name] = _sum_sessions(other)
                 if ma_sessions:
                     result[f'{day_name} MA'] = _sum_sessions(ma_sessions)
                 if ap_sessions:
@@ -1513,10 +1511,9 @@ class IndividualWeekReportGenerator:
                 ma_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'MA']
                 ap_sessions = [s for s in sessions if get_slot(s.get('session_title', '')) == 'AP']
                 other = [s for s in sessions if get_slot(s.get('session_title', '')) == '']
-                if has_ap:
-                    ap_sessions += other
-                else:
-                    ma_sessions += other
+                # Garder les séances sans tag comme entrée de base séparée
+                if other:
+                    result[day_name] = _sum(other)
                 if ma_sessions:
                     result[f'{day_name} MA'] = _sum(ma_sessions)
                 if ap_sessions:
@@ -1689,17 +1686,22 @@ class IndividualWeekReportGenerator:
         """Draw main day-by-day table with percentages"""
         ax.axis('off')
         ax.set_xlim(0, 16)
-        ax.set_ylim(0, 12)
-        
+        n_rows = len(daily_data)
+        # header(1) + data rows + TOTAL(1.1) + OBJECTIF(1) + MONOTONIE(1) + margin
+        min_height = 1 + n_rows + 3.5
+        ylim_max = max(12, min_height + 1)
+        ax.set_ylim(0, ylim_max)
+
         from matplotlib.patches import Rectangle
         import numpy as np
-        
+
         # Headers
         headers = ['JOUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 'SPRINT', '%SPRINT', 'VMAX', '%VMAX', 'DEC', '%DEC', 'POWER PLAY', '%PP', 'PLAYER LOAD']
         col_widths = [1.5, 0.8, 0.9, 0.7, 0.8, 0.7, 0.8, 0.7, 0.7, 0.7, 0.7, 0.7, 1.0, 0.7, 1.2]
-        
+
         x_pos = 0
-        y = 11
+        y_top = ylim_max - 2  # toujours ancré 1 unité sous le bord supérieur
+        y = y_top
         for header, width in zip(headers, col_widths):
             rect = Rectangle((x_pos, y-0.4), width, 0.8,
                            facecolor=IndividualWeekReportGenerator.COLORS['header_bg'], 
@@ -2135,7 +2137,7 @@ class IndividualWeekReportGenerator:
         IndividualWeekReportGenerator._draw_header(header_ax, player_name, position, week_start, week_end, week_number)
         
         # === MAIN TABLE ===
-        table_ax = plt.axes([0.05, 0.50, 0.76, 0.42])
+        table_ax = plt.axes([0.05, 0.48, 0.76, 0.46])
         IndividualWeekReportGenerator._draw_daily_table(table_ax, daily_data, player_max, player_name)
 
         # Daily aggregates for position and team (needed for graphs and comparison)
@@ -2143,7 +2145,7 @@ class IndividualWeekReportGenerator:
         team_daily = IndividualWeekReportGenerator.aggregate_by_day_average(team_sessions)
         
         # === GRAPHS ===
-        graph_ax = plt.axes([0.05, 0.1, 0.6, 0.35])
+        graph_ax = plt.axes([0.05, 0.08, 0.6, 0.30])
         IndividualWeekReportGenerator._draw_graphs(graph_ax, daily_data, position_daily, team_daily)
         
         # === COMPARISON TABLES ===
@@ -2151,8 +2153,8 @@ class IndividualWeekReportGenerator:
         IndividualWeekReportGenerator._draw_comparison_tables(comparison_ax, daily_data, position_daily, team_daily)
         
         # === LEGEND (horizontal, alignée en bas des graphiques) ===
-        # [x, y_bottom, width, height] — bottom à 0.10 = bas des graphiques
-        legend_ax = plt.axes([0.7, 0.1, 0.10, 0.20])
+        # [x, y_bottom, width, height] — bottom à 0.08 = bas des graphiques
+        legend_ax = plt.axes([0.7, 0.08, 0.10, 0.20])
         legend_ax.axis('off')
         legend_ax.set_xlim(0, 1)
         legend_ax.set_ylim(0, 1)
