@@ -1284,7 +1284,7 @@ class WeeklyReportGenerator:
 
         _raw_w = [2.0, 0.7, 0.85, 0.7, 0.8, 0.7, 0.8, 0.7, 0.75, 0.7,
                   0.75, 0.7, 0.75, 0.7, 0.7, 0.7, 0.8, 0.8]
-        _scale     = 15.0 / sum(_raw_w)
+        _scale     = 14.8 / sum(_raw_w)
         col_widths = [w * _scale for w in _raw_w]
 
         def cx(i):
@@ -1304,7 +1304,7 @@ class WeeklyReportGenerator:
                     fontweight='bold' if bold else 'normal',
                     color=color)
 
-        ax.set_xlim(-0.1, sum(col_widths) + 0.1)
+        ax.set_xlim(0, 15)
         ax.set_ylim(0, 11)
 
         # ── Header ───────────────────────────────────────────────────────
