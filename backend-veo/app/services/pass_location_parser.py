@@ -1,7 +1,7 @@
 """
 pass_location_parser.py
 
-Parseur pour le menu VEO "Emplacement de la passe".
+Parseur pour le menu VEO "Zone de passe".
 Extrait les pourcentages de passes par zone : Défense, Milieu, Attaque.
 
 Fonction principale :
@@ -29,7 +29,7 @@ def _validate_percent(value: str) -> str:
 
 def parse_veo_pass_location(raw_text: str) -> Dict:
     """
-    Parse le menu "Emplacement de la passe" de VEO.
+    Parse le menu "Zone de passes" de VEO.
 
     Attend 3 pourcentages suivis de 3 labels de zone (Défense, Milieu, Attaque).
 
@@ -48,7 +48,7 @@ def parse_veo_pass_location(raw_text: str) -> Dict:
 
     if len(lines) != 6:
         raise ValueError(
-            "Le menu 'Emplacement de la passe' doit contenir exactement 6 lignes."
+            "Le menu 'Zone de passes' doit contenir exactement 6 lignes."
         )
 
     percents = lines[:3]
@@ -63,4 +63,4 @@ def parse_veo_pass_location(raw_text: str) -> Dict:
 
     data = {zone: percent for zone, percent in zip(zones, percents)}
 
-    return {"type": "emplacement_de_la_passe", "data": data}
+    return {"type": "zone_de_passes", "data": data}

@@ -1,7 +1,7 @@
 """
 pass_sequence_parser.py
 
-Parseur pour le menu VEO "Enchaînements de passes".
+Parseur pour le menu VEO "Enchaînements collectifs".
 Extrait les statistiques sur les séries de passes.
 
 Fonction principale :
@@ -38,7 +38,7 @@ def parse_veo_pass_sequence(raw_text: str) -> Dict:
 
     if len(lines) != 6:
         raise ValueError(
-            "Le menu 'Enchaînements de passes' doit contenir exactement 6 lignes."
+            "Le menu 'Enchaînements collectifs' doit contenir exactement 6 lignes."
         )
 
     data = {}
@@ -56,4 +56,4 @@ def parse_veo_pass_sequence(raw_text: str) -> Dict:
 
         data[label] = int(value)
 
-    return {"type": "enchaînements_de_passes", "data": data}
+    return {"type": "enchaînements_collectifs", "data": data}
