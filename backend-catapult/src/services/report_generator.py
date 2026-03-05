@@ -785,6 +785,7 @@ class WeeklyReportGenerator:
         weekly_data = defaultdict(lambda: {
             'distance_km': 0,
             'sprint_distance_m': 0,
+            'actual_sprint_m': 0,
             'impacts': 0,
             'power_plays': 0,
             'session_count': 0,
@@ -804,6 +805,7 @@ class WeeklyReportGenerator:
             session_hsr = (session.get('speed_zone_3_km', 0) + session.get('speed_zone_4_km', 0) + session.get('speed_zone_5_km', 0)) * 1000
             weekly_data[week_key]['distance_km'] += session.get('distance_km', 0)
             weekly_data[week_key]['sprint_distance_m'] += session_hsr
+            weekly_data[week_key]['actual_sprint_m'] += session.get('sprint_distance_m', 0)
             weekly_data[week_key]['impacts'] += session.get('impacts', 0)
             weekly_data[week_key]['power_plays'] += session.get('power_plays', 0)
             weekly_data[week_key]['dates'].add(date_str)
@@ -815,27 +817,31 @@ class WeeklyReportGenerator:
         # Find max AVERAGE per session across all weeks
         max_avg_distance = 0
         max_avg_hsr = 0
+        max_avg_sprint = 0
         max_avg_impacts = 0
         max_avg_pp = 0
         
         for week_key, data in weekly_data.items():
             session_count = data['session_count']
             if session_count > 0:
-                avg_dist = data['distance_km'] / session_count
-                avg_hsr = data['sprint_distance_m'] / session_count
-                avg_imp = data['impacts'] / session_count
-                avg_pp = data['power_plays'] / session_count
-                
+                avg_dist   = data['distance_km']    / session_count
+                avg_hsr    = data['sprint_distance_m'] / session_count
+                avg_sprint = data['actual_sprint_m'] / session_count
+                avg_imp    = data['impacts']         / session_count
+                avg_pp     = data['power_plays']     / session_count
+
                 max_avg_distance = max(max_avg_distance, avg_dist)
-                max_avg_hsr = max(max_avg_hsr, avg_hsr)
-                max_avg_impacts = max(max_avg_impacts, avg_imp)
-                max_avg_pp = max(max_avg_pp, avg_pp)
+                max_avg_hsr      = max(max_avg_hsr,      avg_hsr)
+                max_avg_sprint   = max(max_avg_sprint,   avg_sprint)
+                max_avg_impacts  = max(max_avg_impacts,  avg_imp)
+                max_avg_pp       = max(max_avg_pp,       avg_pp)
         
         return {
-            'distance_km': max_avg_distance,
-            'hsr_total': max_avg_hsr,
-            'dec_total': max_avg_impacts,
-            'power_plays': max_avg_pp
+            'distance_km':  max_avg_distance,
+            'hsr_total':    max_avg_hsr,
+            'sprint_total': max_avg_sprint,
+            'dec_total':    max_avg_impacts,
+            'power_plays':  max_avg_pp
         }
 
     
@@ -919,16 +925,20 @@ class WeeklyReportGenerator:
         def _sum_sessions(sessions):
             totals = {
                 'duration': 0, 'distance_km': 0.0, 'sprint_distance_m': 0.0,
+                'speed_zone_3_km': 0.0, 'speed_zone_4_km': 0.0, 'speed_zone_5_km': 0.0,
                 'impacts': 0, 'power_plays': 0, 'top_speed': 0.0,
                 'player_count': set()
             }
             for s in sessions:
-                totals['duration']         += s.get('duration', 0)
-                totals['distance_km']      += s.get('distance_km', 0)
-                totals['sprint_distance_m']+= s.get('sprint_distance_m', 0)
-                totals['impacts']          += s.get('impacts', 0)
-                totals['power_plays']      += s.get('power_plays', 0)
-                totals['top_speed']         = max(totals['top_speed'], s.get('top_speed', 0))
+                totals['duration']          += s.get('duration', 0)
+                totals['distance_km']       += s.get('distance_km', 0)
+                totals['sprint_distance_m'] += s.get('sprint_distance_m', 0)
+                totals['speed_zone_3_km']   += s.get('speed_zone_3_km', 0)
+                totals['speed_zone_4_km']   += s.get('speed_zone_4_km', 0)
+                totals['speed_zone_5_km']   += s.get('speed_zone_5_km', 0)
+                totals['impacts']           += s.get('impacts', 0)
+                totals['power_plays']       += s.get('power_plays', 0)
+                totals['top_speed']          = max(totals['top_speed'], s.get('top_speed', 0))
                 if s.get('player_name'):
                     totals['player_count'].add(s['player_name'])
             totals['player_count'] = len(totals['player_count'])
@@ -995,15 +1005,15 @@ class WeeklyReportGenerator:
         session_count = unique_dates if unique_dates > 0 else 1
         WeeklyReportGenerator._draw_gauges(gauge_ax, player_data, weekly_benchmarks, session_count)
         # === PLAYER TABLE === (main table)
-        table_ax = plt.axes([0.05, 0.4, 0.9, 0.3])
+        table_ax = plt.axes([0.05, 0.44, 0.9, 0.28])
         WeeklyReportGenerator._draw_player_table(table_ax, player_data, weekly_benchmarks, personal_max)
-        
-        # === DAILY TABLE === (bottom left)
-        daily_table_ax = plt.axes([0.05, 0.12, 0.55, 0.25])
+
+        # === DAILY TABLE === (pleine largeur)
+        daily_table_ax = plt.axes([0.05, 0.22, 0.9, 0.21])
         WeeklyReportGenerator._draw_daily_table(daily_table_ax, day_data, weekly_benchmarks)
-        
-        # === TREND GRAPH === (bottom right)
-        graph_ax = plt.axes([0.65, 0.12, 0.30, 0.25])
+
+        # === TREND GRAPH === (pleine largeur, en dessous)
+        graph_ax = plt.axes([0.05, 0.03, 0.9, 0.17])
         WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, weekly_benchmarks)
 
         # Save to bytes
@@ -1252,36 +1262,55 @@ class WeeklyReportGenerator:
         """Draw daily breakdown table with borders"""
         import numpy as np
         ax.axis('off')
-        ax.set_xlim(-0.1, 15.1)
-        ax.set_ylim(0, 11)
-
         from matplotlib.patches import Rectangle
+
         HEADER_BG = WeeklyReportGenerator.COLORS['header_bg']
         ROW_BG    = WeeklyReportGenerator.COLORS['background']
         WHITE     = WeeklyReportGenerator.COLORS['text_white']
         BORDER    = '#4a5568'
+        DARK_BG   = '#2d3748'
 
-        def draw_cell(x, y, w=1, h=0.45, bg=ROW_BG, border=BORDER):
-            r = Rectangle((x, y - h/2), w, h, facecolor=bg, edgecolor=border, linewidth=0.5)
-            ax.add_patch(r)
-
-        def col_x(i):
-            return 0 if i == 0 else i + 1
-
-        def col_w(i):
-            return 2 if i == 0 else 1
-
-        # ── Header ────────────────────────────────────────────────────────────
+        # 18 colonnes : 0=JOUR 1=MIN 2=DIST 3=%DIST 4=HSR 5=%HSR
+        #               6=SPRINT 7=%SPRINT 8=VMAX 9=%VMAX
+        #               10=DEC 11=%DEC 12=PP 13=%PP
+        #               14=VOL 15=INT 16=VOLUME 17=INTENSITE
         headers = ['JOUR', 'MIN', 'DIST', '%DIST', 'HSR', '%HSR',
-                   'DEC', '%DEC', 'PP', '%PP', 'VOL', 'INT', 'VOLUME', 'INTENSITE']
-        for i, h in enumerate(headers):
-            draw_cell(col_x(i), 10.25, w=col_w(i), bg=HEADER_BG, border='white')
-            ax.text(col_x(i) + col_w(i)/2, 10.25, h, ha='center', va='center',
-                    fontsize=7, fontweight='bold', color=WHITE)
+                   'SPRINT', '%SPRINT', 'VMAX', '%VMAX',
+                   'DEC', '%DEC', 'PP', '%PP',
+                   'VOL', 'INT', 'VOLUME', 'INTENSITE']
 
-        # ── Data rows ─────────────────────────────────────────────────────────
+        _raw_w = [2.0, 0.7, 0.85, 0.7, 0.8, 0.7, 0.8, 0.7, 0.75, 0.7,
+                  0.75, 0.7, 0.75, 0.7, 0.7, 0.7, 0.8, 0.8]
+        _scale     = 15.0 / sum(_raw_w)
+        col_widths = [w * _scale for w in _raw_w]
+
+        def cx(i):
+            return sum(col_widths[:i])
+
+        def draw_cell(i, y, span=1, h=0.45, bg=ROW_BG, border=BORDER):
+            x = cx(i)
+            w = sum(col_widths[i:i + span])
+            ax.add_patch(Rectangle((x, y - h/2), w, h,
+                                   facecolor=bg, edgecolor=border, linewidth=0.5))
+
+        def cell_text(i, y, text, span=1, fontsize=6.5, bold=False, color=WHITE):
+            x = cx(i)
+            w = sum(col_widths[i:i + span])
+            ax.text(x + w/2, y, str(text), ha='center', va='center',
+                    fontsize=fontsize,
+                    fontweight='bold' if bold else 'normal',
+                    color=color)
+
+        ax.set_xlim(-0.1, sum(col_widths) + 0.1)
+        ax.set_ylim(0, 11)
+
+        # ── Header ───────────────────────────────────────────────────────
+        for i, h in enumerate(headers):
+            draw_cell(i, 10.25, bg=HEADER_BG, border='white')
+            cell_text(i, 10.25, h, bold=True)
+
+        # ── Data rows ────────────────────────────────────────────────────
         DAY_BASE = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE']
-        # Construire la liste ordonnée des clés (jour seul, puis MAx2, puis AP)
         ordered_keys = []
         for base in DAY_BASE:
             if base in day_data:
@@ -1291,90 +1320,141 @@ class WeeklyReportGenerator:
             if f'{base} AP' in day_data:
                 ordered_keys.append(f'{base} AP')
 
+        # Max VMAX de la semaine (pour %VMAX relatif)
+        max_vmax_kh_week = max(
+            (d.get('top_speed', 0) * 3.6 for d in day_data.values()), default=0
+        )
+
         row_y = 9.7
 
-        # Accumulateurs pour TOTAL et MONOTONIE
-        all_minutes, all_distance, all_hsr, all_impacts, all_pp = [], [], [], [], []
-        all_vol, all_int_ = [], []
+        all_minutes, all_dist_km, all_hsr_m, all_sprint_m = [], [], [], []
+        all_vmax_kh, all_dec, all_pp = [], [], []
+        all_vol_pct, all_int_pct, all_volume, all_intensite = [], [], [], []
 
         for day in ordered_keys:
             data = day_data[day]
-            # Libellé affiché : 'MERCREDI' → 'MER', 'MARDI MA' → 'MAR MA'
             parts = day.split(' ', 1)
-            label = parts[0][:3] + (f' {parts[1]}' if len(parts) > 1 else '')
-            minutes  = data['duration'] // 60
-            distance = round(data['distance_km'], 2)  # km
-            hsr      = int(data['sprint_distance_m'])
-            impacts  = int(data['impacts'])
-            pp       = int(data['power_plays'])
+            label    = parts[0][:3] + (f' {parts[1]}' if len(parts) > 1 else '')
+            pc       = data['player_count'] if data['player_count'] > 0 else 1
+            minutes  = data['duration'] // pc // 60   # moyenne par joueur → durée réelle de séance
+            distance = round(data['distance_km'], 2)               # km
+            hsr_m    = int((data.get('speed_zone_3_km', 0)
+                            + data.get('speed_zone_4_km', 0)
+                            + data.get('speed_zone_5_km', 0)) * 1000)  # m
+            sprint_m = int(data.get('sprint_distance_m', 0))        # m
+            vmax_kh  = round(data.get('top_speed', 0) * 3.6, 1)    # km/h
+            dec      = int(data['impacts'])
+            pp_val   = int(data['power_plays'])
 
-            # VOL% = distance / benchmark_distance * 100
-            vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 1)) * 100)                       if benchmarks.get('distance_km', 0) > 0 else 0
-            # INT% = moyenne(HSR%, DEC%, PP%)
-            hsr_p = (hsr / benchmarks.get('hsr_total', 1)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
-            dec_p = (impacts / benchmarks.get('dec_total', 1)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
-            pp_p  = (pp / benchmarks.get('power_plays', 1)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
-            int_pct = int((hsr_p + dec_p + pp_p) / 3)
+            dist_pct   = int((distance  / benchmarks.get('distance_km',  1)) * 100) \
+                         if benchmarks.get('distance_km',  0) > 0 else 0
+            hsr_pct    = int((hsr_m     / benchmarks.get('hsr_total',    1)) * 100) \
+                         if benchmarks.get('hsr_total',    0) > 0 else 0
+            sprint_pct = int((sprint_m  / benchmarks.get('sprint_total', 1)) * 100) \
+                         if benchmarks.get('sprint_total', 0) > 0 else 0
+            vmax_pct   = int((vmax_kh   / max_vmax_kh_week) * 100) \
+                         if max_vmax_kh_week > 0 else 0
+            dec_pct    = int((dec       / benchmarks.get('dec_total',    1)) * 100) \
+                         if benchmarks.get('dec_total',    0) > 0 else 0
+            pp_pct     = int((pp_val    / benchmarks.get('power_plays',  1)) * 100) \
+                         if benchmarks.get('power_plays',  0) > 0 else 0
 
-            # VOLUME = (vol_pct / minutes) * 100
+            vol_pct = int((dist_pct + hsr_pct + sprint_pct) / 3)
+            int_pct = int((hsr_pct  + dec_pct  + pp_pct)    / 3)
             volume_val    = round((vol_pct / minutes) * 100, 1) if minutes else 0
-            # INTENSITE = (int_pct / minutes) * 100
             intensite_val = round((int_pct / minutes) * 100, 1) if minutes else 0
 
-            all_minutes.append(minutes);  all_distance.append(distance)
-            all_hsr.append(hsr);          all_impacts.append(impacts)
-            all_pp.append(pp);            all_vol.append(vol_pct)
-            all_int_.append(int_pct)
+            all_minutes.append(minutes);   all_dist_km.append(distance)
+            all_hsr_m.append(hsr_m);       all_sprint_m.append(sprint_m)
+            all_vmax_kh.append(vmax_kh);   all_dec.append(dec)
+            all_pp.append(pp_val);         all_vol_pct.append(vol_pct)
+            all_int_pct.append(int_pct);   all_volume.append(volume_val)
+            all_intensite.append(intensite_val)
 
-            row = [label, minutes, distance, '100%', hsr, '100%',
-                   impacts, '100%', pp, '100%',
-                   f'{vol_pct}%', f'{int_pct}%',
-                   f'{volume_val}%', f'{intensite_val}%']
+            # Cellules valeur
+            draw_cell(0, row_y); cell_text(0, row_y, label)
+            draw_cell(1, row_y); cell_text(1, row_y, str(minutes))
+            draw_cell(2, row_y); cell_text(2, row_y, f'{distance:.2f}')
+            bg = SessionReportGenerator.get_color_for_pct(dist_pct)
+            draw_cell(3, row_y, bg=bg); cell_text(3, row_y, f'{dist_pct}%', color='#000000')
+            draw_cell(4, row_y); cell_text(4, row_y, str(hsr_m))
+            bg = SessionReportGenerator.get_color_for_pct(hsr_pct)
+            draw_cell(5, row_y, bg=bg); cell_text(5, row_y, f'{hsr_pct}%', color='#000000')
+            draw_cell(6, row_y); cell_text(6, row_y, str(sprint_m))
+            bg = SessionReportGenerator.get_color_for_pct(sprint_pct)
+            draw_cell(7, row_y, bg=bg); cell_text(7, row_y, f'{sprint_pct}%', color='#000000')
+            draw_cell(8, row_y); cell_text(8, row_y, f'{vmax_kh:.1f}')
+            bg = SessionReportGenerator.get_color_for_pct(vmax_pct)
+            draw_cell(9, row_y, bg=bg); cell_text(9, row_y, f'{vmax_pct}%', color='#000000')
+            draw_cell(10, row_y); cell_text(10, row_y, str(dec))
+            bg = SessionReportGenerator.get_color_for_pct(dec_pct)
+            draw_cell(11, row_y, bg=bg); cell_text(11, row_y, f'{dec_pct}%', color='#000000')
+            draw_cell(12, row_y); cell_text(12, row_y, str(pp_val))
+            bg = SessionReportGenerator.get_color_for_pct(pp_pct)
+            draw_cell(13, row_y, bg=bg); cell_text(13, row_y, f'{pp_pct}%', color='#000000')
+            bg = SessionReportGenerator.get_color_for_pct(vol_pct)
+            draw_cell(14, row_y, bg=bg); cell_text(14, row_y, f'{vol_pct}%', color='#000000')
+            bg = SessionReportGenerator.get_color_for_pct(int_pct)
+            draw_cell(15, row_y, bg=bg); cell_text(15, row_y, f'{int_pct}%', color='#000000')
+            draw_cell(16, row_y); cell_text(16, row_y, f'{volume_val}%')
+            draw_cell(17, row_y); cell_text(17, row_y, f'{intensite_val}%')
 
-            for i, val in enumerate(row):
-                draw_cell(col_x(i), row_y, w=col_w(i))
-                ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
-                        fontsize=7, color=WHITE)
             row_y -= 0.5
 
-        # ── MONOTONIE ─────────────────────────────────────────────────────────
+        # ── MONOTONIE ────────────────────────────────────────────────────
         row_y -= 0.1
-        monotonie = (np.mean(all_distance) / np.std(all_distance))                     if len(all_distance) > 1 and np.std(all_distance) > 0 else 0
-        mono_row = ['MONOTONIE', f'{monotonie:.2f}'] + [''] * 12
-        for i, val in enumerate(mono_row):
-            draw_cell(col_x(i), row_y, w=col_w(i), bg='#2d3748')
-            ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
-                    fontsize=7, fontweight='bold', color=WHITE)
+
+        def _mono(vals):
+            a = np.array(vals, dtype=float)
+            return f'{np.mean(a) / np.std(a):.2f}' if len(a) > 1 and np.std(a) > 0 else ''
+
+        draw_cell(0, row_y, bg=DARK_BG); cell_text(0, row_y, 'MONOTONIE', bold=True)
+        draw_cell(1, row_y, bg=DARK_BG); cell_text(1, row_y, str(len(ordered_keys)), bold=True)
+        for col_i, vals in [(2, all_dist_km), (4, all_hsr_m),  (6, all_sprint_m),
+                            (8, all_vmax_kh), (10, all_dec),   (12, all_pp)]:
+            draw_cell(col_i, row_y, span=2, bg=DARK_BG)
+            cell_text(col_i, row_y, _mono(vals), span=2, bold=True)
+        draw_cell(14, row_y, bg=DARK_BG); cell_text(14, row_y, _mono(all_vol_pct), bold=True)
+        draw_cell(15, row_y, bg=DARK_BG); cell_text(15, row_y, _mono(all_int_pct), bold=True)
+        draw_cell(16, row_y, bg=DARK_BG)
+        draw_cell(17, row_y, bg=DARK_BG)
         row_y -= 0.5
 
-        # ── TOTAL ─────────────────────────────────────────────────────────────
-        tot_min  = sum(all_minutes)
-        tot_dist = sum(all_distance)
-        tot_hsr  = sum(all_hsr)
-        tot_imp  = sum(all_impacts)
-        tot_pp   = sum(all_pp)
-        tot_vol  = sum(all_vol)
-        tot_int  = sum(all_int_)
-        tot_volume    = round((tot_vol / tot_min) * 100, 1) if tot_min else 0
-        tot_intensite = round((tot_int / tot_min) * 100, 1) if tot_min else 0
+        # ── TOTAL ────────────────────────────────────────────────────────
+        tot_min    = sum(all_minutes)
+        tot_dist   = round(sum(all_dist_km), 2)
+        tot_hsr    = sum(all_hsr_m)
+        tot_sprint = sum(all_sprint_m)
+        tot_dec    = sum(all_dec)
+        tot_pp     = sum(all_pp)
+        avg_vol    = int(sum(all_vol_pct)    / len(all_vol_pct))    if all_vol_pct    else 0
+        avg_int    = int(sum(all_int_pct)    / len(all_int_pct))    if all_int_pct    else 0
+        avg_vol2   = round(sum(all_volume)   / len(all_volume),   1) if all_volume   else 0
+        avg_int2   = round(sum(all_intensite) / len(all_intensite), 1) if all_intensite else 0
 
-        total_row = ['TOTAL', tot_min, tot_dist, '', tot_hsr, '',
-                     tot_imp, '', tot_pp, '',
-                     f'{tot_vol}%', f'{tot_int}%',
-                     f'{tot_volume}%', f'{tot_intensite}%']
-        for i, val in enumerate(total_row):
-            draw_cell(col_x(i), row_y, w=col_w(i), bg='#2d3748')
-            ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
-                    fontsize=7, fontweight='bold', color=WHITE)
+        total_vals = [
+            'TOTAL',           str(tot_min),
+            f'{tot_dist:.2f}', '',
+            str(tot_hsr),      '',
+            str(tot_sprint),   '',
+            '',                '',
+            str(tot_dec),      '',
+            str(tot_pp),       '',
+            f'{avg_vol}%',     f'{avg_int}%',
+            f'{avg_vol2}%',    f'{avg_int2}%',
+        ]
+        for i, val in enumerate(total_vals):
+            draw_cell(i, row_y, bg=DARK_BG)
+            cell_text(i, row_y, val, bold=True)
         row_y -= 0.5
 
-        # ── OBJECTIF ──────────────────────────────────────────────────────────
-        obj_row = ['OBJECTIF', 297, 28384, '250%', 2700, '150%',
-                   86, '180%', 120, '250%', '', '', '85%', '95%']
-        for i, val in enumerate(obj_row):
-            draw_cell(col_x(i), row_y, w=col_w(i), bg='#2d3748')
-            ax.text(col_x(i) + col_w(i)/2, row_y, str(val), ha='center', va='center',
-                    fontsize=7, fontweight='bold', color=WHITE)
+        # ── OBJECTIF ─────────────────────────────────────────────────────
+        obj_vals = ['OBJECTIF', '', '28.38', '250%', '2700', '150%',
+                    '', '85%', '', '', '86', '180%', '120', '250%',
+                    '', '', '85%', '95%']
+        for i, val in enumerate(obj_vals):
+            draw_cell(i, row_y, bg=DARK_BG)
+            cell_text(i, row_y, val, bold=True)
     
     @staticmethod
     def _draw_trend_graph(ax, day_data, benchmarks):
