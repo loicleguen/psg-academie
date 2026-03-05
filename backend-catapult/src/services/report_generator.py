@@ -191,21 +191,20 @@ class SessionReportGenerator:
         if not all_sessions:
             return {}
 
-        # Filter to current season (from July 1st of the reference year up to reference_date)
+        # Filter to current season (from August 1st of the reference year up to reference_date)
         if reference_date is not None:
             ref = reference_date if isinstance(reference_date, datetime) else datetime.combine(reference_date, datetime.min.time())
-            season_year = ref.year if ref.month >= 7 else ref.year - 1
-            season_start = datetime(season_year, 7, 1)
-            all_sessions = [
-                s for s in all_sessions
-                if s.get('split_name', '') == 'all' and (
-                    lambda d: d is not None and season_start <= d <= ref
-                )(
-                    datetime.combine(s['session_date'], datetime.min.time())
-                    if s.get('session_date') and not isinstance(s['session_date'], datetime)
-                    else s.get('session_date')
-                )
-            ]
+            season_year = ref.year if ref.month >= 8 else ref.year - 1
+            season_start = datetime(season_year, 8, 1)
+            def _in_season(s):
+                if s.get('split_name', '') != 'all':
+                    return False
+                sd = s.get('session_date')
+                if sd is None:
+                    return False
+                d = sd if isinstance(sd, datetime) else datetime.combine(sd, datetime.min.time())
+                return season_start <= d <= ref
+            all_sessions = [s for s in all_sessions if _in_season(s)]
 
         # Group by player and calculate their personal max
         player_max = {}
@@ -226,6 +225,8 @@ class SessionReportGenerator:
                     'max_z3_secs': 0,
                     'max_z4_secs': 0,
                     'max_z5_secs': 0,
+                    'max_z345': 0,   # max(z3+z4+z5) per session
+                    'max_z45': 0,    # max(z4+z5) per session
                     'max_temps_ad_secs': 0,
                 }
             
@@ -269,6 +270,11 @@ class SessionReportGenerator:
             player_max[player]['max_z3_secs'] = max(player_max[player]['max_z3_secs'], session.get('speed_zone_3_secs', 0))
             player_max[player]['max_z4_secs'] = max(player_max[player]['max_z4_secs'], session.get('speed_zone_4_secs', 0))
             player_max[player]['max_z5_secs'] = max(player_max[player]['max_z5_secs'], session.get('speed_zone_5_secs', 0))
+            # Combined max per session (physically correct: from the same session)
+            session_z345 = session.get('speed_zone_3_secs', 0) + session.get('speed_zone_4_secs', 0) + session.get('speed_zone_5_secs', 0)
+            session_z45  = session.get('speed_zone_4_secs', 0) + session.get('speed_zone_5_secs', 0)
+            player_max[player]['max_z345'] = max(player_max[player]['max_z345'], session_z345)
+            player_max[player]['max_z45']  = max(player_max[player]['max_z45'],  session_z45)
             player_max[player]['max_temps_ad_secs'] = max(
                 player_max[player]['max_temps_ad_secs'],
                 session.get('temps_ad_secs', 0)
@@ -603,13 +609,13 @@ class SessionReportGenerator:
             vol_pct  = int((r_dist + r_hsr + r_sprint + r_ad) / 4 * 100)
 
             # INT = moyenne de 4 ratios personnels : duration, z345_secs, z45_secs, temps_ad
-            # dénominateurs = max_z3+max_z4+max_z5 et max_z4+max_z5 (somme des maxes séparés)
+            # dénominateurs = max(z3+z4+z5) et max(z4+z5) par session individuelle (valeur combinée max)
             duration_s   = player.get('duration', 0)
             z345_val     = player.get('speed_zone_3_secs', 0) + player.get('speed_zone_4_secs', 0) + player.get('speed_zone_5_secs', 0)
             z45_val      = player.get('speed_zone_4_secs', 0) + player.get('speed_zone_5_secs', 0)
             temps_ad     = player.get('temps_ad_secs', 0)
-            max_z345_den = personal_max.get('max_z3_secs', 0) + personal_max.get('max_z4_secs', 0) + personal_max.get('max_z5_secs', 0)
-            max_z45_den  = personal_max.get('max_z4_secs', 0) + personal_max.get('max_z5_secs', 0)
+            max_z345_den = personal_max.get('max_z345', 0)
+            max_z45_den  = personal_max.get('max_z45', 0)
             r_dur  = (duration_s / personal_max['max_duration'])   if personal_max.get('max_duration', 0) > 0 else 0
             r_z345 = (z345_val / max_z345_den)                     if max_z345_den > 0 else 0
             r_z45  = (z45_val  / max_z45_den)                      if max_z45_den  > 0 else 0
