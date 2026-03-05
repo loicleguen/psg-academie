@@ -176,19 +176,37 @@ class SessionReportGenerator:
         return benchmarks
     
     @staticmethod
-    def calculate_personal_max_by_player(all_sessions: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+    def calculate_personal_max_by_player(all_sessions: List[Dict[str, Any]], reference_date: datetime = None) -> Dict[str, Dict[str, float]]:
         """
         Calculate personal maximum values for each player across all their sessions
+        Limited to the current season (from July 1st of the reference year).
         
         Args:
             all_sessions: All sessions from database
+            reference_date: Date of the session being reported (filters to current season)
             
         Returns:
             Dictionary with player_name as key and their personal max values
         """
         if not all_sessions:
             return {}
-        
+
+        # Filter to current season (from July 1st of the reference year up to reference_date)
+        if reference_date is not None:
+            ref = reference_date if isinstance(reference_date, datetime) else datetime.combine(reference_date, datetime.min.time())
+            season_year = ref.year if ref.month >= 7 else ref.year - 1
+            season_start = datetime(season_year, 7, 1)
+            all_sessions = [
+                s for s in all_sessions
+                if s.get('split_name', '') == 'all' and (
+                    lambda d: d is not None and season_start <= d <= ref
+                )(
+                    datetime.combine(s['session_date'], datetime.min.time())
+                    if s.get('session_date') and not isinstance(s['session_date'], datetime)
+                    else s.get('session_date')
+                )
+            ]
+
         # Group by player and calculate their personal max
         player_max = {}
         
@@ -376,7 +394,13 @@ class SessionReportGenerator:
         
         # Get benchmarks
         benchmarks = SessionReportGenerator.calculate_benchmarks(all_sessions)
-        personal_max_by_player = SessionReportGenerator.calculate_personal_max_by_player(all_sessions)
+        # Reference date from session for season-scoped personal maxes
+        _ref_date = None
+        if session_data:
+            _d = session_data[0].get('session_date')
+            if _d:
+                _ref_date = datetime.combine(_d, datetime.min.time()) if not isinstance(_d, datetime) else _d
+        personal_max_by_player = SessionReportGenerator.calculate_personal_max_by_player(all_sessions, reference_date=_ref_date)
 
         # Build sprint_by_player from raw_rows (sum sprint_distance_m where split_name == 0)
         sprint_by_player = {}
@@ -873,7 +897,9 @@ class WeeklyReportGenerator:
         
         # Calculate weekly_benchmarks and personal max
         weekly_benchmarks = WeeklyReportGenerator.calculate_weekly_benchmarks(all_sessions)
-        personal_max = SessionReportGenerator.calculate_personal_max_by_player(all_sessions)
+        # Reference date: last day of the week (year + week_number)
+        _ref_date = datetime.fromisocalendar(year, week_number, 7)
+        personal_max = SessionReportGenerator.calculate_personal_max_by_player(all_sessions, reference_date=_ref_date)
         
         # Create figure
         fig = plt.figure(figsize=(16, 20), facecolor=WeeklyReportGenerator.COLORS['background'])
