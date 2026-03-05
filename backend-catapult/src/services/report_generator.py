@@ -257,10 +257,13 @@ class SessionReportGenerator:
                 player_max[player]['max_top_speed'],
                 session.get('top_speed', 0)
             )
-            player_max[player]['max_duration'] = max(
-                player_max[player]['max_duration'],
-                session.get('duration', 0)
-            )
+            # Cap at 10000s (167 min) to exclude GPS-left-on artifacts
+            # (match sessions often show 3-4h of total GPS recording instead of ~90 min)
+            if session.get('duration', 0) <= 10000:
+                player_max[player]['max_duration'] = max(
+                    player_max[player]['max_duration'],
+                    session.get('duration', 0)
+                )
             player_max[player]['max_accel_count'] = max(
                 player_max[player]['max_accel_count'], session.get('accel_count', 0)
             )
