@@ -602,8 +602,10 @@ class SessionReportGenerator:
                 (_z45  / _pm.get('max_z45', 0)    if _pm.get('max_z45', 0)           > 0 else 0) +
                 (_tad  / _pm['max_temps_ad_secs'] if _pm.get('max_temps_ad_secs', 0) > 0 else 0)
             ) / 4) * 100)
+            _pct_vmax = (_p.get('top_speed', 0) / _pm['max_top_speed'] * 100) if _pm.get('max_top_speed', 0) > 0 else 0
             _precomp[_name] = {
                 'pct_dist': _pct_dist, 'pct_hsr': _pct_hsr, 'pct_sprint': _pct_sprint,
+                'pct_vmax': _pct_vmax,
                 'pct_dec': _pct_dec, 'pct_pp': _pct_pp, 'vol': _vol, 'int': _int
             }
 
@@ -611,14 +613,14 @@ class SessionReportGenerator:
         
         # Column headers
         headers = ['JOUEUR', 'MINUTES', 'DISTANCE', '%DIST', 'HSR', '%HSR', 
-                  'SPRINT', '%SPRINT', 'VMAX', 'DEC', '%DEC', 'PP', '%PP', 'M/MIN', 'VOL', 'INT']
+                  'SPRINT', '%SPRINT', 'VMAX', '%VMAX', 'DEC', '%DEC', 'PP', '%PP', 'M/MIN', 'VOL', 'INT']
         
         num_cols = len(headers)
         num_rows = len(session_data) + 1  # +1 for header
         
                 # Largeurs personnalisées (total = 1.0)
         # Largeurs relatives (normalisées à 1.0)
-        widths_raw = [16, 5.5, 6.5, 5, 5.5, 5, 5.5, 5.5, 5, 5.5, 5, 5, 5, 5.5, 5, 5.5]
+        widths_raw = [16, 5.5, 6.5, 5, 5.5, 5, 5.5, 5.5, 5, 5, 5.5, 5, 5, 5, 5.5, 5, 5.5]
         col_widths = [w/sum(widths_raw) for w in widths_raw]
         row_height = 1.0 / num_rows
         
@@ -652,7 +654,8 @@ class SessionReportGenerator:
             distance = player.get('distance_km', 0)
             hsr = (player.get('speed_zone_3_km', 0) + player.get('speed_zone_4_km', 0) + player.get('speed_zone_5_km', 0)) * 1000
             sprint = sprint_by_player.get(player.get('player_name', 'Unknown'), player.get('sprint_distance_m', hsr))
-            vmax = player.get('top_speed', 0) * 3.6  # m/s → km/h
+            vmax_raw = player.get('top_speed', 0)     # m/s (pour calcul %)
+            vmax = vmax_raw * 3.6                       # m/s → km/h
             dec = player.get('decel_high_count', 0)
             pp = player.get('power_plays', 0)
             dist_per_min = player.get('distance_per_min', 0)
@@ -665,6 +668,7 @@ class SessionReportGenerator:
             pct_dist = (distance / personal_max.get('max_distance_km', 1) * 100) if personal_max.get('max_distance_km', 0) > 0 else 0
             pct_hsr = (hsr / personal_max.get('max_hsr', 1) * 100) if personal_max.get('max_hsr', 0) > 0 else 0
             pct_sprint = (sprint / personal_max.get('max_sprint', 1) * 100) if personal_max.get('max_sprint', 0) > 0 else 0
+            pct_vmax = int(vmax_raw / personal_max['max_top_speed'] * 100) if personal_max.get('max_top_speed', 0) > 0 else 0
             pct_dec = (dec / personal_max.get('max_decel_high', 1) * 100) if personal_max.get('max_decel_high', 0) > 0 else 0
             pct_pp = (pp / personal_max.get('max_power_plays', 1) * 100) if personal_max.get('max_power_plays', 0) > 0 else 0
 
@@ -703,6 +707,7 @@ class SessionReportGenerator:
                 f"{int(sprint)}",
                 f"{int(pct_sprint)}%",
                 f"{vmax:.2f}",
+                f"{pct_vmax}%",
                 f"{int(dec)}",
                 f"{int(pct_dec)}%",
                 f"{int(pp)}",
@@ -718,10 +723,11 @@ class SessionReportGenerator:
             colors[3]  = SessionReportGenerator.get_color_for_pct(_pc.get('pct_dist',   0))
             colors[5]  = SessionReportGenerator.get_color_for_pct(_pc.get('pct_hsr',    0))
             colors[7]  = SessionReportGenerator.get_color_for_pct(_pc.get('pct_sprint', 0))
-            colors[10] = SessionReportGenerator.get_color_for_pct(_pc.get('pct_dec',    0))
-            colors[12] = SessionReportGenerator.get_color_for_pct(_pc.get('pct_pp',     0))
-            colors[14] = SessionReportGenerator.get_color_for_pct(_pc.get('vol',        0))
-            colors[15] = SessionReportGenerator.get_color_for_pct(_pc.get('int',        0))
+            colors[9]  = SessionReportGenerator.get_color_for_pct(_pc.get('pct_vmax',   0))
+            colors[11] = SessionReportGenerator.get_color_for_pct(_pc.get('pct_dec',    0))
+            colors[13] = SessionReportGenerator.get_color_for_pct(_pc.get('pct_pp',     0))
+            colors[15] = SessionReportGenerator.get_color_for_pct(_pc.get('vol',        0))
+            colors[16] = SessionReportGenerator.get_color_for_pct(_pc.get('int',        0))
             
             for col_idx, (value, bg_color) in enumerate(zip(row_data, colors)):
                 x = sum(col_widths[:col_idx])  # Position cumulative
@@ -746,7 +752,7 @@ class SessionReportGenerator:
                     color=cell_text_color
                 )
         
-        table_ax.set_xlim(0, 1)
+        table_ax.set_xlim(-0.001, 1.001)
         table_ax.set_ylim(0, 1)
         
         # Convert to base64
