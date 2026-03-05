@@ -1016,7 +1016,7 @@ class WeeklyReportGenerator:
         WeeklyReportGenerator._draw_daily_table(daily_table_ax, day_data, weekly_benchmarks)
 
         # === TREND GRAPH === (pleine largeur, en dessous)
-        graph_ax = plt.axes([0.05, 0.12, 0.9, 0.17])
+        graph_ax = plt.axes([0.05, 0.1, 0.9, 0.17])
         WeeklyReportGenerator._draw_trend_graph(graph_ax, day_data, weekly_benchmarks)
 
         # Save to bytes
@@ -1408,10 +1408,8 @@ class WeeklyReportGenerator:
             draw_cell(12, row_y); cell_text(12, row_y, str(pp_val))
             bg = SessionReportGenerator.get_color_for_pct(pp_pct)
             draw_cell(13, row_y, bg=bg); cell_text(13, row_y, f'{pp_pct}%', color='#000000')
-            bg = SessionReportGenerator.get_color_for_pct(vol_pct)
-            draw_cell(14, row_y, bg=bg); cell_text(14, row_y, f'{vol_pct}%', color='#000000')
-            bg = SessionReportGenerator.get_color_for_pct(int_pct)
-            draw_cell(15, row_y, bg=bg); cell_text(15, row_y, f'{int_pct}%', color='#000000')
+            draw_cell(14, row_y); cell_text(14, row_y, f'{vol_pct}%')
+            draw_cell(15, row_y); cell_text(15, row_y, f'{int_pct}%')
             draw_cell(16, row_y); cell_text(16, row_y, f'{volume_val}%')
             draw_cell(17, row_y); cell_text(17, row_y, f'{intensite_val}%')
 
@@ -1502,13 +1500,26 @@ class WeeklyReportGenerator:
             label = parts[0][:3] + (f'\n{parts[1]}' if len(parts) > 1 else '')
             labels.append(label)
             data = day_data[day]
-            vol_pct = int((data['distance_km'] / benchmarks.get('distance_km', 100)) * 100) if benchmarks.get('distance_km', 0) > 0 else 0
-            hsr_pct = (data['sprint_distance_m'] / benchmarks.get('hsr_total', 5000)) * 100 if benchmarks.get('hsr_total', 0) > 0 else 0
-            dec_pct = (data.get('decel_high_count', 0) / benchmarks.get('dec_total', 100)) * 100 if benchmarks.get('dec_total', 0) > 0 else 0
-            pp_pct = (data['power_plays'] / benchmarks.get('power_plays', 200)) * 100 if benchmarks.get('power_plays', 0) > 0 else 0
-            intensity_pct = int((hsr_pct + dec_pct + pp_pct) / 3)
-            volumes.append(vol_pct)
-            intensities.append(intensity_pct)
+            raw_dist   = data['distance_km']
+            raw_hsr    = (data.get('speed_zone_3_km', 0) + data.get('speed_zone_4_km', 0) + data.get('speed_zone_5_km', 0)) * 1000
+            raw_sprint = data.get('sprint_distance_m', 0)
+            raw_dec    = data.get('decel_high_count', 0)
+            raw_pp     = data['power_plays']
+
+            dist_pct   = int((raw_dist   / benchmarks.get('distance_km',   1)) * 100) if benchmarks.get('distance_km',   0) > 0 else 0
+            hsr_pct    = int((raw_hsr    / benchmarks.get('hsr_total',     1)) * 100) if benchmarks.get('hsr_total',     0) > 0 else 0
+            sprint_pct = int((raw_sprint / benchmarks.get('sprint_total',  1)) * 100) if benchmarks.get('sprint_total',  0) > 0 else 0
+            dec_pct    = int((raw_dec    / benchmarks.get('dec_total',     1)) * 100) if benchmarks.get('dec_total',     0) > 0 else 0
+            pp_pct     = int((raw_pp     / benchmarks.get('power_plays',   1)) * 100) if benchmarks.get('power_plays',   0) > 0 else 0
+
+            vol_pct       = int((dist_pct + hsr_pct + sprint_pct) / 3)
+            intensity_pct = int((hsr_pct  + dec_pct  + pp_pct)    / 3)
+            pc      = data['player_count'] if data['player_count'] > 0 else 1
+            minutes = data['duration'] // pc // 60
+            volume_val    = round((vol_pct    / minutes) * 100, 1) if minutes else 0
+            intensite_val = round((intensity_pct / minutes) * 100, 1) if minutes else 0
+            volumes.append(volume_val)
+            intensities.append(intensite_val)
 
         x = range(len(labels))
         ax.plot(x, volumes, marker='o', color=WeeklyReportGenerator.COLORS['green'],
@@ -1789,7 +1800,7 @@ class IndividualWeekReportGenerator:
         ax.set_xlim(0, 16)
         n_rows = len(daily_data)
         # header(1) + data rows + TOTAL(1.1) + OBJECTIF(1) + MONOTONIE(1) + margin
-        min_height = 1 + n_rows + 3.5
+        min_height = 1 + n_rows + 4.5
         ylim_max = max(12, min_height + 1)
         ax.set_ylim(0, ylim_max)
 
@@ -1849,7 +1860,21 @@ class IndividualWeekReportGenerator:
             monotonie = np.mean(player_loads) / np.std(player_loads)
         else:
             monotonie = 0
-        
+
+        def _mono_val(vals):
+            a = np.array([float(v) for v in vals if v is not None], dtype=float)
+            return f'{np.mean(a) / np.std(a):.2f}' if len(a) > 1 and np.std(a) > 0 else ''
+
+        active_days   = [d for d in days_order if daily_data[d].get('session_count', 0) > 0]
+        mono_min_list  = [daily_data[d]['duration'] // 60 for d in active_days]
+        mono_dist_list = [daily_data[d]['distance']       for d in active_days]
+        mono_hsr_list  = [daily_data[d]['hsr']            for d in active_days]
+        mono_spr_list  = [daily_data[d]['sprint']         for d in active_days]
+        mono_vmx_list  = [daily_data[d]['vmax'] * 3.6     for d in active_days]
+        mono_dec_list  = [daily_data[d]['dec']            for d in active_days]
+        mono_pp_list   = [daily_data[d]['pp']             for d in active_days]
+        mono_pl_list   = player_loads
+
         # Day rows
         for day in days_order:
             y -= 1
@@ -1941,60 +1966,57 @@ class IndividualWeekReportGenerator:
                    color=IndividualWeekReportGenerator.COLORS['text_white'])
             x_pos += width
         
-        # OBJECTIF row
+        # ── OBJECTIF row (cellules fusionnées par paire metrique+%) ────────
         y -= 1
-        objectif_row_data = [
-            ('OBJECTIF', None, 'center'),
-            ('', None, 'center'),
-            ('', None, 'center'),
-            ('200%', None, 'center'),
-            ('', None, 'center'),
-            ('100%', None, 'center'),
-            ('', None, 'center'),
-            ('100%', None, 'center'),
-            ('', None, 'center'),
-            ('100%', None, 'center'),
-            ('', None, 'center'),
-            ('100%', None, 'center'),
-            ('', None, 'center'),
-            ('100%', None, 'center'),
-            ('', None, 'center')
-        ]
-        
-        x_pos = 0
-        for (value, _, align), width in zip(objectif_row_data, col_widths):
-            rect = Rectangle((x_pos, y-0.5), width, 1.0, 
-                           facecolor=IndividualWeekReportGenerator.COLORS['background'], 
-                           edgecolor='#4a5568', linewidth=0.5)
-            ax.add_patch(rect)
-            
-            ax.text(x_pos + width/2, y, value,
-                   ha='center', va='center', fontsize=7, 
-                   color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += width
-        
-        # MONOTONIE row
+        _DARK  = '#2d3748'
+        _WHITE = IndividualWeekReportGenerator.COLORS['text_white']
+        _cum   = [sum(col_widths[:i]) for i in range(len(col_widths) + 1)]
+
+        def _obj_cell(col_from, col_to, text):
+            x0 = _cum[col_from]
+            w  = _cum[col_to] - _cum[col_from]
+            ax.add_patch(Rectangle((x0, y - 0.5), w, 1.0,
+                                   facecolor=_DARK, edgecolor='#4a5568', linewidth=0.5))
+            if text:
+                ax.text(x0 + w / 2, y, text, ha='center', va='center',
+                        fontsize=7, fontweight='bold', color=_WHITE)
+
+        _obj_cell(0,  1,  'OBJECTIF')
+        _obj_cell(1,  2,  '')
+        _obj_cell(2,  4,  '200%')   # DIST + %DIST
+        _obj_cell(4,  6,  '100%')   # HSR  + %HSR
+        _obj_cell(6,  8,  '100%')   # SPRINT + %SPRINT
+        _obj_cell(8,  10, '100%')   # VMAX + %VMAX
+        _obj_cell(10, 12, '250%')   # DEC  + %DEC
+        _obj_cell(12, 14, '100%')   # PP   + %PP
+        _obj_cell(14, 15, '')       # PLAYER LOAD
+
+        # ── MONOTONIE row (valeur par metrique, fusionnée sur 2 colonnes) ──
         y -= 1
-        mono_row_data = [
-            ('MONOTONIE', None, 'center'),
-            (f'{monotonie:.2f}' if monotonie > 0 else '', SessionReportGenerator.COLORS['pink'], 'center')
-        ] + [('', None, 'center')] * 13
-        
-        x_pos = 0
-        for i, ((value, bgcolor, align), width) in enumerate(zip(mono_row_data, col_widths)):
-            if i == 1 and bgcolor:
-                rect = Rectangle((x_pos, y-0.5), width, 1.0, 
-                               facecolor=bgcolor, edgecolor='#4a5568', linewidth=0.5)
-            else:
-                rect = Rectangle((x_pos, y-0.5), width, 1.0, 
-                               facecolor=IndividualWeekReportGenerator.COLORS['background'], 
-                               edgecolor='#4a5568', linewidth=0.5)
-            ax.add_patch(rect)
-            
-            ax.text(x_pos + width/2, y, value,
-                   ha='center', va='center', fontsize=7, 
-                   color=IndividualWeekReportGenerator.COLORS['text_white'])
-            x_pos += width
+        _PINK = SessionReportGenerator.COLORS['pink']
+
+        def _mono_cell(col_from, col_to, text):
+            x0 = _cum[col_from]
+            w  = _cum[col_to] - _cum[col_from]
+            ax.add_patch(Rectangle((x0, y - 0.5), w, 1.0,
+                                   facecolor=_DARK, edgecolor='#4a5568', linewidth=0.5))
+            ax.text(x0 + w / 2, y, text, ha='center', va='center',
+                    fontsize=7, fontweight='bold', color=_WHITE)
+
+        # Label (fond sombre)
+        ax.add_patch(Rectangle((_cum[0], y - 0.5), col_widths[0], 1.0,
+                               facecolor=_DARK, edgecolor='#4a5568', linewidth=0.5))
+        ax.text(_cum[0] + col_widths[0] / 2, y, 'MONOTONIE',
+                ha='center', va='center', fontsize=7, fontweight='bold', color=_WHITE)
+
+        _mono_cell(1,  2,  _mono_val(mono_min_list))
+        _mono_cell(2,  4,  _mono_val(mono_dist_list))
+        _mono_cell(4,  6,  _mono_val(mono_hsr_list))
+        _mono_cell(6,  8,  _mono_val(mono_spr_list))
+        _mono_cell(8,  10, _mono_val(mono_vmx_list))
+        _mono_cell(10, 12, _mono_val(mono_dec_list))
+        _mono_cell(12, 14, _mono_val(mono_pp_list))
+        _mono_cell(14, 15, _mono_val(mono_pl_list))
 
     
     @staticmethod
