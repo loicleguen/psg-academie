@@ -9,23 +9,23 @@
 
 ## 📋 Table des matières
 
-- [Diagramme de classes](#diagramme-de-classes)
-- [Diagrammes de séquence](#diagrammes-de-séquence)
-- [Technologies du projet](#technologies-du-projet)
+- [Diagramme de classes](#-diagramme-de-classes)
+- [Diagrammes de séquence](#-diagrammes-de-séquence)
+- [Technologies du projet](#-technologies-du-projet)
 ---
-- [Prérequis](#prérequis)
-- [Installation](#installation)
-- [Démarrage rapide](#démarrage-rapide)
-- [Architecture](#architecture)
-- [Fonctionnalités](#fonctionnalités)
-- [Structure du projet](#structure-du-projet)
-- [Commandes utiles](#commandes-utiles)
-- [Développement Frontend](#développement-frontend)
-- [Documentation](#documentation)
-- [Workflow de développement](#workflow-de-développement)
-- [Tests](#tests)
+- [Prérequis](#-prérequis)
+- [Installation](#-installation)
+- [Démarrage rapide](#-démarrage-rapide)
+- [Architecture](#-architecture)
+- [Fonctionnalités](#-fonctionnalités)
+- [Structure du projet](#-structure-du-projet)
+- [Commandes utiles](#-commandes-utiles)
+- [Développement Frontend](#-développement-frontend)
+- [Documentation](#-documentation)
+- [Workflow de développement](#-workflow-de-développement)
+- [Tests](#-tests)
 ---
-- [Auteurs](#auteurs)
+- [Auteurs](#-auteurs)
 
 ## [Diagramme de classes](#-table-des-matières)
 ### Database Schema (PostgreSQL)
