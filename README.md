@@ -1,11 +1,14 @@
-<div align="center" style="position: relative; padding: 60px 20px; margin-bottom: 30px;">
-  <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: url(frontend/public/images/imgbackground.png); background-size: cover; background-position: center; opacity: 0.15; z-index: -1;"></div>
-  <img src="frontend/public/images/psg_logo.svg" alt="PSG Logo" width="150" style="margin-bottom: 20px;">
-  <h1 style="margin: 0; font-size: 3em; color: #004170;">PSG Académie</h1>
-  <p style="font-size: 1.3em; margin-top: 10px; color: #E30613;">Plateforme d'Analyse Football</p>
-  <p style="margin-top: 15px; max-width: 800px; margin-left: auto; margin-right: auto;">
-    Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.
-  </p>
+<div align="center">
+  <img src="frontend/public/images/imgbackground.png" alt="PSG Académie" width="100%">
+</div>
+
+<div align="center">
+  <img src="frontend/public/images/psg_logo.svg" alt="PSG Logo" width="150">
+  
+# PSG Académie - Plateforme d'Analyse Football
+
+*Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.*
+
 </div>
 
 ## 🏗️ Architecture
