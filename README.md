@@ -244,7 +244,7 @@ erDiagram
 - Index sur les colonnes fréquemment recherchées (match_date, test_date, player_card_id)
 - Suppression en cascade sur certaines relations (ex : supprimer une player_card supprime ses statistiques)
 
-## [Diagrammes de Séquence](#-table-of-contents)
+## [Diagrammes de Séquence](#-table-des-matières)
 
 ### Cas d'utilisation 1 : Authentification Utilisateur
 
