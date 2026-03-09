@@ -16,7 +16,7 @@
 - [Prérequis](#-prérequis)
 - [Installation](#-installation)
 - [Démarrage rapide](#-démarrage-rapide)
-- [Architecture](#-architecture)
+- [Architecture](#architecture)
 - [Fonctionnalités](#-fonctionnalités)
 - [Structure du projet](#-structure-du-projet)
 - [Commandes utiles](#-commandes-utiles)
@@ -448,6 +448,7 @@ Une fois les services démarrés, accédez à :
 |Docs Veo 📚        |http://localhost/api/tactical/docs|Documentation Swagger API Veo     |
 
 
+<a id="architecture"></a>
 ## ⚙️ [Architecture](#-table-des-matières)
 
 Cette plateforme intègre **deux systèmes d'analyse complémentaires** :
