@@ -4,7 +4,7 @@
 </div>
 
 <div align="center">
-   Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.*
+   Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.
 </div>
 
 ## 📋 Table des matières
@@ -22,6 +22,84 @@
 - [Tests](#-tests)
 - [Roadmap](#-roadmap)
 - [Dépannage](#-dépannage)
+
+## 🔧 Prérequis
+Avant de commencer, assurez-vous d'avoir installé :
+- **Git** - [Télécharger Git](#https://git-scm.com/install/)
+- **Docker** (version 20.10 ou supérieure) - [Télécharger Docker](#https://docs.docker.com/get-started/get-docker/)
+- **Docker Compose** (pour développement local) - Inclus avec Docker Desktop
+- **Node.js 18+** (pour développement frontend local) - [Télécharger Node.js](#https://nodejs.org/fr)
+- **Python 3.11+** (optionnel, pour développement backend local)
+
+Vérifier les installations :
+```bash
+git --version
+docker --version
+docker-compose --version
+node --version
+npm --version
+```
+
+## 🚀 Installation
+
+1. Cloner le repository
+```bash
+# Cloner le projet sur la branche loic
+git clone -b loic https://github.com/loicleguen/psg-academie.git
+cd psg-academie
+```
+Ou si vous avez déjà cloné le repo :
+```bash
+git clone https://github.com/loicleguen/psg-academie.git
+cd psg-academie
+git checkout loic
+```
+
+2. Vérifier la structure
+```bash
+# Lister les dossiers principaux
+ls -la
+# Vous devriez voir : backend-catapult, backend-veo, frontend, docker-compose.yml
+```
+
+3. Lancer tous les services
+```bash
+# Construire et démarrer tous les conteneurs Docker
+docker-compose up -d --build
+```
+Cette commande va :
+   - 🐳 Construire les images Docker pour les backends et le frontend
+   - 🗄️ Créer et démarrer les bases de données PostgreSQL
+   - ⚡ Lancer les APIs FastAPI (Catapult & Veo)
+   - 🌐 Démarrer le serveur Nginx
+   - 🔄 Orchestrer tout automatiquement
+
+4. Vérifier que tout fonctionne
+```bash
+# Vérifier l'état des conteneurs
+docker-compose ps
+
+# Voir les logs en temps réel
+docker-compose logs -f
+
+# Voir les logs d'un service spécifique
+docker-compose logs -f backend-catapult
+docker-compose logs -f backend-veo
+docker-compose logs -f frontend
+```
+
+## 🌐 Démarrage rapide
+
+Une fois les services démarrés, accédez à :
+
+|Service	            |URL	                            |Description                       |
+|--------------------|---------------------------------|----------------------------------|
+|Frontend 🎨        |http://localhost                  |Interface utilisateur principale  |
+|API Catapult 🏃    |http://localhost/api/physical/    |API données physiques GPS         |
+|API Veo ⚽         |http://localhost/api/tactical/    |API données tactiques matchs      |
+|Docs Catapult 📚   |http://localhost/api/physical/docs|Documentation Swagger API Catapult|
+|Docs Veo 📚        |http://localhost/api/tactical/docs|Documentation Swagger API Veo     |
+
 
 ## 🏗️ Architecture
 
@@ -52,46 +130,6 @@ Cette plateforme intègre **deux systèmes d'analyse complémentaires** :
 - Routage automatique vers le bon backend selon l'URL
 - Service du frontend React en production
 
-## 🚀 Démarrage Rapide
-
-### Prérequis
-- Docker & Docker Compose
-- Node.js 18+ (pour développement frontend)
-- Python 3.11+ (pour développement backend local)
-
-### Installation
-
-```bash
-# Cloner le repository
-git clone <repository-url>
-cd psg-academie
-
-# Lancer tous les services avec Docker
-docker-compose up -d --build
-
-# Vérifier que tout fonctionne
-docker-compose ps
-docker-compose logs -f
-```
-
-### Accès aux services
-
-Une fois les services démarrés :
-
-- **Frontend** : http://localhost (ou le port configuré)
-- **API Catapult** : http://localhost/api/physical/
-- **API Veo** : http://localhost/api/tactical/
-- **Docs API Catapult** : http://localhost/api/physical/docs
-- **Docs API Veo** : http://localhost/api/tactical/docs
-
-### Développement Frontend (mode local)
-
-```bash
-cd frontend
-npm install
-npm run dev
-# Disponible sur http://localhost:5173
-```
 
 ## 📊 Fonctionnalités
 
@@ -205,7 +243,7 @@ docker-compose exec db-catapult psql -U psguser -d psgdb
 docker-compose exec db-veo psql -U veo_user -d veo_db
 ```
 
-### Frontend
+## 💻 Développement Frontend
 
 ```bash
 cd frontend
