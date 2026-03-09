@@ -9,6 +9,7 @@
 
 ## 📋 Table des matières
 
+- [Vidéo de démo](#vidéo-de-démo)
 - [Diagramme de classes](#diagramme-de-classes)
 - [Diagrammes de séquence](#diagrammes-de-séquence)
 - [Technologies du projet](#technologies-du-projet)
@@ -25,6 +26,9 @@
 - [Tests](#-tests)
 ---
 - [Auteurs](#-auteurs)
+
+## [Vidéo de démo](#-table-des-matières)
+https://youtu.be/vgfBR5m8ZB8
 
 ## [Diagramme de classes](#-table-des-matières)
 ### Database Schema (PostgreSQL)
