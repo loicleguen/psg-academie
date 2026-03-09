@@ -216,6 +216,151 @@ erDiagram
         string file_path
     }
 ```
+### Description des Tables de la Base de Données
+
+**Tables Principales :**
+
+1. **COUNTRY** : Stocke les pays où se trouvent les académies
+2. **COUNTRY_ACADEMY** : Académies de football par pays
+3. **ACADEMY_TEAM** : Équipes au sein d'une académie
+4. **TEAM_HUB** : Hub de gestion pour chaque équipe
+5. **USER** : Utilisateurs du système (entraîneurs, admins, analystes)
+6. **PLAYER_CARD** : Fiche centrale regroupant toutes les informations d'un joueur
+7. **PLAYER_PROFILE** : Informations personnelles du joueur
+8. **PLAYER_POSITION** : Positions du joueur sur le terrain
+9. **MATCH_STATISTIC** : Statistiques détaillées par match
+10. **PHYSICAL_STATISTIC** : Tests physiques et métriques athlétiques
+11. **ALERT** : Alertes de performance pour les entraîneurs
+12. **COLLECTIVE_SQUAD_STATS** : Statistiques collectives de l'équipe
+13. **TRAINING_CALENDAR** : Calendrier des entraînements
+14. **DATA_IMPORT** : Historique des imports de données
+15. **DATA_EXPORT** : Historique des exports (PDF, CSV)
+
+**Contraintes et Index :**
+- Clés Primaires (PK) sur toutes les colonnes id
+- Clés Étrangères (FK) pour maintenir l'intégrité référentielle
+- Clé Unique (UK) sur user.email
+- Index sur les colonnes fréquemment recherchées (match_date, test_date, player_card_id)
+- Suppression en cascade sur certaines relations (ex : supprimer une player_card supprime ses statistiques)
+
+## [Diagrammes de Séquence](#-table-of-contents)
+
+### Cas d'utilisation 1 : Authentification Utilisateur
+
+```mermaid
+sequenceDiagram
+    actor Coach
+    participant Frontend as React Frontend
+    participant Nginx
+    participant Backend as FastAPI Backend
+    participant DB as PostgreSQL
+    
+    Coach->>Frontend: Enter credentials (email, password)
+    Frontend->>Frontend: Validate form inputs
+    Frontend->>Nginx: POST /api/auth/login
+    Nginx->>Backend: Forward request
+    Backend->>DB: Query user by email
+    DB-->>Backend: Return user data
+    
+    alt User found and password correct
+        Backend->>Backend: Verify password hash
+        Backend->>Backend: Generate JWT token
+        Backend-->>Nginx: 200 OK + JWT + user info
+        Nginx-->>Frontend: Return JWT token
+        Frontend->>Frontend: Store JWT in localStorage
+        Frontend->>Frontend: Redirect to Dashboard
+        Frontend-->>Coach: Display Dashboard
+    else User not found
+        Backend-->>Nginx: 404 Not Found
+        Nginx-->>Frontend: Error response
+        Frontend-->>Coach: Show "User not found" error
+    else Wrong password
+        Backend-->>Nginx: 401 Unauthorized
+        Nginx-->>Frontend: Error response
+        Frontend-->>Coach: Show "Invalid credentials" error
+    else Invalid input
+        Backend-->>Nginx: 400 Bad Request
+        Nginx-->>Frontend: Error response
+        Frontend-->>Coach: Show validation errors
+    end
+    
+    Note over Coach,DB: Subsequent requests include JWT in Authorization header
+```
+**Authentification Utilisateur :**
+- L'entraîneur saisit ses identifiants
+- Le frontend valide et envoie les données au backend via Nginx
+- Le backend vérifie les identifiants dans la base de données
+- **Cas de succès :** Token JWT généré et renvoyé au frontend, token stocké pour les requêtes suivantes
+- **Cas d'erreur :**
+  - 404 Not Found : L'utilisateur n'existe pas
+  - 401 Unauthorized : Mot de passe incorrect
+  - 400 Bad Request : Format de saisie invalide
+
+### Cas d'utilisation 2 : Consultation du Tableau de Bord de Performance d'un Joueur
+
+```mermaid
+sequenceDiagram
+    actor Coach
+    participant Frontend as React Frontend
+    participant Nginx
+    participant Backend as FastAPI Backend
+    participant Redis as Redis Cache
+    participant DB as PostgreSQL
+    
+    Coach->>Frontend: Click on player card
+    Frontend->>Nginx: GET /api/players/{player_id}
+    Nginx->>Backend: Forward request
+    Backend->>Backend: Validate JWT token
+    
+    alt Valid JWT
+        Backend->>Redis: Check cache for player data
+        
+        alt Cache hit
+            Redis-->>Backend: Return cached data
+            Backend-->>Nginx: 200 OK + player data
+        else Cache miss
+            Backend->>DB: Query player profile
+            
+            alt Player exists
+                DB-->>Backend: Return profile data
+                Backend->>DB: Query match statistics
+                DB-->>Backend: Return match stats
+                Backend->>DB: Query physical statistics
+                DB-->>Backend: Return physical stats
+                Backend->>Backend: Aggregate data
+                Backend->>Redis: Store in cache (TTL: 5 min)
+                Backend-->>Nginx: 200 OK + player data (JSON)
+            else Player not found
+                DB-->>Backend: No data
+                Backend-->>Nginx: 404 Not Found
+                Nginx-->>Frontend: Error response
+                Frontend-->>Coach: Show "Player not found"
+            end
+        end
+        
+        Nginx-->>Frontend: Return player data
+        Frontend->>Frontend: Render PlayerDetail component
+        Frontend->>Frontend: Generate charts
+        Frontend-->>Coach: Display player dashboard
+    else Invalid/Expired JWT
+        Backend-->>Nginx: 401 Unauthorized
+        Nginx-->>Frontend: Auth error
+        Frontend-->>Coach: Redirect to login
+    end
+```
+**Consultation du Tableau de Bord de Performance d'un Joueur :**
+- L'entraîneur sélectionne un joueur
+- Le backend valide le token JWT
+- Le backend vérifie d'abord le cache Redis (optimisation des performances)
+- En cas de cache manquant, interroge PostgreSQL pour toutes les données du joueur
+- Les données sont agrégées et mises en cache pour les requêtes futures
+- Le frontend reçoit les données et affiche le tableau de bord avec les graphiques
+- **Cas de succès :** L'entraîneur consulte les statistiques complètes du joueur
+- **Cas d'erreur :**
+  - 404 Not Found : Le joueur n'existe pas
+  - 401 Unauthorized : Token JWT invalide ou expiré
+
+Ces diagrammes de séquence illustrent les principales interactions entre les composants du système pour les fonctionnalités critiques du MVP, incluant la gestion des erreurs et les codes HTTP appropriés.
 
 ## 🔧 [Prérequis](#-table-des-matières)
 Avant de commencer, assurez-vous d'avoir installé :
