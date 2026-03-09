@@ -30,5 +30,5 @@ app.include_router(catapult_router)
 app.include_router(injury_router)
 
 @app.get("/")
-async def root(request: Request):
-    return RedirectResponse(url="/docs")
+async def root():
+    return {"message": "Catapult Module V1 API", "version": "1.0.0", "docs": "/api/physical/docs", "health": "/api/physical/health"}
