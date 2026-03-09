@@ -246,6 +246,8 @@ erDiagram
 
 ## [Diagrammes de Séquence](#-table-des-matières)
 
+Ces diagrammes de séquence illustrent les principales interactions entre les composants du système pour les fonctionnalités critiques du MVP, incluant la gestion des erreurs et les codes HTTP appropriés.
+
 ### Cas d'utilisation 1 : Authentification Utilisateur
 
 ```mermaid
@@ -361,7 +363,6 @@ sequenceDiagram
   - 404 Not Found : Le joueur n'existe pas
   - 401 Unauthorized : Token JWT invalide ou expiré
 
-Ces diagrammes de séquence illustrent les principales interactions entre les composants du système pour les fonctionnalités critiques du MVP, incluant la gestion des erreurs et les codes HTTP appropriés.
 
 ## 🔧 [Prérequis](#-table-des-matières)
 Avant de commencer, assurez-vous d'avoir installé :
