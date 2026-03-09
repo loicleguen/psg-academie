@@ -9,6 +9,8 @@
 
 ## 📋 Table des matières
 
+- [Diagramme de classes](#-diagramme-de-classes)
+---
 - [Prérequis](#-prérequis)
 - [Installation](#-installation)
 - [Démarrage rapide](#-démarrage-rapide)
@@ -20,8 +22,200 @@
 - [Documentation](#-documentation)
 - [Workflow de développement](#-workflow-de-développement)
 - [Tests](#-tests)
-
+---
 - [Auteurs](#-auteurs)
+
+## [Diagramme de classes](#-table-des-matières)
+### Database Schema (PostgreSQL)
+```mermaid
+erDiagram
+    COUNTRY ||--o{ COUNTRY_ACADEMY : "contains"
+    COUNTRY_ACADEMY ||--o{ ACADEMY_TEAM : "contains"
+    ACADEMY_TEAM ||--o{ TEAM_HUB : "contains"
+    TEAM_HUB ||--o{ USER : "has"
+    TEAM_HUB ||--o{ PLAYER_CARD : "manages"
+    TEAM_HUB ||--o{ COLLECTIVE_SQUAD_STATS : "calculates"
+    TEAM_HUB ||--o{ TRAINING_CALENDAR : "plans"
+    TEAM_HUB ||--o{ DATA_IMPORT : "receives"
+    
+    PLAYER_CARD ||--|| PLAYER_PROFILE : "has"
+    PLAYER_CARD ||--|| PLAYER_POSITION : "has"
+    PLAYER_CARD ||--o{ MATCH_STATISTIC : "records"
+    PLAYER_CARD ||--o{ PHYSICAL_STATISTIC : "measures"
+    PLAYER_CARD ||--o{ ALERT : "generates"
+    
+    USER ||--o{ ALERT : "receives"
+    USER ||--o{ DATA_IMPORT : "performs"
+    USER ||--o{ DATA_EXPORT : "generates"
+    
+    COUNTRY {
+        int id PK
+        string name
+        string iso_code
+        datetime created_at
+        datetime updated_at
+    }
+    
+    COUNTRY_ACADEMY {
+        int id PK
+        string name
+        string city
+        int country_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    
+    ACADEMY_TEAM {
+        int id PK
+        string name
+        string category
+        int academy_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    
+    TEAM_HUB {
+        int id PK
+        string name
+        string description
+        int team_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    
+    USER {
+        int id PK
+        string last_name
+        string first_name
+        string email UK
+        string password_hash
+        string role
+        int hub_id FK
+        datetime created_at
+        datetime updated_at
+    }
+    
+    PLAYER_CARD {
+        int id PK
+        int hub_id FK
+        int jersey_number
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    
+    PLAYER_PROFILE {
+        int id PK
+        int player_card_id FK
+        string last_name
+        string first_name
+        date birth_date
+        int age
+        float height
+        float weight
+        string nationality
+        string preferred_foot
+        datetime created_at
+        datetime updated_at
+    }
+    
+    PLAYER_POSITION {
+        int id PK
+        int player_card_id FK
+        string main_position
+        string secondary_positions
+        datetime created_at
+        datetime updated_at
+    }
+    
+    MATCH_STATISTIC {
+        int id PK
+        int player_card_id FK
+        date match_date
+        string opponent
+        int minutes_played
+        int goals
+        int assists
+        int shots_on_target
+        int successful_passes
+        int duels_won
+        float match_rating
+        string veo_url
+        string activity_zones
+        datetime created_at
+        datetime updated_at
+    }
+    
+    PHYSICAL_STATISTIC {
+        int id PK
+        int player_card_id FK
+        date test_date
+        string test_type
+        float vma
+        float max_speed
+        float total_distance
+        int sprints
+        float endurance
+        float strength
+        float flexibility
+        datetime created_at
+        datetime updated_at
+    }
+    
+    ALERT {
+        int id PK
+        int player_card_id FK
+        int user_id FK
+        string type
+        string priority
+        string message
+        datetime creation_date
+        boolean read
+        datetime read_date
+    }
+    
+    COLLECTIVE_SQUAD_STATS {
+        int id PK
+        int hub_id FK
+        int total_squad
+        float average_age
+        float average_height
+        date calculation_date
+        datetime created_at
+    }
+    
+    TRAINING_CALENDAR {
+        int id PK
+        int hub_id FK
+        string title
+        datetime session_date
+        int duration
+        string session_type
+        string location
+        datetime created_at
+        datetime updated_at
+    }
+    
+    DATA_IMPORT {
+        int id PK
+        int user_id FK
+        int hub_id FK
+        string file_name
+        string file_type
+        string status
+        int lines_processed
+        datetime import_date
+    }
+    
+    DATA_EXPORT {
+        int id PK
+        int user_id FK
+        string export_type
+        string format
+        datetime export_date
+        string file_path
+    }
+```
 
 ## 🔧 [Prérequis](#-table-des-matières)
 Avant de commencer, assurez-vous d'avoir installé :
