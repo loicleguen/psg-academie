@@ -21,6 +21,8 @@
 - [Workflow de développement](#-workflow-de-développement)
 - [Tests](#-tests)
 
+- [Auteurs](#-auteurs)
+
 ## 🔧 [Prérequis](#-table-des-matières)
 Avant de commencer, assurez-vous d'avoir installé :
 - **Git** - [Télécharger Git](#https://git-scm.com/install/)
@@ -304,3 +306,10 @@ docker-compose exec backend-veo pytest
 docker-compose exec backend-veo pytest --cov=app tests/
 ```
 
+## 👥 [Auteurs](#-table-des-matières)
+  
+| Author | Role | GitHub | Email |
+|--------|------|--------|-------|
+| **Loïc Le Guen** | Co-Developer | [https://github.com/loicleguen](https://github.com/loicleguen) | 11510@holbertonstudents.com |
+| **Jules Moleins** | Co-Developer | [https://github.com/Roullito](https://github.com/Roullito) | jmoleins@gmail.com |
+| **Pierre-Yves Fauconnet** | Co-Developer | [https://github.com/P-Y74](https://github.com/P-Y74) | pfauconnet@proton.me |
