@@ -1,5 +1,5 @@
+<h1 align="center">PSG Académie - Plateforme d'Analyse Football</h1>
 <div align="center">
-   PSG Académie - Plateforme d'Analyse Football
   <img src="frontend/public/images/imgbackground.png" alt="PSG Académie" width="100%">
 </div>
 
