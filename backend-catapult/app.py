@@ -17,7 +17,7 @@ async def lifespan(app):
     init_db()
     yield
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, root_path="/api/physical")
 
 # Serve uploaded static files
 app.mount('/static', StaticFiles(directory='static'), name='static')
