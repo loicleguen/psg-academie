@@ -20,10 +20,8 @@
 - [Documentation](#-documentation)
 - [Workflow de développement](#-workflow-de-développement)
 - [Tests](#-tests)
-- [Roadmap](#-roadmap)
-- [Dépannage](#-dépannage)
 
-## 🔧 Prérequis
+## 🔧 [Prérequis](#-table-des-matières)
 Avant de commencer, assurez-vous d'avoir installé :
 - **Git** - [Télécharger Git](#https://git-scm.com/install/)
 - **Docker** (version 20.10 ou supérieure) - [Télécharger Docker](#https://docs.docker.com/get-started/get-docker/)
@@ -40,7 +38,7 @@ node --version
 npm --version
 ```
 
-## 🚀 Installation
+## 🚀 [Installation](#-table-des-matières)
 
 1. Cloner le repository
 ```bash
@@ -88,7 +86,7 @@ docker-compose logs -f backend-veo
 docker-compose logs -f frontend
 ```
 
-## 🌐 Démarrage rapide
+## 🌐 [Démarrage rapide](#-table-des-matières)
 
 Une fois les services démarrés, accédez à :
 
@@ -101,7 +99,7 @@ Une fois les services démarrés, accédez à :
 |Docs Veo 📚        |http://localhost/api/tactical/docs|Documentation Swagger API Veo     |
 
 
-## 🏗️ Architecture
+## 🏗️ [Architecture](#-table-des-matières)
 
 Cette plateforme intègre **deux systèmes d'analyse complémentaires** :
 
@@ -131,7 +129,7 @@ Cette plateforme intègre **deux systèmes d'analyse complémentaires** :
 - Service du frontend React en production
 
 
-## 📊 Fonctionnalités
+## 📊 [Fonctionnalités](#-table-des-matières)
 
 ### Module Catapult (Physique)
 - ✅ Upload de fichiers CSV Catapult
@@ -160,7 +158,8 @@ Cette plateforme intègre **deux systèmes d'analyse complémentaires** :
 - ✅ Validation des données (pourcentages 0-100)
 - ✅ Export de résumés de match (format Excel-like)
 
-## 📁 Structure du Projet
+
+## 📁 [Structure du Projet](#-table-des-matières)
 
 ```
 psg-academie/
@@ -202,7 +201,7 @@ psg-academie/
     └── QUICK_REFERENCE.md     # Référence rapide
 ```
 
-## 🔧 Commandes Utiles
+## 🔧 [Commandes Utiles](#-table-des-matières)
 
 ### Docker
 
@@ -243,7 +242,7 @@ docker-compose exec db-catapult psql -U psguser -d psgdb
 docker-compose exec db-veo psql -U veo_user -d veo_db
 ```
 
-## 💻 Développement Frontend
+## 💻 [Développement Frontend](#-table-des-matières)
 
 ```bash
 cd frontend
@@ -261,7 +260,7 @@ npm run build
 npm run preview
 ```
 
-## 📖 Documentation
+## 📖 [Documentation](#-table-des-matières)
 
 Pour plus de détails, consultez la documentation dans le dossier `docs/` :
 
@@ -271,7 +270,7 @@ Pour plus de détails, consultez la documentation dans le dossier `docs/` :
 - **[Quick Reference](docs/QUICK_REFERENCE.md)** - Référence rapide des commandes
 - **[Architecture](docs/architecture.md)** - Architecture détaillée du système
 
-## 🔄 Workflow de Développement
+## 🔄 [Workflow de Développement](#-table-des-matières)
 
 1. **Créer une branche** pour votre fonctionnalité
    ```bash
@@ -295,7 +294,7 @@ Pour plus de détails, consultez la documentation dans le dossier `docs/` :
    git push origin feature/nom-feature
    ```
 
-## 🧪 Tests
+## 🧪 [Tests](#-table-des-matières)
 
 ```bash
 # Tests backend Veo
@@ -305,60 +304,3 @@ docker-compose exec backend-veo pytest
 docker-compose exec backend-veo pytest --cov=app tests/
 ```
 
-## 🛣️ Roadmap
-
-### Phase 2-3 (À venir)
-- [ ] Migration Backend Veo vers SQLModel (uniformisation)
-- [ ] Unification des schémas Player/Match entre les deux backends
-- [ ] API unifiée fusionnant les données physiques et tactiques
-- [ ] Dashboard combiné affichant les deux types de données
-- [ ] Système d'authentification et gestion des rôles
-- [ ] Export automatique de rapports hebdomadaires
-
-## 🐛 Dépannage
-
-### Le service ne démarre pas
-```bash
-# Vérifier les logs
-docker-compose logs backend-catapult
-docker-compose logs backend-veo
-
-# Reconstruire les images
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-### Erreur de connexion à la base de données
-```bash
-# Vérifier que PostgreSQL est prêt
-docker-compose ps
-docker-compose logs db-catapult
-docker-compose logs db-veo
-
-# Réinitialiser les volumes si nécessaire
-docker-compose down -v
-docker-compose up -d
-```
-
-### Port déjà utilisé
-```bash
-# Vérifier les ports utilisés
-netstat -tulpn | grep :80
-netstat -tulpn | grep :8000
-netstat -tulpn | grep :8001
-
-# Modifier les ports dans docker-compose.yml si nécessaire
-```
-
-## 📝 Licence
-
-Ce projet est propriétaire de l'Académie PSG.
-
-## 👥 Support
-
-Pour toute question ou problème, consultez la documentation dans le dossier `docs/` ou contactez l'équipe de développement.
-
----
-
-**Note** : Les deux backends (Catapult et Veo) sont actuellement indépendants pour faciliter la maintenance et les tests. L'unification progressive sera effectuée dans les phases suivantes.
