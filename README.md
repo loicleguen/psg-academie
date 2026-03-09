@@ -439,13 +439,13 @@ docker-compose logs -f frontend
 
 Une fois les services démarrés, accédez à :
 
-|Service	            |URL	                            |Description                       |
-|--------------------|---------------------------------|----------------------------------|
-|Frontend 🎨        |http://localhost                  |Interface utilisateur principale  |
-|API Catapult 🏃    |http://localhost/api/physical/    |API données physiques GPS         |
-|API Veo ⚽         |http://localhost/api/tactical/    |API données tactiques matchs      |
-|Docs Catapult 📚   |http://localhost/api/physical/docs|Documentation Swagger API Catapult|
-|Docs Veo 📚        |http://localhost/api/tactical/docs|Documentation Swagger API Veo     |
+|Service	         |URL	                                                           |Description                       |
+|--------------------|-----------------------------------------------------------------|----------------------------------|
+|Frontend 🎨        |[localhost](http://localhost)                                    |Interface utilisateur principale  |
+|API Catapult 🏃    |[localhost/api/physical/](http://localhost/api/physical/)        |API données physiques GPS         |
+|API Veo ⚽         |[localhost/api/tactical/](http://localhost/api/tactical/)        |API données tactiques matchs      |
+|Docs Catapult 📚   |[localhost/api/physical/docs](http://localhost/api/physical/docs)|Documentation Swagger API Catapult|
+|Docs Veo 📚        |[localhost/api/tactical/docs](http://localhost/api/tactical/docs)|Documentation Swagger API Veo     |
 
 
 <a id="architecture"></a>
