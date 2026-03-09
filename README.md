@@ -12,7 +12,7 @@
 - [Prérequis](#-prérequis)
 - [Installation](#-installation)
 - [Démarrage rapide](#-démarrage-rapide)
-- [Architecture](#-archtecture)
+- [Architecture](#-architecture)
 - [Fonctionnalités](#-fonctionnalités)
 - [Structure du projet](#-structure-du-projet)
 - [Commandes utiles](#-commandes-utiles)
