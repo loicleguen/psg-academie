@@ -1,11 +1,14 @@
 <div align="center">
-  <img src="frontend/public/images/imgbackground.png" alt="PSG Académie Background" style="width:100%; opacity: 0.3; position: absolute;">
+  <img src="frontend/public/images/imgbackground.png" alt="PSG Académie" width="100%">
+</div>
+
+<div align="center">
   <img src="frontend/public/images/psg_logo.svg" alt="PSG Logo" width="150">
   
-  # PSG Académie
-  ### Plateforme d'Analyse Football
-  
-  *Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.*
+# PSG Académie - Plateforme d'Analyse Football
+
+*Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.*
+
 </div>
 
 ## 🏗️ Architecture
