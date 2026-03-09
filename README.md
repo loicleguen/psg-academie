@@ -9,9 +9,9 @@
 
 ## 📋 Table des matières
 
-- [Diagramme de classes](#-diagramme-de-classes)
-- [Diagrammes de séquence](#-diagrammes-de-séquence)
-- [Technologies du projet](#-technologies-du-projet)
+- [Diagramme de classes](#diagramme-de-classes)
+- [Diagrammes de séquence](#diagrammes-de-séquence)
+- [Technologies du projet](#technologies-du-projet)
 ---
 - [Prérequis](#-prérequis)
 - [Installation](#-installation)
