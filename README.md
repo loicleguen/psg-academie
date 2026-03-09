@@ -448,7 +448,7 @@ Une fois les services démarrés, accédez à :
 |Docs Veo 📚        |http://localhost/api/tactical/docs|Documentation Swagger API Veo     |
 
 
-## 🏗️ [Architecture](#-table-des-matières)
+## ⚙️ [Architecture](#-table-des-matières)
 
 Cette plateforme intègre **deux systèmes d'analyse complémentaires** :
 
