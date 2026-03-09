@@ -21,7 +21,6 @@
 - [Structure du projet](#-structure-du-projet)
 - [Commandes utiles](#-commandes-utiles)
 - [Développement Frontend](#-développement-frontend)
-- [Documentation](#-documentation)
 - [Workflow de développement](#-workflow-de-développement)
 - [Tests](#-tests)
 ---
@@ -609,16 +608,6 @@ npm run build
 # Preview du build
 npm run preview
 ```
-
-## 📖 [Documentation](#-table-des-matières)
-
-Pour plus de détails, consultez la documentation dans le dossier `docs/` :
-
-- **[Getting Started](docs/GETTING_STARTED.md)** - Guide de démarrage complet
-- **[Catapult Module](docs/CATAPULT_README.md)** - Documentation API données physiques
-- **[Veo Module](docs/VEO_README.md)** - Documentation API données tactiques
-- **[Quick Reference](docs/QUICK_REFERENCE.md)** - Référence rapide des commandes
-- **[Architecture](docs/architecture.md)** - Architecture détaillée du système
 
 ## 🔄 [Workflow de Développement](#-table-des-matières)
 
