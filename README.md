@@ -11,6 +11,7 @@
 
 - [Diagramme de classes](#diagramme-de-classes)
 - [Diagrammes de séquence](#diagrammes-de-séquence)
+- [Technologies du projet](#technologies-du-projet)
 ---
 - [Prérequis](#prérequis)
 - [Installation](#installation)
@@ -362,6 +363,11 @@ sequenceDiagram
 - **Cas d'erreur :**
   - 404 Not Found : Le joueur n'existe pas
   - 401 Unauthorized : Token JWT invalide ou expiré
+
+
+## [Technologies du projet](#-table-des-matières)
+
+**[Cliquez](docs/PSG-Academy-Technos.pdf)** pour voir toutes les techbologies utilisées dans ce projet.
 
 
 ## 🔧 [Prérequis](#-table-des-matières)
