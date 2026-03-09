@@ -9,7 +9,7 @@
 
 ## 📋 Table des matières
 
-- [Diagramme de classes](#-diagramme-de-classes)
+- [Diagramme de classes](#diagramme-de-classes)
 ---
 - [Prérequis](#-prérequis)
 - [Installation](#-installation)
