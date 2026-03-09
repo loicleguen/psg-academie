@@ -4,10 +4,24 @@
 </div>
 
 <div align="center">
-  <img src="frontend/public/images/psg_logo.svg" alt="PSG Logo" width="150">
-
-*Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.*
+   Plateforme d'analyse complète pour le suivi physique et tactique des joueurs de l'académie PSG, intégrant les données GPS Catapult et les statistiques de match Veo.*
 </div>
+
+## 📋 Table des matières
+
+- [Prérequis](#-prérequis)
+- [Installation](#-installation)
+- [Démarrage rapide](#-démarrage-rapide)
+- [Architecture](#-architecture)
+- [Fonctionnalités](#-fonctionnalités)
+- [Structure du projet](#-structure-du-projet)
+- [Commandes utiles](#-commandes-utiles)
+- [Développement Frontend](#-développement-frontend)
+- [Documentation](#-documentation)
+- [Workflow de développement](#-workflow-de-développement)
+- [Tests](#-tests)
+- [Roadmap](#-roadmap)
+- [Dépannage](#-dépannage)
 
 ## 🏗️ Architecture
 
