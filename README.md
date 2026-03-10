@@ -370,7 +370,7 @@ sequenceDiagram
 
 ## [Technologies du projet](#-table-des-matières)
 
-**[Cliquez](docs/PSG-Academy-Technos.pdf)** pour voir toutes les techbologies utilisées dans ce projet.
+**[Cliquez](docs/PSG-Academy-Technos.pdf)** pour voir toutes les technologies utilisées dans ce projet.
 
 
 ## 🔧 [Prérequis](#-table-des-matières)
