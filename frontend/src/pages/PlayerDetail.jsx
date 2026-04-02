@@ -940,6 +940,13 @@ export default function PlayerDetail() {
                         onChange={(e) => setInjuryDate(e.target.value)} 
                         className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
                       />
+                      <label className="block text-sm font-medium text-gray-700">En arrêt jusqu'au</label>
+                      <input 
+                        type="date" 
+                        value={injuryDate} 
+                        onChange={(e) => setInjuryDate(e.target.value)} 
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
+                      />
                       <label className="block text-sm font-medium text-gray-700">Commentaire (localisation, type...)</label>
                       <textarea 
                         value={injuryComment} 
