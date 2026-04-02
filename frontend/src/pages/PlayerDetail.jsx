@@ -129,19 +129,21 @@ export default function PlayerDetail() {
   };
 
   useEffect(() => {
-    if (compareWith && activeTab === 'stats') {
+    if (compareWith && (activeTab === 'catapult' && activeTab === 'veo')) {
       setComparePlayers([compareWith]);
       (async () => {
         try {
           const s = await catapultService.getPlayerStats(compareWith);
           setComparePlayersStats([s]);
-        } catch (err) { console.debug(err);
+        } catch (err) { 
+          console.debug(err);
           setComparePlayersStats([]);
         }
       })();
-    } else if (activeTab !== 'stats') {
+    } else if (activeTab !== 'catapult' && activeTab !== 'veo') {
       setComparePlayers([]);
       setComparePlayersStats([]);
+      setCompareVeoStatsList([]);
     }
   }, [compareWith, activeTab]);
 
@@ -432,6 +434,78 @@ export default function PlayerDetail() {
     }, {})
   );
 
+  const ComparisonBlock = () => (
+    <div className="space-y-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center">
+          <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+          </svg>
+          <span className="font-semibold text-blue-900">Poste: {playerInfo?.position || 'Non défini'}</span>
+        </div>
+      </div>
+
+      <p className="text-black">Données des 3 derniers mois</p>
+
+      <div className="bg-gray-50/50 rounded-lg p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tous les joueurs
+            </label>
+            <select
+              value={selectedPlayer}
+              onChange={(e) => setSelectedPlayer(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">-- Choisir un joueur --</option>
+              {getAllPlayersList().map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Même poste {playerInfo?.position && `(${playerInfo.position})`}
+            </label>
+            <select
+              value={selectedPlayer}
+              onChange={(e) => setSelectedPlayer(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value="">-- Choisir un joueur --</option>
+              {getSamePositionPlayers().map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            {getSamePositionPlayers().length === 0 && playerInfo?.position && (
+              <p className="text-xs text-gray-500 mt-1">Aucun autre joueur au poste {playerInfo.position}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-4">
+          <button
+            onClick={handleCompare}
+            disabled={!selectedPlayer}
+            className="transform translate-x-[400px] px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          >
+            Comparer
+          </button>
+          {comparePlayersStats.length > 0 && (
+            <button
+              onClick={clearComparison}
+              className="transform translate-x-[400px] px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-transparent p-8">
       <div className="max-w-6xl mx-auto">
@@ -457,14 +531,25 @@ export default function PlayerDetail() {
               </button>
 
               <button
-                onClick={() => setActiveTab('stats')}
+                onClick={() => setActiveTab('catapult')}
                 className={`px- py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'stats'
+                  activeTab === 'catapult'
                     ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
                 }`}
               >
-                Stats Catapult et VEO
+                Stats Catapult
+              </button>
+
+              <button
+                onClick={() => setActiveTab('veo')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'veo'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Stats VEO
               </button>
               
               <button
@@ -750,96 +835,84 @@ export default function PlayerDetail() {
                   </div>
                 )}
 
-{activeTab === 'stats' && playerStats && (
-              <div className="space-y-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                    </svg>
-                    <span className="font-semibold text-blue-900">Poste: {playerInfo?.position || 'Non défini'}</span>
-                  </div>
-                </div>
-
-                <p className="text-black">Données des 3 derniers mois</p>
-
-                <div className="bg-gray-50/50 rounded-lg p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tous les joueurs
-                      </label>
-                      <select
-                        value={selectedPlayer}
-                        onChange={(e) => setSelectedPlayer(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">-- Choisir un joueur --</option>
-                        {getAllPlayersList().map(name => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Même poste {playerInfo?.position && `(${playerInfo.position})`}
-                      </label>
-                      <select
-                        value={selectedPlayer}
-                        onChange={(e) => setSelectedPlayer(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      >
-                        <option value="">-- Choisir un joueur --</option>
-                        {getSamePositionPlayers().map(name => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
-                      {getSamePositionPlayers().length === 0 && playerInfo?.position && (
-                        <p className="text-xs text-gray-500 mt-1">Aucun autre joueur au poste {playerInfo.position}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={handleCompare}
-                      disabled={!selectedPlayer}
-                      className="transform translate-x-[400px] px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Comparer
-                    </button>
-                    {comparePlayersStats.length > 0 && (
-                      <button
-                        onClick={clearComparison}
-                        className="transform translate-x-[400px] px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                      >
-                        Effacer
-                      </button>
-                    )}
-                  </div>
-                </div>
-
+            {activeTab === 'catapult' && playerStats && (
+              <>
+              <ComparisonBlock />
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
-                  
-                    <StatTable
-                      rows={[
-                        { key: 'sessions_count', label: 'Nombre de sessions', color: 'text-blue-600' },
-                        { key: 'vitesse_max', label: 'Vitesse Max (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
-                        { key: 'vitesse_avg', label: 'Vitesse Moyenne (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
-                        { key: 'hsr_max', label: 'HSR Max (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
-                        { key: 'hsr_avg', label: 'HSR Moyen (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
-                        { key: 'sprint_max', label: 'Sprint Max (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
-                        { key: 'sprint_avg', label: 'Sprint Moyen (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
-                        { key: 'distance_max', label: 'Distance Max (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
-                        { key: 'distance_avg', label: 'Distance Moyenne (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
-                        { key: 'dec_max', label: 'DEC Max', format: v => v?.toFixed(0), color: 'text-purple-600' },
-                        { key: 'dec_avg', label: 'DEC Moyen', format: v => v?.toFixed(0), color: 'text-purple-600' },
-                        { key: 'pp_max', label: 'PP Max', format: v => v?.toFixed(2), color: 'text-indigo-600' },
-                        { key: 'pp_avg', label: 'PP Moyen', format: v => v?.toFixed(2), color: 'text-indigo-600' },
-                      ]}
-                    />                </div>
-              </div>
+                  <StatTable
+                    rows={[
+                      { key: 'sessions_count', label: 'Nombre de sessions', color: 'text-blue-600' },
+                      { key: 'vitesse_max', label: 'Vitesse Max (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
+                      { key: 'vitesse_avg', label: 'Vitesse Moyenne (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
+                      { key: 'hsr_max', label: 'HSR Max (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
+                      { key: 'hsr_avg', label: 'HSR Moyen (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
+                      { key: 'sprint_max', label: 'Sprint Max (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
+                      { key: 'sprint_avg', label: 'Sprint Moyen (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
+                      { key: 'distance_max', label: 'Distance Max (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
+                      { key: 'distance_avg', label: 'Distance Moyenne (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
+                      { key: 'dec_max', label: 'DEC Max', format: v => v?.toFixed(0), color: 'text-purple-600' },
+                      { key: 'dec_avg', label: 'DEC Moyen', format: v => v?.toFixed(0), color: 'text-purple-600' },
+                      { key: 'pp_max', label: 'PP Max', format: v => v?.toFixed(2), color: 'text-indigo-600' },
+                      { key: 'pp_avg', label: 'PP Moyen', format: v => v?.toFixed(2), color: 'text-indigo-600' },
+                    ]}
+                  />
+                </div>
+              </>
+            )}
+
+            {activeTab === 'veo' && (
+              <>
+                <ComparisonBlock />
+                <div className="bg-white/80 rounded-lg shadow-lg p-6 space-y-6 mt-8">
+                  <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
+                  {veoLoading ? (
+                    <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
+                  ) : !veoStats ? (
+                    <p className="text-gray-500 text-sm">
+                      Aucune metrique VEO disponible pour ce joueur sur les sessions disponibles.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full table-auto border-collapse">
+                          <thead>
+                            <tr>
+                              <th className="px-4 py-2 text-left text-sm text-gray-600 font-medium">Métrique</th>
+                              <th className="px-4 py-2 text-left">
+                                <div className="text-xs text-gray-500">{veoStats.player_name || playerName}</div>
+                                <div className="text-xs text-gray-400">{veoStats.sessions_count} session(s)</div>
+                              </th>
+                              {compareVeoStatsList.map((cs, i) => (
+                                <th key={i} className="px-4 py-2 text-left">
+                                  <div className="text-xs text-gray-500">{cs?.player_name || comparePlayers[i]}</div>
+                                  <div className="text-xs text-gray-400">{cs?.sessions_count ?? 0} session(s)</div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {VEO_PLAYER_METRIC_ORDER.map((slug) => (
+                              <tr key={slug} className="border-t">
+                                <td className="px-4 py-3 text-sm text-gray-600 font-medium">
+                                  {VEO_PLAYER_METRIC_LABELS[slug] || slug}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                                  {formatVeoMetricValue(veoMetricMap[slug])}
+                                </td>
+                                {compareVeoMetricMaps.map((map, i) => (
+                                  <td key={i} className="px-4 py-3 text-sm font-bold text-orange-500">
+                                    {formatVeoMetricValue(map[slug])}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
             )}
 
             {activeTab === 'medical' && (
@@ -892,63 +965,10 @@ export default function PlayerDetail() {
                     </div>
                   </div>
                 )}
-
               </div>
             )}
           </div>
         </div>
-
-        {activeTab === 'stats' && (
-        <div className="bg-white/80 rounded-lg shadow-lg p-6 space-y-6 mt-8">
-          <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
-          {veoLoading ? (
-            <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
-          ) : !veoStats ? (
-            <p className="text-gray-500 text-sm">
-              Aucune metrique VEO disponible pour ce joueur sur les sessions disponibles.
-            </p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full table-auto border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-2 text-left text-sm text-gray-600 font-medium">Métrique</th>
-                      <th className="px-4 py-2 text-left">
-                        <div className="text-xs text-gray-500">{veoStats.player_name || playerName}</div>
-                        <div className="text-xs text-gray-400">{veoStats.sessions_count} session(s)</div>
-                      </th>
-                      {compareVeoStatsList.map((cs, i) => (
-                        <th key={i} className="px-4 py-2 text-left">
-                          <div className="text-xs text-gray-500">{cs?.player_name || comparePlayers[i]}</div>
-                          <div className="text-xs text-gray-400">{cs?.sessions_count ?? 0} session(s)</div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {VEO_PLAYER_METRIC_ORDER.map((slug) => (
-                      <tr key={slug} className="border-t">
-                        <td className="px-4 py-3 text-sm text-gray-600 font-medium">
-                          {VEO_PLAYER_METRIC_LABELS[slug] || slug}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                          {formatVeoMetricValue(veoMetricMap[slug])}
-                        </td>
-                        {compareVeoMetricMaps.map((map, i) => (
-                          <td key={i} className="px-4 py-3 text-sm font-bold text-orange-500">
-                            {formatVeoMetricValue(map[slug])}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-        )}
       </div>
     </div>
   );
