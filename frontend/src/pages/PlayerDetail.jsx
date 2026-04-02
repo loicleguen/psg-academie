@@ -60,7 +60,10 @@ export default function PlayerDetail() {
   const [editForm, setEditForm] = useState(null);
   const [clickCoordinates, setClickCoordinates] = useState(null);
   const [injuryDate, setInjuryDate] = useState('');
+  const [injuryEndDate, setInjuryEndDate] = useState('');
   const [injuryComment, setInjuryComment] = useState('');
+  const [showEditInjuryModal, setShowEditInjuryModal] = useState(false);
+  const [editInjuryForm, setEditInjuryForm] = useState(null);
 
   const handlePhotoSelect = async (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -324,6 +327,7 @@ export default function PlayerDetail() {
       coord_x: clickCoordinates.coord_x,
       coord_y: clickCoordinates.coord_y,
       injury_date: injuryDate || new Date().toISOString().slice(0,10),
+      injury_end_date: injuryEndDate || null,
       comment: injuryComment || ''
     };
 
@@ -341,8 +345,20 @@ export default function PlayerDetail() {
     } finally {
       setShowAddModal(false);
       setClickCoordinates(null);
+      setInjuryEndDate('');
     }
   };
+
+  const updateInjury = async (injuryId, payload) => {
+  if (!playerInfo?.id) return;
+  try {
+    await api.put(`/players/${playerInfo.id}/injuries/${injuryId}`, payload);
+    await fetchInjuries(); // Rafraîchir la liste après modification
+  } catch (err) {
+    console.error('Erreur lors de la mise à jour de la blessure:', err);
+    alert('Erreur lors de la mise à jour de la blessure');
+  }
+};
 
   const deleteInjury = async (injuryId) => {
     try {
@@ -921,6 +937,14 @@ export default function PlayerDetail() {
                   injuries={injuries}
                   onCoordinatesClick={onCoordinatesClick}
                   onDeleteInjury={deleteInjury}
+                  onEditInjury={(injury) => {
+                    setEditInjuryForm(injury);
+                    setShowEditInjuryModal(true);
+                    setInjuryDate(injury.injury_date || '');
+                    setInjuryEndDate(injury.injury_end_date || '');
+                    setInjuryComment(injury.comment || '');
+                    setClickCoordinates({ coord_x: injury.coord_x, coord_y: injury.coord_y });
+                  }}
                 />
 
                 {showAddModal && (
@@ -943,8 +967,8 @@ export default function PlayerDetail() {
                       <label className="block text-sm font-medium text-gray-700">En arrêt jusqu'au</label>
                       <input 
                         type="date" 
-                        value={injuryDate} 
-                        onChange={(e) => setInjuryDate(e.target.value)} 
+                        value={injuryEndDate} 
+                        onChange={(e) => setInjuryEndDate(e.target.value)} 
                         className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
                       />
                       <label className="block text-sm font-medium text-gray-700">Commentaire (localisation, type...)</label>
@@ -957,7 +981,7 @@ export default function PlayerDetail() {
                       ></textarea>
                       <div className="flex justify-end gap-3">
                         <button 
-                          onClick={() => setShowAddModal(false)} 
+                          onClick={() => { setShowAddModal(false); setInjuryEndDate(''); }} 
                           className="px-4 py-2 rounded border hover:bg-gray-50"
                         >
                           Annuler
@@ -967,6 +991,59 @@ export default function PlayerDetail() {
                           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
                           Ajouter
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {showEditInjuryModal && editInjuryForm && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 my-8">
+                      <h3 className="text-lg font-semibold mb-4">Modifier la blessure</h3>
+                      <label className="block text-sm font-medium text-gray-700">Date de la blessure</label>
+                      <input
+                        type="date"
+                        value={injuryDate}
+                        onChange={(e) => setInjuryDate(e.target.value)}
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded"
+                      />
+                      <label className="block text-sm font-medium text-gray-700">En arrêt jusqu'au</label>
+                      <input
+                        type="date"
+                        value={injuryEndDate}
+                        onChange={(e) => setInjuryEndDate(e.target.value)}
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded"
+                      />
+                      <label className="block text-sm font-medium text-gray-700">Commentaire</label>
+                      <textarea
+                        value={injuryComment}
+                        onChange={(e) => setInjuryComment(e.target.value)}
+                        className="mt-1 mb-4 w-full px-3 py-2 border rounded"
+                        rows={3}
+                      />
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => { setShowEditInjuryModal(false); setEditInjuryForm(null); }}
+                          className="px-4 py-2 rounded border hover:bg-gray-50"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await updateInjury(editInjuryForm.id, {
+                              injury_date: injuryDate,
+                              injury_end_date: injuryEndDate,
+                              comment: injuryComment,
+                              coord_x: clickCoordinates?.coord_x,
+                              coord_y: clickCoordinates?.coord_y,
+                            });
+                            setShowEditInjuryModal(false);
+                            setEditInjuryForm(null);
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Enregistrer
                         </button>
                       </div>
                     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, injuries = [] }) => {
+const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries = [] }) => {
   const imageRef = useRef(null);
   const [hoveredInjury, setHoveredInjury] = useState(null);
 
@@ -143,26 +143,23 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, injuries = [] }) => {
                         📍
                       </div>
                     )}
-                    {/* Bouton de suppression */}
-                    <button
-                      onClick={(e) => handleDelete(e, injury.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
-                      title="Supprimer cette blessure"
-                    >
-                      <svg 
-                        className="w-4 h-4 text-red-500 hover:text-red-700" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        className="mb-1 px-2 py-1 text-xs bg-yellow-400 text-white rounded hover:bg-yellow-600"
+                        title="Modifier cette blessure"
+                        onClick={() => onEditInjury?.(injury)}
                       >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M6 18L18 6M6 6l12 12" 
-                        />
-                      </svg>
-                    </button>
+                        Modifier
+                      </button>
+                      {/* Bouton de suppression */}
+                      <button
+                        className="mb-1 px-2 py-1 text-xs bg-red-400 text-white rounded hover:bg-red-800"
+                        title="Supprimer cette blessure"
+                        onClick={(e) => handleDelete(e, injury.id)}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
