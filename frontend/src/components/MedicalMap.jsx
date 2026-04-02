@@ -133,14 +133,26 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
                       <p className="mt-1 text-sm text-gray-600">{injury.comment}</p>
                     )}
                   </div>
+                  <div className="flex-0 pr-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-900 whitespace-nowrap">
+                        En arrêt jusqu'au
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-500">
+                        {new Date(injury.injury_end_date).toLocaleDateString('fr-FR')}
+                      </span>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
                     {injury.coord_x != null && injury.coord_y != null ? (
                       <div className="text-xs text-green-500" title="Position enregistrée">
-                        📍
+                        
                       </div>
                     ) : (
                       <div className="text-xs text-gray-300" title="Position non enregistrée">
-                        📍
+                        
                       </div>
                     )}
                     <div className="flex flex-col items-end gap-1">
