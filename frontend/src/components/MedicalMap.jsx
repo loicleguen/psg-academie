@@ -21,6 +21,18 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
     }
   };
 
+  function getTotalInjuryDays(injuries) {
+    const today = new Date();
+    return injuries.reduce((total, injury) => {
+      const start = new Date(injury.injury_date);
+      let end = injury.injury_end_date ? new Date(injury.injury_end_date) : today;
+      if (end > today) end = today; // Si la date de fin est dans le futur, on prend aujourd'hui
+      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      return total + (diff > 0 ? diff : 0);
+    }, 0);
+  }
+  const totalDays = getTotalInjuryDays(injuries);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Colonne gauche : Image du corps */}
@@ -141,7 +153,9 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-500">
-                        {new Date(injury.injury_end_date).toLocaleDateString('fr-FR')}
+                        {injury.injury_end_date
+                          ? new Date(injury.injury_end_date).toLocaleDateString('fr-FR')
+                          : "Pas de date"}
                       </span>
                     </div>
                   </div>
@@ -178,6 +192,9 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
             ))}
           </div>
         )}
+        <div className="col-span-full mt-5 p-4 bg-white rounded-lg text-center text-gray-900 font-medium">
+          Ce joueur cumule {totalDays} jours d'arrêt
+        </div>
       </div>
     </div>
   );
