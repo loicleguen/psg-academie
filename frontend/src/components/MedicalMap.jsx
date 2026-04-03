@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 
-const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, injuries = [] }) => {
+const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries = [] }) => {
   const imageRef = useRef(null);
   const [hoveredInjury, setHoveredInjury] = useState(null);
 
@@ -20,6 +20,18 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, injuries = [] }) => {
       onDeleteInjury?.(injuryId);
     }
   };
+
+  function getTotalInjuryDays(injuries) {
+    const today = new Date();
+    return injuries.reduce((total, injury) => {
+      const start = new Date(injury.injury_date);
+      let end = injury.injury_end_date ? new Date(injury.injury_end_date) : today;
+      if (end > today) end = today; // Si la date de fin est dans le futur, on prend aujourd'hui
+      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      return total + (diff > 0 ? diff : 0);
+    }, 0);
+  }
+  const totalDays = getTotalInjuryDays(injuries);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -133,42 +145,56 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, injuries = [] }) => {
                       <p className="mt-1 text-sm text-gray-600">{injury.comment}</p>
                     )}
                   </div>
+                  <div className="flex-0 pr-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-900 whitespace-nowrap">
+                        En arrêt jusqu'au
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-500">
+                        {injury.injury_end_date
+                          ? new Date(injury.injury_end_date).toLocaleDateString('fr-FR')
+                          : "Pas de date"}
+                      </span>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
                     {injury.coord_x != null && injury.coord_y != null ? (
                       <div className="text-xs text-green-500" title="Position enregistrée">
-                        📍
+                        
                       </div>
                     ) : (
                       <div className="text-xs text-gray-300" title="Position non enregistrée">
-                        📍
+                        
                       </div>
                     )}
-                    {/* Bouton de suppression */}
-                    <button
-                      onClick={(e) => handleDelete(e, injury.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
-                      title="Supprimer cette blessure"
-                    >
-                      <svg 
-                        className="w-4 h-4 text-red-500 hover:text-red-700" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        className="mb-1 px-2 py-1 text-xs bg-yellow-400 text-white rounded hover:bg-yellow-600"
+                        title="Modifier cette blessure"
+                        onClick={() => onEditInjury?.(injury)}
                       >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M6 18L18 6M6 6l12 12" 
-                        />
-                      </svg>
-                    </button>
+                        Modifier
+                      </button>
+                      {/* Bouton de suppression */}
+                      <button
+                        className="mb-1 px-2 py-1 text-xs bg-red-400 text-white rounded hover:bg-red-800"
+                        title="Supprimer cette blessure"
+                        onClick={(e) => handleDelete(e, injury.id)}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
+        <div className="col-span-full mt-5 p-4 bg-white rounded-lg text-center text-gray-900 font-medium">
+          Ce joueur cumule {totalDays} jours d'arrêt
+        </div>
       </div>
     </div>
   );
