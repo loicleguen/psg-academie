@@ -38,9 +38,16 @@ build/
 
 # Logs
 *.log
+logs.txt
 logs/
 
 # Tests (pour plus tard)
 .pytest_cache/
 .coverage
 htmlcov/
+upload_results.csv
+
+
+.devcontainer/*.env
+.devcontainer/*.bak
+.devcontainer/*.log

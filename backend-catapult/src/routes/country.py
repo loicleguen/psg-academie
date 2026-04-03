@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, status
-from src.models.country import Country, CountryCreate, CountryUpdate, CountryRead
-from src.models.user import User
-from src.db.database import get_session
-from src.middleware.security import require_coach_or_admin
-from sqlmodel import select, func
+from ..models.country import Country, CountryCreate, CountryUpdate, CountryRead
+from ..models.user import User
+from ..db.database import get_session
+from ..middleware.security import require_coach_or_admin, get_current_user
+from sqlmodel import select, func, Session
 from sqlalchemy.orm import selectinload
 from typing import List
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/countries", tags=["countries"])
 @router.post("/", response_model=CountryRead, status_code=status.HTTP_201_CREATED)
 def create_country(
     country: CountryCreate,
-    session=Depends(get_session),
+    session: Session=Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
     existing = session.exec(
@@ -28,7 +28,7 @@ def create_country(
 
 @router.get("/", response_model=List[CountryRead])
 def list_countries(
-    session=Depends(get_session),
+    session: Session=Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
     statement = select(Country).options(selectinload(Country.academies))
@@ -40,7 +40,7 @@ def list_countries(
 def update_country_by_name(
     country_name: str,
     country: CountryUpdate,
-    session=Depends(get_session),
+    session: Session=Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
     db_country = session.exec(select(Country).where(Country.name == country_name)).first()
@@ -55,7 +55,7 @@ def update_country_by_name(
 @router.delete("/{country_name}", status_code=status.HTTP_200_OK)
 def delete_country_by_name(
     country_name: str,
-    session=Depends(get_session),
+    session: Session=Depends(get_session),
     current_user: User = Depends(require_coach_or_admin)
 ):
     db_country = session.exec(select(Country).where(Country.name == country_name)).first()

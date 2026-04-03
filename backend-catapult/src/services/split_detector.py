@@ -113,63 +113,67 @@ class SplitDetector:
         elif split_lower == "all":
             # "all" is the entire session
             return "other"
-        
-        # Use intensity to guess split type
-        duration = session_data.get("duration", 0)
-        player_load = session_data.get("player_load", 0)
-        
-        if duration > 0:
-            load_per_min = player_load / (duration / 60)
-            
-            # Low intensity = warm-up or cool-down
-            if load_per_min < 3.0:
-                if duration < SplitDetector.WARMUP_DURATION_MAX:
-                    return "warm-up"
-                else:
-                    return "cool-down"
-        
-        return "other"
-    
+
+
+    @staticmethod
+    def is_real_effort(split: dict, min_load_per_min: float = 3.0, min_dist_per_min: float = 30.0, min_top_speed: float = 5.0) -> bool:
+        """Return True if `split` corresponds to real training/match effort."""
+        if not split:
+            return False
+        try:
+            duration = float(split.get('duration') or 0)
+        except Exception:
+            return False
+        if duration <= 0:
+            return False
+        def to_float(v):
+            try:
+                return float(v or 0)
+            except Exception:
+                return 0.0
+        player_load = to_float(split.get('player_load'))
+        dist_per_min = to_float(split.get('distance_per_min'))
+        top_speed = to_float(split.get('top_speed'))
+        load_per_min = player_load / (duration / 60) if duration > 0 else 0.0
+        name = str(split.get('split_name') or '').lower()
+        if any(k in name for k in ['warm','échauff','echauff','cool','retour','pause','crop']):
+            return False
+        if load_per_min >= min_load_per_min:
+            return True
+        if dist_per_min >= min_dist_per_min:
+            return True
+        if top_speed >= min_top_speed:
+            return True
+        return False
+
     @staticmethod
     def analyze_player_splits(
-        player_sessions: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        player_sessions: list
+    ) -> dict:
         """
         Analyze all splits for a single player
-        
-        Args:
-            player_sessions: List of session data for one player
-            
-        Returns:
-            Analysis with split breakdown and recommendations
         """
         if not player_sessions:
             return {}
-        
+        import pandas as pd
         df = pd.DataFrame(player_sessions)
-        
-        # Sort by start time
         df = df.sort_values("split_start_time")
-        
-        # Calculate metrics for each split
         splits = []
         for _, row in df.iterrows():
             split_info = {
-                "split_name": row["split_name"],
-                "duration_min": row["duration"] / 60,
-                "distance_km": row["distance_km"],
-                "avg_speed_kmh": (row["distance_km"] / (row["duration"] / 3600)) if row["duration"] > 0 else 0,
-                "max_speed_kmh": row["top_speed"] * 3.6,  # m/s to km/h
-                "player_load": row["player_load"],
-                "energy_kcal": row["energy_kcal"],
-                "intensity": row["player_load"] / (row["duration"] / 60) if row["duration"] > 0 else 0,
+                "split_name": row.get("split_name"),
+                "duration_min": row.get("duration",0) / 60,
+                "distance_km": row.get("distance_km",0),
+                "avg_speed_kmh": (row.get("distance_km",0) / (row.get("duration",1) / 3600)) if row.get("duration",0) > 0 else 0,
+                "max_speed_kmh": row.get("top_speed",0) * 3.6,
+                "player_load": row.get("player_load",0),
+                "energy_kcal": row.get("energy_kcal",0),
+                "intensity": (row.get("player_load",0) / (row.get("duration",1) / 60)) if row.get("duration",0) > 0 else 0,
             }
             splits.append(split_info)
-        
-        # Overall analysis
         analysis = {
-            "player_name": player_sessions[0]["player_name"],
-            "session_title": player_sessions[0]["session_title"],
+            "player_name": player_sessions[0].get("player_name"),
+            "session_title": player_sessions[0].get("session_title"),
             "total_splits": len(splits),
             "splits": splits,
             "total_distance_km": float(df["distance_km"].sum()),
@@ -178,9 +182,8 @@ class SplitDetector:
             "peak_speed_kmh": float(df["top_speed"].max() * 3.6),
             "total_energy_kcal": float(df["energy_kcal"].sum()),
         }
-        
         return analysis
-    
+
     @staticmethod
     def compare_splits_across_players(
         all_sessions: List[Dict[str, Any]],
