@@ -879,7 +879,7 @@ export default function PlayerDetail() {
             {activeTab === 'veo' && (
               <>
                 <ComparisonBlock />
-                <div className="bg-white/80 rounded-lg shadow-lg p-6 space-y-6 mt-8">
+                <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
                   {veoLoading ? (
                     <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
