@@ -148,6 +148,7 @@ class UserUpdateMe(SQLModel):
     """Schéma pour mettre à jour son propre profil (sans email ni role)"""
 
     password: Optional[str] = None
+    old_password: Optional[str] = None
     full_name: Optional[str] = None
     team_id: Optional[int] = None
     age: Optional[int] = None

@@ -462,14 +462,28 @@ export default function PlayerDetail() {
     setShowPasswordForm(true);
     setTimeout(() => {
       passwordFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 200);
+    }, 100);
   };
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
-    // Ici tu feras l’appel API pour changer le mot de passe
-    // et la gestion des erreurs/succès
+    if (newPassword !== confirmPassword) {
+      alert("Les nouveaux mots de passe ne correspondent pas.");
+      return;
+    }
+    try {
+      await api.put('/auth/me', { password: newPassword, old_password: oldPassword });
+      alert("Mot de passe modifié avec succès !");
+      setShowPasswordForm(false);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      alert("Erreur lors du changement de mot de passe : " + (err.response?.data?.detail || err.message));
+    }
   };
+
+  const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
 
   const ComparisonBlock = () => (
     <div className="space-y-6">
@@ -710,69 +724,71 @@ export default function PlayerDetail() {
                       <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
-                          <button
-                            className="mb-4 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            onClick={handleShowPasswordForm}
-                          >
-                            Modifier le mot de passe
-                          </button>
-                          {showPasswordForm && (
-                            <form
-                              style={{ maxHeight: '320px', overflowY: 'auto' }}
-                              ref={passwordFormRef}
-                              className="mb-2 p-2 bg-gray-50 rounded border flex flex-col gap-2 max-w-xs max-h-80 overflow-y-auto"
-                              onSubmit={handlePasswordChange}
+                        {me && playerInfo?.id === me.id && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
+                            <button
+                              className="mb-4 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                              onClick={handleShowPasswordForm}
                             >
-                              <label>
-                                Ancien mot de passe
-                                <input
-                                  type="password"
-                                  className="w-full mt-1 px-2 py-1 border rounded"
-                                  value={oldPassword}
-                                  onChange={e => setOldPassword(e.target.value)}
-                                  required
-                                />
-                              </label>
-                              <label>
-                                Nouveau mot de passe
-                                <input
-                                  type="password"
-                                  className="w-full mt-1 px-2 py-1 border rounded"
-                                  value={newPassword}
-                                  onChange={e => setNewPassword(e.target.value)}
-                                  required
-                                />
-                              </label>
-                              <label>
-                                Confirmer le nouveau mot de passe
-                                <input
-                                  type="password"
-                                  className="w-full mt-1 px-2 py-1 border rounded"
-                                  value={confirmPassword}
-                                  onChange={e => setConfirmPassword(e.target.value)}
-                                  required
-                                />
-                              </label>
-                              <div className="flex gap-2">
-                                <button
-                                  type="submit"
-                                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                                >
-                                  Enregistrer
-                                </button>
-                                <button
-                                  type="button"
-                                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                                  onClick={() => setShowPasswordForm(false)}
-                                >
-                                  Annuler
-                                </button>
-                              </div>
-                            </form>
-                          )}
-                        </div>
+                              Modifier le mot de passe
+                            </button>
+                            {showPasswordForm && (
+                              <form
+                                style={{ maxHeight: '320px', overflowY: 'auto' }}
+                                ref={passwordFormRef}
+                                className="mb-2 p-2 bg-gray-50 rounded border flex flex-col gap-2 max-w-xs max-h-80 overflow-y-auto"
+                                onSubmit={handlePasswordChange}
+                              >
+                                <label>
+                                  Ancien mot de passe
+                                  <input
+                                    type="password"
+                                    className="w-full mt-1 px-2 py-1 border rounded"
+                                    value={oldPassword}
+                                    onChange={e => setOldPassword(e.target.value)}
+                                    required
+                                  />
+                                </label>
+                                <label>
+                                  Nouveau mot de passe
+                                  <input
+                                    type="password"
+                                    className="w-full mt-1 px-2 py-1 border rounded"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    required
+                                  />
+                                </label>
+                                <label>
+                                  Confirmer le nouveau mot de passe
+                                  <input
+                                    type="password"
+                                    className="w-full mt-1 px-2 py-1 border rounded"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                    required
+                                  />
+                                </label>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                                  >
+                                    Enregistrer
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                                    onClick={() => setShowPasswordForm(false)}
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Nom complet</label>
