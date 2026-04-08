@@ -686,7 +686,7 @@ export default function PlayerDetail() {
               )}
 
             {showEditModal && editForm && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+                  <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
                     <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8">
                       <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -699,11 +699,6 @@ export default function PlayerDetail() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Email</label>
                           <input value={editForm.email || ''} onChange={(e)=>setEditForm({...editForm, email: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Player name</label>
-                          <input value={editForm.player_name || ''} onChange={(e)=>setEditForm({...editForm, player_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
 
                         <div>
