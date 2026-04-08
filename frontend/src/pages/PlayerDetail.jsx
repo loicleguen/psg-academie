@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { catapultService } from '../services/catapultService';
 import api from '../services/api';
@@ -66,6 +66,12 @@ export default function PlayerDetail() {
   const [editInjuryForm, setEditInjuryForm] = useState(null);
   const [restrictionDate, setRestrictionDate] = useState('');
   const [restrictionType, setRestrictionType] = useState('no_sport');
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const passwordFormRef = useRef(null);
 
   const handlePhotoSelect = async (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -452,6 +458,19 @@ export default function PlayerDetail() {
     }, {})
   );
 
+  const handleShowPasswordForm = () => {
+    setShowPasswordForm(true);
+    setTimeout(() => {
+      passwordFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+  };
+
+  const handlePasswordChange = (e) => {
+    e.preventDefault();
+    // Ici tu feras l’appel API pour changer le mot de passe
+    // et la gestion des erreurs/succès
+  };
+
   const ComparisonBlock = () => (
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -687,9 +706,73 @@ export default function PlayerDetail() {
 
             {showEditModal && editForm && (
                   <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
                       <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
+                          <button
+                            className="mb-4 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            onClick={handleShowPasswordForm}
+                          >
+                            Modifier le mot de passe
+                          </button>
+                          {showPasswordForm && (
+                            <form
+                              style={{ maxHeight: '320px', overflowY: 'auto' }}
+                              ref={passwordFormRef}
+                              className="mb-2 p-2 bg-gray-50 rounded border flex flex-col gap-2 max-w-xs max-h-80 overflow-y-auto"
+                              onSubmit={handlePasswordChange}
+                            >
+                              <label>
+                                Ancien mot de passe
+                                <input
+                                  type="password"
+                                  className="w-full mt-1 px-2 py-1 border rounded"
+                                  value={oldPassword}
+                                  onChange={e => setOldPassword(e.target.value)}
+                                  required
+                                />
+                              </label>
+                              <label>
+                                Nouveau mot de passe
+                                <input
+                                  type="password"
+                                  className="w-full mt-1 px-2 py-1 border rounded"
+                                  value={newPassword}
+                                  onChange={e => setNewPassword(e.target.value)}
+                                  required
+                                />
+                              </label>
+                              <label>
+                                Confirmer le nouveau mot de passe
+                                <input
+                                  type="password"
+                                  className="w-full mt-1 px-2 py-1 border rounded"
+                                  value={confirmPassword}
+                                  onChange={e => setConfirmPassword(e.target.value)}
+                                  required
+                                />
+                              </label>
+                              <div className="flex gap-2">
+                                <button
+                                  type="submit"
+                                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                                >
+                                  Enregistrer
+                                </button>
+                                <button
+                                  type="button"
+                                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                                  onClick={() => setShowPasswordForm(false)}
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            </form>
+                          )}
+                        </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Nom complet</label>
