@@ -64,6 +64,8 @@ export default function PlayerDetail() {
   const [injuryComment, setInjuryComment] = useState('');
   const [showEditInjuryModal, setShowEditInjuryModal] = useState(false);
   const [editInjuryForm, setEditInjuryForm] = useState(null);
+  const [restrictionDate, setRestrictionDate] = useState('');
+  const [restrictionType, setRestrictionType] = useState('no_sport');
 
   const handlePhotoSelect = async (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -524,17 +526,17 @@ export default function PlayerDetail() {
 
   return (
     <div className="min-h-screen bg-transparent p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-4">
+          <h1 className="inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
             {playerName}
           </h1>
-          <p className="justify-self-start bg-white/50 px-4 py-2 rounded-md text-l font-bold text-black">{playerInfo?.role || 'Joueur'}</p>
+          <p className="justify-self-center bg-white/50 px-4 py-2 rounded-md text-l font-bold text-black">{playerInfo?.role || 'Joueur'}</p>
         </div>
 
         <div className="bg-white/80 rounded-lg shadow-lg mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
+            <nav className="flex justify-center -mb-px">
               <button
                 onClick={() => setActiveTab('info')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
@@ -942,6 +944,8 @@ export default function PlayerDetail() {
                     setShowEditInjuryModal(true);
                     setInjuryDate(injury.injury_date || '');
                     setInjuryEndDate(injury.injury_end_date || '');
+                    setRestrictionDate(injury.restriction_date || '');
+                    setRestrictionType(injury.restriction_type || 'no_sport');
                     setInjuryComment(injury.comment || '');
                     setClickCoordinates({ coord_x: injury.coord_x, coord_y: injury.coord_y });
                   }}
@@ -950,28 +954,48 @@ export default function PlayerDetail() {
                 {showAddModal && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center">
                     <div className="absolute inset-0 bg-black opacity-40" onClick={() => setShowAddModal(false)}></div>
-                    <div className="bg-white rounded-lg shadow-lg z-60 p-6 w-full max-w-md">
-                      <h3 className="text-lg font-semibold mb-4">Ajouter une blessure</h3>
+                    <div className="bg-white rounded-lg shadow-lg z-60 p-6 w-full max-w-170">
+                      <h3 className="text-xl font-semibold mb-4">Ajouter une blessure</h3>
                       {clickCoordinates && (
                         <div className="mb-3 text-sm text-gray-600">
                           Position: {clickCoordinates.coord_x.toFixed(1)}%, {clickCoordinates.coord_y.toFixed(1)}%
                         </div>
                       )}
-                      <label className="block text-sm font-medium text-gray-700">Date de la blessure</label>
+                      <label className="block text-m font-medium text-gray-700">Date de la blessure</label>
                       <input 
                         type="date" 
                         value={injuryDate} 
                         onChange={(e) => setInjuryDate(e.target.value)} 
                         className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
                       />
-                      <label className="block text-sm font-medium text-gray-700">En arrêt jusqu'au</label>
+                      <label className="block text-m font-medium text-gray-700">En arrêt jusqu'au</label>
                       <input 
                         type="date" 
                         value={injuryEndDate} 
                         onChange={(e) => setInjuryEndDate(e.target.value)} 
                         className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
                       />
-                      <label className="block text-sm font-medium text-gray-700">Commentaire (localisation, type...)</label>
+                      <label className="mt-2 block text-m font-medium text-gray-700">Que permet cette blessure</label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span>Jusqu'au</span>
+                        <input
+                          type="date"
+                          value={restrictionDate}
+                          onChange={e => setRestrictionDate(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        />
+                        <span>Le joueur</span>
+                        <select
+                          value={restrictionType}
+                          onChange={e => setRestrictionType(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        >
+                          <option value="no_sport">Ne peut pas faire d'activité sportive</option>
+                          <option value="light_training">Peut s'entrainer sans forcer</option>
+                          <option value="normal_play">Peut jouer normalement</option>
+                        </select>
+                      </div>
+                      <label className="mt-4 block text-sm font-medium text-gray-700">Commentaire (localisation, type...)</label>
                       <textarea 
                         value={injuryComment} 
                         onChange={(e) => setInjuryComment(e.target.value)} 
@@ -998,8 +1022,8 @@ export default function PlayerDetail() {
                 )}
 
                 {showEditInjuryModal && editInjuryForm && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 my-8">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-170 mx-4 my-8">
                       <h3 className="text-lg font-semibold mb-4">Modifier la blessure</h3>
                       <label className="block text-sm font-medium text-gray-700">Date de la blessure</label>
                       <input
@@ -1015,6 +1039,26 @@ export default function PlayerDetail() {
                         onChange={(e) => setInjuryEndDate(e.target.value)}
                         className="mt-1 mb-3 w-full px-3 py-2 border rounded"
                       />
+                      <label className="mt-2 block text-m font-medium text-gray-700">Que permet cette blessure</label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span>Jusqu'au</span>
+                        <input
+                          type="date"
+                          value={restrictionDate}
+                          onChange={e => setRestrictionDate(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        />
+                        <span>Le joueur</span>
+                        <select
+                          value={restrictionType}
+                          onChange={e => setRestrictionType(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        >
+                          <option value="no_sport">Ne peut pas faire d'activité sportive</option>
+                          <option value="light_training">Peut s'entrainer sans forcer</option>
+                          <option value="normal_play">Peut jouer normalement</option>
+                        </select>
+                      </div>
                       <label className="block text-sm font-medium text-gray-700">Commentaire</label>
                       <textarea
                         value={injuryComment}
@@ -1037,6 +1081,8 @@ export default function PlayerDetail() {
                               comment: injuryComment,
                               coord_x: clickCoordinates?.coord_x,
                               coord_y: clickCoordinates?.coord_y,
+                              restriction_date: restrictionDate,
+                              restriction_type: restrictionType
                             });
                             setShowEditInjuryModal(false);
                             setEditInjuryForm(null);
