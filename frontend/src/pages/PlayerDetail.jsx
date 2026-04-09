@@ -630,18 +630,34 @@ export default function PlayerDetail() {
 
   const VeoComparisonBlock = ({
     allPlayers,
+    allPlayersInfo,
     playerName,
+    playerInfo,
     compareVeoStatsList,
     setCompareVeoStatsList
   }) => {
     const [selectedVeoPlayer, setSelectedVeoPlayer] = useState('');
+    const [veoFilter, setVeoFilter] = useState('all');
     const [loading, setLoading] = useState(false);
 
+    // Fonctions de filtrage
+    const getAllPlayersList = () =>
+      allPlayers.filter(name => name !== playerName && !compareVeoStatsList.some(cs => cs?.player_name === name));
+
+    const getSamePositionPlayers = () => {
+      if (!playerInfo?.position) return [];
+      return allPlayers
+        .filter(name => name !== playerName && !compareVeoStatsList.some(cs => cs?.player_name === name))
+        .filter(name => {
+          const info = allPlayersInfo.find(p => p.player_name === name);
+          return info && info.position === playerInfo.position;
+        });
+    };
+
+    const filteredPlayers = veoFilter === 'all' ? getAllPlayersList() : getSamePositionPlayers();
+
     const handleVeoCompare = async () => {
-      if (
-        !selectedVeoPlayer ||
-        compareVeoStatsList.some(cs => cs?.player_name === selectedVeoPlayer)
-      ) return;
+      if (!selectedVeoPlayer || compareVeoStatsList.some(cs => cs?.player_name === selectedVeoPlayer)) return;
       setLoading(true);
       try {
         const stats = await veoService.getPlayerMetricsSummaryByName(selectedVeoPlayer);
@@ -661,6 +677,20 @@ export default function PlayerDetail() {
     return (
       <div className="bg-gray-50/50 rounded-lg p-6 mb-4">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer VEO avec d'autres joueurs</h2>
+        <div className="flex gap-2 mb-2">
+          <button
+            className={`px-3 py-1 rounded ${veoFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setVeoFilter('all')}
+          >
+            Tous les joueurs
+          </button>
+          <button
+            className={`px-3 py-1 rounded ${veoFilter === 'samePosition' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setVeoFilter('samePosition')}
+          >
+            Même poste {playerInfo?.position && `(${playerInfo.position})`}
+          </button>
+        </div>
         <div className="flex gap-4 mb-4">
           <select
             value={selectedVeoPlayer}
@@ -668,11 +698,9 @@ export default function PlayerDetail() {
             className="px-4 py-2 border border-gray-300 rounded-lg"
           >
             <option value="">-- Choisir un joueur --</option>
-            {allPlayers
-              .filter(name => name !== playerName && !compareVeoStatsList.some(cs => cs?.player_name === name))
-              .map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
+            {filteredPlayers.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
           </select>
           <button
             onClick={handleVeoCompare}
@@ -1110,7 +1138,9 @@ export default function PlayerDetail() {
               <>
                 <VeoComparisonBlock
                   allPlayers={allPlayers}
+                  allPlayersInfo={allPlayersInfo}
                   playerName={playerName}
+                  playerInfo={playerInfo}
                   compareVeoStatsList={compareVeoStatsList}
                   setCompareVeoStatsList={setCompareVeoStatsList}
                 />
