@@ -52,6 +52,9 @@ export default function PlayerDetail() {
   const [veoLoading, setVeoLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [allPlayersInfo, setAllPlayersInfo] = useState([]);
+  const [playerSessions, setPlayerSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [selectedSessionStats, setSelectedSessionStats] = useState(null);
 
     // Medical state
   const [injuries, setInjuries] = useState([]);
@@ -127,6 +130,30 @@ export default function PlayerDetail() {
     fetchTeams();
     loadVeoStats();
   }, [playerName]);
+
+  // Charger les sessions à l'ouverture de l'onglet Catapult
+  useEffect(() => {
+    if (activeTab === 'catapult') {
+      catapultService.getSessionsByPlayer(playerName).then(sessions => {
+        // Filtrer sur les 6 derniers mois
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const filtered = sessions
+          .filter(s => new Date(s.date) >= sixMonthsAgo)
+          .sort((a, b) => new Date(b.date) - new Date(a.date)); // Tri décroissant
+        setPlayerSessions(filtered);
+      });
+    }
+  }, [activeTab, playerName]);
+
+  useEffect(() => {
+    if (selectedSession) {
+      catapultService.getPlayerStatsBySession(playerName, selectedSession)
+        .then(stats => setSelectedSessionStats(stats));
+    } else {
+      setSelectedSessionStats(null);
+    }
+  }, [selectedSession, playerName]);
 
   const fetchTeams = async () => {
     try {
@@ -212,13 +239,6 @@ export default function PlayerDetail() {
     }
   };
 
-  const loadOneCompareStats = async (name) => {
-    try {
-      const stats = await catapultService.getPlayerStats(name);
-      return stats;
-    } catch (err) { console.debug(err); }
-  };
-
   const loadVeoStats = async () => {
     try {
       setVeoLoading(true);
@@ -278,24 +298,28 @@ export default function PlayerDetail() {
       alert('Maximum 6 joueurs comparés.');
       return;
     }
-    const nameToAdd = selectedPlayer;
-    setComparePlayers(prev => [...prev, nameToAdd]);
+    setComparePlayers(prev => [...prev, selectedPlayer]);
     setSelectedPlayer('');
+
     try {
-      const [stats, veoStats] = await Promise.all([
-        loadOneCompareStats(nameToAdd),
-        loadCompareVeoStats(nameToAdd),
-      ]);
+      // 1. Récupère la session sélectionnée du joueur comparé
+      const { session_id } = await catapultService.getSelectedSession(selectedPlayer);
+
+      // 2. Récupère les stats de cette session
+      const stats = session_id
+        ? await catapultService.getPlayerStatsBySession(selectedPlayer, session_id)
+        : null;
+
       if (stats) {
         setComparePlayersStats(prev => [...prev, stats]);
       } else {
-        setComparePlayers(prev => prev.filter(p => p !== nameToAdd));
-        alert('Impossible de charger les stats pour ' + nameToAdd);
-        return;
+        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+        alert('Impossible de charger les stats pour ' + selectedPlayer);
       }
-      setCompareVeoStatsList(prev => [...prev, veoStats]);
-    } catch (err) { console.debug(err);
-      setComparePlayers(prev => prev.filter(p => p !== nameToAdd));
+    } catch (err) {
+      setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+      alert('Erreur lors de la comparaison');
+      console.error(err);
     }
   };
 
@@ -391,8 +415,8 @@ export default function PlayerDetail() {
   }
 
     // Render a table where each player is a column and each row is a stat
-  const StatTable = ({ rows }) => {
-    const players = [playerStats, ...comparePlayersStats];
+  const StatTable = ({ rows, stats }) => {
+    const players = stats;
     return (
       <div className="overflow-x-auto">
         <table className="w-full table-auto border-collapse">
@@ -498,7 +522,21 @@ export default function PlayerDetail() {
         </div>
       </div>
 
-      <p className="text-black">Données des 3 derniers mois</p>
+      <>
+        <label className="block mb-2 font-medium">Sélectionnez la meilleure session du joueur</label>
+        <select
+          value={selectedSession || ''}
+          onChange={e => setSelectedSession(e.target.value)}
+          className="mb-4 px-4 py-2 border rounded"
+        >
+          <option value="">-- Choisir une session --</option>
+          {playerSessions.map(session => (
+            <option key={session.id} value={session.id}>
+              {session.title} ({new Date(session.date).toLocaleDateString()})
+            </option>
+          ))}
+        </select>
+      </>
 
       <div className="bg-gray-50/50 rounded-lg p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
@@ -955,20 +993,24 @@ export default function PlayerDetail() {
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <StatTable
                     rows={[
-                      { key: 'sessions_count', label: 'Nombre de sessions', color: 'text-blue-600' },
-                      { key: 'vitesse_max', label: 'Vitesse Max (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
-                      { key: 'vitesse_avg', label: 'Vitesse Moyenne (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
-                      { key: 'hsr_max', label: 'HSR Max (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
-                      { key: 'hsr_avg', label: 'HSR Moyen (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
-                      { key: 'sprint_max', label: 'Sprint Max (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
-                      { key: 'sprint_avg', label: 'Sprint Moyen (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
-                      { key: 'distance_max', label: 'Distance Max (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
-                      { key: 'distance_avg', label: 'Distance Moyenne (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
-                      { key: 'dec_max', label: 'DEC Max', format: v => v?.toFixed(0), color: 'text-purple-600' },
-                      { key: 'dec_avg', label: 'DEC Moyen', format: v => v?.toFixed(0), color: 'text-purple-600' },
-                      { key: 'pp_max', label: 'PP Max', format: v => v?.toFixed(2), color: 'text-indigo-600' },
-                      { key: 'pp_avg', label: 'PP Moyen', format: v => v?.toFixed(2), color: 'text-indigo-600' },
+                      { key: 'minutes', label: 'Minutes', color: 'text-blue-600' },
+                      { key: 'distance', label: 'Distance (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
+                      { key: 'distance_percent', label: '% Distance', format: v => v?.toFixed(1) + '%', color: 'text-green-600' },
+                      { key: 'hsr', label: 'HSR (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
+                      { key: 'hsr_percent', label: '% HSR', format: v => v?.toFixed(1) + '%', color: 'text-orange-600' },
+                      { key: 'sprint', label: 'Sprint (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
+                      { key: 'sprint_percent', label: '% Sprint', format: v => v?.toFixed(1) + '%', color: 'text-red-600' },
+                      { key: 'vmax', label: 'Vmax (km/h)', format: v => v? (v * 3.6).toFixed(1) : '-', color: 'text-purple-600' },
+                      { key: 'vmax_percent', label: '% Vmax', format: v => v?.toFixed(1) + '%', color: 'text-purple-600' },
+                      { key: 'dec', label: 'DEC', format: v => v?.toFixed(0), color: 'text-purple-600' },
+                      { key: 'dec_percent', label: '% DEC', format: v => v?.toFixed(1) + '%', color: 'text-purple-600' },
+                      { key: 'pp', label: 'PP', format: v => v?.toFixed(0), color: 'text-indigo-600' },
+                      { key: 'pp_percent', label: '% PP', format: v => v?.toFixed(1) + '%', color: 'text-indigo-600' },
+                      { key: 'm/min', label: 'M/MIN', format: v => v?.toFixed(1), color: 'text-green-600' },
+                      { key: 'vol', label: 'VOL', format: v => v?.toFixed(0), color: 'text-blue-600' },
+                      { key: 'int', label: 'INT', format: v => v?.toFixed(0), color: 'text-blue-600' },
                     ]}
+                    stats={[selectedSessionStats, ...comparePlayersStats]}
                   />
                 </div>
               </>

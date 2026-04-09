@@ -56,6 +56,7 @@ class User(SQLModel, table=True):
     photo_url: Optional[str] = Field(default=None, max_length=1024)
     team: Optional["Team"] = Relationship(back_populates="players")
     injuries: List["Injury"] = Relationship(back_populates="user")
+    selected_catapult_session_id: Optional[int] = Field(default=None, foreign_key="catapultsession.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:

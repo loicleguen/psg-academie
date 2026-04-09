@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from typing import List, Dict, Any
 import pandas as pd
 import base64
-from fastapi import Query
+from fastapi import Query, Body
 from sqlalchemy import func, desc, distinct
 from datetime import datetime, timedelta
 from dateutil import parser as dateutil_parser
@@ -728,6 +728,55 @@ def get_player_stats(
     }
     
     return stats
+
+@router.get("/players/{player_name}/session/{session_id}/report")
+def get_player_session_report(
+    player_name: str,
+    session_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    """
+    Retourne les stats détaillées d'un joueur pour une session donnée (pour affichage individuel ou comparaison)
+    """
+    db_session = session.get(CatapultSession, session_id)
+    if not db_session or db_session.player_name != player_name:
+        raise HTTPException(status_code=404, detail="Session not found for this player")
+    return db_session.model_dump()
+
+
+@router.post("/players/{player_name}/selected-session")
+def set_selected_session(
+    player_name: str,
+    data: dict = Body(...),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    """
+    Enregistre la session sélectionnée pour un joueur
+    """
+    session_id = data.get("session_id")
+    user = session.exec(select(User).where(User.player_name == player_name)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.selected_catapult_session_id = session_id
+    session.add(user)
+    session.commit()
+    return {"ok": True}
+
+@router.get("/players/{player_name}/selected-session")
+def get_selected_session(
+    player_name: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    """
+    Retourne la session sélectionnée pour un joueur
+    """
+    user = session.exec(select(User).where(User.player_name == player_name)).first()
+    if not user or not getattr(user, "selected_catapult_session_id", None):
+        raise HTTPException(status_code=404, detail="No selected session")
+    return {"session_id": user.selected_catapult_session_id}
 
 
 @router.get("/players")
