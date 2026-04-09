@@ -628,6 +628,73 @@ export default function PlayerDetail() {
     </div>
   )
 
+  const VeoComparisonBlock = ({
+    allPlayers,
+    playerName,
+    compareVeoStatsList,
+    setCompareVeoStatsList
+  }) => {
+    const [selectedVeoPlayer, setSelectedVeoPlayer] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleVeoCompare = async () => {
+      if (
+        !selectedVeoPlayer ||
+        compareVeoStatsList.some(cs => cs?.player_name === selectedVeoPlayer)
+      ) return;
+      setLoading(true);
+      try {
+        const stats = await veoService.getPlayerMetricsSummaryByName(selectedVeoPlayer);
+        setCompareVeoStatsList(prev => [...prev, stats]);
+        setSelectedVeoPlayer('');
+      } catch (err) {
+        alert("Erreur lors de la comparaison VEO");
+      }
+      setLoading(false);
+    };
+
+    const clearVeoComparison = () => {
+      setCompareVeoStatsList([]);
+      setSelectedVeoPlayer('');
+    };
+
+    return (
+      <div className="bg-gray-50/50 rounded-lg p-6 mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer VEO avec d'autres joueurs</h2>
+        <div className="flex gap-4 mb-4">
+          <select
+            value={selectedVeoPlayer}
+            onChange={e => setSelectedVeoPlayer(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">-- Choisir un joueur --</option>
+            {allPlayers
+              .filter(name => name !== playerName && !compareVeoStatsList.some(cs => cs?.player_name === name))
+              .map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+          </select>
+          <button
+            onClick={handleVeoCompare}
+            disabled={!selectedVeoPlayer || loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
+          >
+            Ajouter à la comparaison
+          </button>
+          {compareVeoStatsList.length > 0 && (
+            <button
+              onClick={clearVeoComparison}
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+
   return (
     <div className="min-h-screen bg-transparent p-8">
       <div className="max-w-7xl mx-auto">
@@ -1041,7 +1108,12 @@ export default function PlayerDetail() {
 
             {activeTab === 'veo' && (
               <>
-                <ComparisonBlock />
+                <VeoComparisonBlock
+                  allPlayers={allPlayers}
+                  playerName={playerName}
+                  compareVeoStatsList={compareVeoStatsList}
+                  setCompareVeoStatsList={setCompareVeoStatsList}
+                />
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
                   {veoLoading ? (
@@ -1078,11 +1150,18 @@ export default function PlayerDetail() {
                                 <td className="px-4 py-3 text-sm font-bold text-gray-900">
                                   {formatVeoMetricValue(veoMetricMap[slug])}
                                 </td>
-                                {compareVeoMetricMaps.map((map, i) => (
-                                  <td key={i} className="px-4 py-3 text-sm font-bold text-orange-500">
-                                    {formatVeoMetricValue(map[slug])}
-                                  </td>
-                                ))}
+                                {compareVeoStatsList.map((cs, i) => {
+                                  // On crée un mapping pour chaque joueur comparé
+                                  const csMetricMap = (cs?.metrics ?? []).reduce((acc, metric) => {
+                                    acc[metric.slug] = metric.value;
+                                    return acc;
+                                  }, {});
+                                  return (
+                                    <td key={i} className="px-4 py-3 text-sm font-bold text-gray-900">
+                                      {formatVeoMetricValue(csMetricMap[slug])}
+                                    </td>
+                                  );
+                                })}
                               </tr>
                             ))}
                           </tbody>
