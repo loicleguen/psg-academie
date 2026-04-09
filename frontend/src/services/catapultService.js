@@ -82,5 +82,16 @@ export const catapultService = {
   async getPlayerStatsBySession(playerName, sessionId) {
     const response = await api.get(`/catapult/players/${encodeURIComponent(playerName)}/session/${sessionId}/report`);
     return response.data;
+  },
+
+  async getPlayerSessionStatsJson(sessionTitle, playerName) {
+    const response = await api.get(`/catapult/reports/session/json`, {
+      params: { session_title: sessionTitle, player_name: playerName }
+    });
+    return response.data;
+  },
+
+  async setSelectedSession(playerName, sessionId) {
+    await api.post(`/catapult/players/${encodeURIComponent(playerName)}/selected-session`, { session_id: sessionId });
   }
 };

@@ -778,6 +778,25 @@ def get_selected_session(
         raise HTTPException(status_code=404, detail="No selected session")
     return {"session_id": user.selected_catapult_session_id}
 
+@router.get("/reports/session/json")
+def get_player_session_stats_json(
+    session_title: str,
+    player_name: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_coach_or_admin)
+):
+    # Récupérer toutes les lignes de la session
+    statement = select(CatapultSession).where(CatapultSession.session_title == session_title)
+    db_sessions = session.exec(statement).all()
+    session_data = [s.model_dump() for s in db_sessions]
+
+    # Récupérer toutes les sessions pour les benchmarks
+    all_sessions_db = session.exec(select(CatapultSession)).all()
+    all_sessions = [s.model_dump() for s in all_sessions_db]
+
+    stats = SessionReportGenerator.get_player_session_stats_json(session_data, all_sessions, player_name)
+    return stats
+
 
 @router.get("/players")
 async def get_all_players(

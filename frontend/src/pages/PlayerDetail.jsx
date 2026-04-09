@@ -148,12 +148,24 @@ export default function PlayerDetail() {
 
   useEffect(() => {
     if (selectedSession) {
-      catapultService.getPlayerStatsBySession(playerName, selectedSession)
-        .then(stats => setSelectedSessionStats(stats));
+      const sessionObj = playerSessions.find(s => s.id === Number(selectedSession));
+      if (sessionObj) {
+        catapultService.getPlayerSessionStatsJson(sessionObj.session_title, playerName)
+          .then(stats => setSelectedSessionStats(stats));
+      }
     } else {
       setSelectedSessionStats(null);
     }
-  }, [selectedSession, playerName]);
+  }, [selectedSession, playerName, playerSessions]);
+
+  useEffect(() => {
+    // Charger la session sélectionnée au mount
+    catapultService.getSelectedSession(playerName).then(res => {
+      if (res && res.session_id) {
+        setSelectedSession(res.session_id.toString());
+      }
+    });
+  }, [playerName]);
 
   const fetchTeams = async () => {
     try {
@@ -302,14 +314,21 @@ export default function PlayerDetail() {
     setSelectedPlayer('');
 
     try {
-      // 1. Récupère la session sélectionnée du joueur comparé
       const { session_id } = await catapultService.getSelectedSession(selectedPlayer);
-
-      // 2. Récupère les stats de cette session
-      const stats = session_id
-        ? await catapultService.getPlayerStatsBySession(selectedPlayer, session_id)
-        : null;
-
+      if (!session_id) {
+        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+        alert('Ce joueur n’a pas encore de session sélectionnée !');
+        return;
+      }
+      // Récupère les sessions du joueur comparé
+      const sessions = await catapultService.getSessionsByPlayer(selectedPlayer);
+      const sessionObj = sessions.find(s => s.id === Number(session_id));
+      if (!sessionObj) {
+        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+        alert('Impossible de trouver la session sélectionnée pour ce joueur !');
+        return;
+      }
+      const stats = await catapultService.getPlayerSessionStatsJson(sessionObj.session_title, selectedPlayer);
       if (stats) {
         setComparePlayersStats(prev => [...prev, stats]);
       } else {
@@ -318,7 +337,7 @@ export default function PlayerDetail() {
       }
     } catch (err) {
       setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
-      alert('Erreur lors de la comparaison');
+      alert(err?.response?.data?.detail || 'Erreur lors de la comparaison');
       console.error(err);
     }
   };
@@ -536,6 +555,18 @@ export default function PlayerDetail() {
             </option>
           ))}
         </select>
+        <button
+          onClick={async () => {
+            if (selectedSession) {
+              await catapultService.setSelectedSession(playerName, selectedSession);
+              alert("Session enregistrée !");
+            }
+          }}
+          className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          disabled={!selectedSession}
+        >
+          Enregistrer
+        </button>
       </>
 
       <div className="bg-gray-50/50 rounded-lg p-6">
@@ -993,22 +1024,14 @@ export default function PlayerDetail() {
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <StatTable
                     rows={[
-                      { key: 'minutes', label: 'Minutes', color: 'text-blue-600' },
+                      { key: 'minutes', label: 'Minutes', format: v => Math.round(v), color: 'text-blue-600' },
                       { key: 'distance', label: 'Distance (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
-                      { key: 'distance_percent', label: '% Distance', format: v => v?.toFixed(1) + '%', color: 'text-green-600' },
                       { key: 'hsr', label: 'HSR (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
-                      { key: 'hsr_percent', label: '% HSR', format: v => v?.toFixed(1) + '%', color: 'text-orange-600' },
                       { key: 'sprint', label: 'Sprint (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
-                      { key: 'sprint_percent', label: '% Sprint', format: v => v?.toFixed(1) + '%', color: 'text-red-600' },
-                      { key: 'vmax', label: 'Vmax (km/h)', format: v => v? (v * 3.6).toFixed(1) : '-', color: 'text-purple-600' },
-                      { key: 'vmax_percent', label: '% Vmax', format: v => v?.toFixed(1) + '%', color: 'text-purple-600' },
+                      { key: 'vmax', label: 'Vmax (km/h)', format: v => v?.toFixed(1), color: 'text-purple-600' },
                       { key: 'dec', label: 'DEC', format: v => v?.toFixed(0), color: 'text-purple-600' },
-                      { key: 'dec_percent', label: '% DEC', format: v => v?.toFixed(1) + '%', color: 'text-purple-600' },
                       { key: 'pp', label: 'PP', format: v => v?.toFixed(0), color: 'text-indigo-600' },
-                      { key: 'pp_percent', label: '% PP', format: v => v?.toFixed(1) + '%', color: 'text-indigo-600' },
                       { key: 'm/min', label: 'M/MIN', format: v => v?.toFixed(1), color: 'text-green-600' },
-                      { key: 'vol', label: 'VOL', format: v => v?.toFixed(0), color: 'text-blue-600' },
-                      { key: 'int', label: 'INT', format: v => v?.toFixed(0), color: 'text-blue-600' },
                     ]}
                     stats={[selectedSessionStats, ...comparePlayersStats]}
                   />
