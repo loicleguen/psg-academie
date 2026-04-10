@@ -125,80 +125,86 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
         ) : (
           <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
             {injuries.map((injury) => (
-              <div className="grid grid-cols-4 gap-4 divide-x divide-gray-300 items-center mb-4 p-4 bg-gray-50 rounded-lg border"
-                style={{gridTemplateColumns: "110px 210px 90px 50px"}}>
-                {/* Colonne 1 : Date blessure + commentaire */}
-                <div>
-                  <div className="text-gray-900 font-semibold">Début d'arrêt</div>
-                  <div className="px-0 font-medium text-blue-700 text-center pr-3">
-                    {new Date(injury.injury_date).toLocaleDateString('fr-FR')}
+              <div
+                key={injury.id}
+                onMouseEnter={() => setHoveredInjury(injury.id)}
+                onMouseLeave={() => setHoveredInjury(null)}
+              >
+                <div className="grid grid-cols-4 gap-4 divide-x divide-gray-300 items-center mb-4 p-4 bg-gray-50 rounded-lg border"
+                  style={{gridTemplateColumns: "110px 210px 90px 50px"}}>
+                  {/* Colonne 1 : Date blessure + commentaire */}
+                  <div>
+                    <div className="text-gray-900 font-semibold">Début d'arrêt</div>
+                    <div className="px-0 font-medium text-blue-700 text-center pr-3">
+                      {new Date(injury.injury_date).toLocaleDateString('fr-FR')}
+                    </div>
+                    <div className="text-sm text-gray-700 mt-2 text-center pr-2">{injury.comment}</div>
                   </div>
-                  <div className="text-sm text-gray-700 mt-2 text-center pr-2">{injury.comment}</div>
-                </div>
 
-                {/* Colonne 2 : Jusqu'au + restrictionDate / Le joueur + restrictionType */}
-                <div>
-                  <div className="text-gray-900 font-semibold text-center pr-2">Jusqu'au</div>
-                  <div className="font-medium text-blue-700 text-center pr-2">
-                    {injury.restriction_date
-                      ? new Date(injury.restriction_date).toLocaleDateString('fr-FR')
-                      : "Pas de date"}
+                  {/* Colonne 2 : Jusqu'au + restrictionDate / Le joueur + restrictionType */}
+                  <div>
+                    <div className="text-gray-900 font-semibold text-center pr-2">Jusqu'au</div>
+                    <div className="font-medium text-blue-700 text-center pr-2">
+                      {injury.restriction_date
+                        ? new Date(injury.restriction_date).toLocaleDateString('fr-FR')
+                        : "Pas de date"}
+                    </div>
+                    <div className="text-gray-900 font-semibold mt-2 text-center pr-2">Le joueur</div>
+                    <div className="font-medium text-blue-700 text-center pr-3">
+                      {(() => {
+                        let colorClass = "";
+                        switch (injury.restriction_type) {
+                          case "no_sport":
+                            colorClass = "border-red-500 text-red-700 bg-red-50";
+                            break;
+                          case "light_training":
+                            colorClass = "border-yellow-400 text-yellow-700 bg-yellow-50";
+                            break;
+                          case "normal_play":
+                            colorClass = "border-green-500 text-green-700 bg-green-50";
+                            break;
+                          default:
+                            colorClass = "border-gray-300 text-gray-700 bg-gray-50";
+                        }
+                        const label = {
+                          no_sport: "Ne peut pas faire d'activité sportive",
+                          light_training: "Peut s'entraîner sans forcer",
+                          normal_play: "Peut jouer normalement"
+                        }[injury.restriction_type] || "Non renseigné";
+                        return (
+                          <span className={`inline-block px-2 py-1 rounded border font-semibold ${colorClass}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
-                  <div className="text-gray-900 font-semibold mt-2 text-center pr-2">Le joueur</div>
-                  <div className="font-medium text-blue-700 text-center pr-3">
-                    {(() => {
-                      let colorClass = "";
-                      switch (injury.restriction_type) {
-                        case "no_sport":
-                          colorClass = "border-red-500 text-red-700 bg-red-50";
-                          break;
-                        case "light_training":
-                          colorClass = "border-yellow-400 text-yellow-700 bg-yellow-50";
-                          break;
-                        case "normal_play":
-                          colorClass = "border-green-500 text-green-700 bg-green-50";
-                          break;
-                        default:
-                          colorClass = "border-gray-300 text-gray-700 bg-gray-50";
-                      }
-                      const label = {
-                        no_sport: "Ne peut pas faire d'activité sportive",
-                        light_training: "Peut s'entraîner sans forcer",
-                        normal_play: "Peut jouer normalement"
-                      }[injury.restriction_type] || "Non renseigné";
-                      return (
-                        <span className={`inline-block px-2 py-1 rounded border font-semibold ${colorClass}`}>
-                          {label}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </div>
 
-                {/* Colonne 3 : Fin d'arrêt + injury_end_date */}
-                <div>
-                  <div className="text-gray-900 font-semibold text-center pr-3">Fin d'arrêt</div>
-                  <div className="font-medium text-blue-700 mt-2 text-center pr-2">
-                    {injury.injury_end_date
-                      ? new Date(injury.injury_end_date).toLocaleDateString('fr-FR')
-                      : "Pas de date"}
+                  {/* Colonne 3 : Fin d'arrêt + injury_end_date */}
+                  <div>
+                    <div className="text-gray-900 font-semibold text-center pr-3">Fin d'arrêt</div>
+                    <div className="font-medium text-blue-700 mt-2 text-center pr-2">
+                      {injury.injury_end_date
+                        ? new Date(injury.injury_end_date).toLocaleDateString('fr-FR')
+                        : "Pas de date"}
+                    </div>
                   </div>
-                </div>
 
-                {/* Colonne 4 : Boutons */}
-                <div className="flex flex-col items-end gap-10 w-25 text-center pr-2">
-                  <button
-                    className="px-3 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-600"
-                    onClick={() => onEditInjury(injury)}
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-700"
-                    onClick={e => handleDelete(e, injury.id)}
-                  >
-                    Supprimer
-                  </button>
+                  {/* Colonne 4 : Boutons */}
+                  <div className="flex flex-col items-end gap-10 w-25 text-center pr-2">
+                    <button
+                      className="px-3 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-600"
+                      onClick={() => onEditInjury(injury)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-700"
+                      onClick={e => handleDelete(e, injury.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
