@@ -43,10 +43,13 @@ export default function PlayerDetail() {
   const [activeTab, setActiveTab] = useState('info');
   const [playerInfo, setPlayerInfo] = useState(null);
   const [playerStats, setPlayerStats] = useState(null);
+  const [catapultFilter, setCatapultFilter] = useState('all');
   const [comparePlayers, setComparePlayers] = useState([]);
   const [comparePlayersStats, setComparePlayersStats] = useState([]);
   const [veoStats, setVeoStats] = useState(null);
   const [compareVeoStatsList, setCompareVeoStatsList] = useState([]);
+  const [veoFilter, setVeoFilter] = useState('all');
+  const [selectedVeoPlayer, setSelectedVeoPlayer] = useState('');
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [veoLoading, setVeoLoading] = useState(true);
@@ -179,7 +182,7 @@ export default function PlayerDetail() {
   };
 
   useEffect(() => {
-    if (compareWith && (activeTab === 'catapult' && activeTab === 'veo')) {
+    if (compareWith && (activeTab === 'catapult' || activeTab === 'veo')) {
       setComparePlayers([compareWith]);
       (async () => {
         try {
@@ -350,18 +353,6 @@ export default function PlayerDetail() {
     setSearchParams({});
   };
 
-  const getAllPlayersList = () => {
-    return allPlayers.filter(name => name !== playerName);
-  };
-
-  const getSamePositionPlayers = () => {
-    if (!playerInfo?.position) return [];
-    return allPlayersInfo
-      .filter(p => p.position === playerInfo.position && p.player_name !== playerName)
-      .map(p => p.player_name);
-  };
-
-
   const onCoordinatesClick = (coords) => {
     setClickCoordinates(coords);
     setInjuryDate('');
@@ -496,13 +487,6 @@ export default function PlayerDetail() {
     return acc;
   }, {});
 
-  const compareVeoMetricMaps = compareVeoStatsList.map(s =>
-    (s?.metrics ?? []).reduce((acc, metric) => {
-      acc[metric.slug] = metric.value;
-      return acc;
-    }, {})
-  );
-
   const handleShowPasswordForm = () => {
     setShowPasswordForm(true);
     setTimeout(() => {
@@ -529,6 +513,105 @@ export default function PlayerDetail() {
   };
 
   const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+
+  const handleVeoCompare = async () => {
+    if (
+      !selectedVeoPlayer ||
+      compareVeoStatsList.some(cs => cs?.player_name === selectedVeoPlayer)
+    ) return;
+    try {
+      // Ajoute un état de loading si besoin
+      const stats = await veoService.getPlayerMetricsSummaryByName(selectedVeoPlayer);
+      setCompareVeoStatsList(prev => [...prev, stats]);
+      setSelectedVeoPlayer('');
+    } catch {
+      alert("Erreur lors de la comparaison VEO");
+    }
+  };
+
+  const clearVeoComparison = () => {
+    setCompareVeoStatsList([]);
+    setSelectedVeoPlayer('');
+  };
+
+  function PlayerComparisonSelector({
+    filter,
+    setFilter,
+    selectedPlayer,
+    setSelectedPlayer,
+    allPlayers,
+    allPlayersInfo,
+    playerName,
+    playerInfo,
+    comparedList,
+    onAdd,
+    onClear,
+    loading,
+    label = "Comparer avec d'autres joueurs"
+  }) {
+    // Fonctions de filtrage
+    const getAllPlayersList = () =>
+      allPlayers.filter(name => name !== playerName && !comparedList.some(cs => cs?.player_name === name || cs === name));
+
+    const getSamePositionPlayers = () => {
+      if (!playerInfo?.position) return [];
+      return allPlayers
+        .filter(name => name !== playerName && !comparedList.some(cs => cs?.player_name === name || cs === name))
+        .filter(name => {
+          const info = allPlayersInfo.find(p => p.player_name === name);
+          return info && info.position === playerInfo.position;
+        });
+    };
+
+    const filteredPlayers = filter === 'all' ? getAllPlayersList() : getSamePositionPlayers();
+
+    return (
+      <div className="bg-gray-50/50 rounded-lg p-6 mb-4">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">{label}</h2>
+        <div className="flex gap-2 mb-2">
+          <button
+            className={`px-3 py-1 rounded ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setFilter('all')}
+          >
+            Tous les joueurs
+          </button>
+          <button
+            className={`px-3 py-1 rounded ${filter === 'samePosition' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setFilter('samePosition')}
+          >
+            Même poste {playerInfo?.position && `(${playerInfo.position})`}
+          </button>
+        </div>
+        <div className="flex gap-4 mb-4">
+          <select
+            value={selectedPlayer}
+            onChange={e => setSelectedPlayer(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">-- Choisir un joueur --</option>
+            {filteredPlayers.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+          <button
+            onClick={onAdd}
+            disabled={!selectedPlayer || loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
+          >
+            Ajouter à la comparaison
+          </button>
+          {comparedList.length > 0 && (
+            <button
+              onClick={onClear}
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const ComparisonBlock = () => (
     <div className="space-y-6">
@@ -568,160 +651,8 @@ export default function PlayerDetail() {
           Enregistrer
         </button>
       </>
-
-      <div className="bg-gray-50/50 rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tous les joueurs
-            </label>
-            <select
-              value={selectedPlayer}
-              onChange={(e) => setSelectedPlayer(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">-- Choisir un joueur --</option>
-              {getAllPlayersList().map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Même poste {playerInfo?.position && `(${playerInfo.position})`}
-            </label>
-            <select
-              value={selectedPlayer}
-              onChange={(e) => setSelectedPlayer(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              <option value="">-- Choisir un joueur --</option>
-              {getSamePositionPlayers().map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-            {getSamePositionPlayers().length === 0 && playerInfo?.position && (
-              <p className="text-xs text-gray-500 mt-1">Aucun autre joueur au poste {playerInfo.position}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-4">
-          <button
-            onClick={handleCompare}
-            disabled={!selectedPlayer}
-            className="transform translate-x-[400px] px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            Comparer
-          </button>
-          {comparePlayersStats.length > 0 && (
-            <button
-              onClick={clearComparison}
-              className="transform translate-x-[400px] px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Effacer
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   )
-
-  const VeoComparisonBlock = ({
-    allPlayers,
-    allPlayersInfo,
-    playerName,
-    playerInfo,
-    compareVeoStatsList,
-    setCompareVeoStatsList
-  }) => {
-    const [selectedVeoPlayer, setSelectedVeoPlayer] = useState('');
-    const [veoFilter, setVeoFilter] = useState('all');
-    const [loading, setLoading] = useState(false);
-
-    // Fonctions de filtrage
-    const getAllPlayersList = () =>
-      allPlayers.filter(name => name !== playerName && !compareVeoStatsList.some(cs => cs?.player_name === name));
-
-    const getSamePositionPlayers = () => {
-      if (!playerInfo?.position) return [];
-      return allPlayers
-        .filter(name => name !== playerName && !compareVeoStatsList.some(cs => cs?.player_name === name))
-        .filter(name => {
-          const info = allPlayersInfo.find(p => p.player_name === name);
-          return info && info.position === playerInfo.position;
-        });
-    };
-
-    const filteredPlayers = veoFilter === 'all' ? getAllPlayersList() : getSamePositionPlayers();
-
-    const handleVeoCompare = async () => {
-      if (!selectedVeoPlayer || compareVeoStatsList.some(cs => cs?.player_name === selectedVeoPlayer)) return;
-      setLoading(true);
-      try {
-        const stats = await veoService.getPlayerMetricsSummaryByName(selectedVeoPlayer);
-        setCompareVeoStatsList(prev => [...prev, stats]);
-        setSelectedVeoPlayer('');
-      } catch (err) {
-        alert("Erreur lors de la comparaison VEO");
-      }
-      setLoading(false);
-    };
-
-    const clearVeoComparison = () => {
-      setCompareVeoStatsList([]);
-      setSelectedVeoPlayer('');
-    };
-
-    return (
-      <div className="bg-gray-50/50 rounded-lg p-6 mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer VEO avec d'autres joueurs</h2>
-        <div className="flex gap-2 mb-2">
-          <button
-            className={`px-3 py-1 rounded ${veoFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-            onClick={() => setVeoFilter('all')}
-          >
-            Tous les joueurs
-          </button>
-          <button
-            className={`px-3 py-1 rounded ${veoFilter === 'samePosition' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-            onClick={() => setVeoFilter('samePosition')}
-          >
-            Même poste {playerInfo?.position && `(${playerInfo.position})`}
-          </button>
-        </div>
-        <div className="flex gap-4 mb-4">
-          <select
-            value={selectedVeoPlayer}
-            onChange={e => setSelectedVeoPlayer(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">-- Choisir un joueur --</option>
-            {filteredPlayers.map(name => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-          <button
-            onClick={handleVeoCompare}
-            disabled={!selectedVeoPlayer || loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
-          >
-            Ajouter à la comparaison
-          </button>
-          {compareVeoStatsList.length > 0 && (
-            <button
-              onClick={clearVeoComparison}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-            >
-              Effacer
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
 
   return (
     <div className="min-h-screen bg-transparent p-8">
@@ -1116,6 +1047,21 @@ export default function PlayerDetail() {
             {activeTab === 'catapult' && playerStats && (
               <>
               <ComparisonBlock />
+              <PlayerComparisonSelector
+              filter={catapultFilter}
+              setFilter={setCatapultFilter}
+              selectedPlayer={selectedPlayer}
+              setSelectedPlayer={setSelectedPlayer}
+              allPlayers={allPlayers}
+              allPlayersInfo={allPlayersInfo}
+              playerName={playerName}
+              playerInfo={playerInfo}
+              comparedList={comparePlayers}
+              onAdd={handleCompare}
+              onClear={clearComparison}
+              loading={false}
+              label="Comparer Catapult avec d'autres joueurs"
+            />
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <StatTable
                     rows={[
@@ -1136,13 +1082,20 @@ export default function PlayerDetail() {
 
             {activeTab === 'veo' && (
               <>
-                <VeoComparisonBlock
+                <PlayerComparisonSelector
+                  filter={veoFilter}
+                  setFilter={setVeoFilter}
+                  selectedPlayer={selectedVeoPlayer}
+                  setSelectedPlayer={setSelectedVeoPlayer}
                   allPlayers={allPlayers}
                   allPlayersInfo={allPlayersInfo}
                   playerName={playerName}
                   playerInfo={playerInfo}
-                  compareVeoStatsList={compareVeoStatsList}
-                  setCompareVeoStatsList={setCompareVeoStatsList}
+                  comparedList={compareVeoStatsList}
+                  onAdd={handleVeoCompare}
+                  onClear={clearVeoComparison}
+                  loading={loading}
+                  label="Comparer VEO avec d'autres joueurs"
                 />
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
