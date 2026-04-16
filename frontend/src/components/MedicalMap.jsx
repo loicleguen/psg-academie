@@ -131,7 +131,7 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
                 onMouseLeave={() => setHoveredInjury(null)}
               >
                 <div className="grid grid-cols-4 gap-4 divide-x divide-gray-300 items-center mb-4 p-4 bg-gray-50 rounded-lg border"
-                  style={{gridTemplateColumns: "110px 210px 90px 50px"}}>
+                  style={{gridTemplateColumns: "110px 200px 90px 60px"}}>
                   {/* Colonne 1 : Date blessure + commentaire */}
                   <div>
                     <div className="text-gray-900 font-semibold">Début d'arrêt</div>
@@ -183,7 +183,7 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
                   {/* Colonne 3 : Fin d'arrêt + injury_end_date */}
                   <div>
                     <div className="text-gray-900 font-semibold text-center pr-3">Fin d'arrêt</div>
-                    <div className="font-medium text-blue-700 mt-2 text-center pr-2">
+                    <div className="font-medium text-blue-700 mt-2 text-center pr-3">
                       {injury.injury_end_date
                         ? new Date(injury.injury_end_date).toLocaleDateString('fr-FR')
                         : "Pas de date"}
@@ -191,7 +191,7 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
                   </div>
 
                   {/* Colonne 4 : Boutons */}
-                  <div className="flex flex-col items-end gap-10 w-25 text-center pr-2">
+                  <div className="flex flex-col items-end gap-10 w-25 text-center pr-3">
                     <button
                       className="px-3 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-600"
                       onClick={() => onEditInjury(injury)}
