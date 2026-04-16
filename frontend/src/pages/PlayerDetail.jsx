@@ -566,7 +566,7 @@ export default function PlayerDetail() {
     const filteredPlayers = filter === 'all' ? getAllPlayersList() : getSamePositionPlayers();
 
     return (
-      <div className="bg-gray-50/50 rounded-lg p-6 mb-4">
+      <div className="bg-gray-50/50 rounded-lg p-2 mb-4 pl-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">{label}</h2>
         <div className="flex gap-2 mb-2">
           <button
@@ -615,17 +615,8 @@ export default function PlayerDetail() {
 
   const ComparisonBlock = () => (
     <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center">
-          <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-          </svg>
-          <span className="font-semibold text-blue-900">Poste: {playerInfo?.position || 'Non défini'}</span>
-        </div>
-      </div>
-
-      <>
-        <label className="block mb-2 font-medium">Sélectionnez la meilleure session du joueur</label>
+      <div className="bg-gray-50/50 rounded-lg pt-2 pr-6">
+        <label className="block mb-5 font-medium text-xl">Sélectionnez la meilleure session du joueur</label>
         <select
           value={selectedSession || ''}
           onChange={e => setSelectedSession(e.target.value)}
@@ -650,7 +641,7 @@ export default function PlayerDetail() {
         >
           Enregistrer
         </button>
-      </>
+      </div>
     </div>
   )
 
@@ -1046,22 +1037,28 @@ export default function PlayerDetail() {
 
             {activeTab === 'catapult' && playerStats && (
               <>
-              <ComparisonBlock />
-              <PlayerComparisonSelector
-              filter={catapultFilter}
-              setFilter={setCatapultFilter}
-              selectedPlayer={selectedPlayer}
-              setSelectedPlayer={setSelectedPlayer}
-              allPlayers={allPlayers}
-              allPlayersInfo={allPlayersInfo}
-              playerName={playerName}
-              playerInfo={playerInfo}
-              comparedList={comparePlayers}
-              onAdd={handleCompare}
-              onClear={clearComparison}
-              loading={false}
-              label="Comparer Catapult avec d'autres joueurs"
-            />
+                <div className="grid grid-cols-2 gap-6 mb-6">
+                  <div className="text-right">
+                    <ComparisonBlock />
+                  </div>
+                  <div>
+                    <PlayerComparisonSelector
+                      filter={catapultFilter}
+                      setFilter={setCatapultFilter}
+                      selectedPlayer={selectedPlayer}
+                      setSelectedPlayer={setSelectedPlayer}
+                      allPlayers={allPlayers}
+                      allPlayersInfo={allPlayersInfo}
+                      playerName={playerName}
+                      playerInfo={playerInfo}
+                      comparedList={comparePlayers}
+                      onAdd={handleCompare}
+                      onClear={clearComparison}
+                      loading={false}
+                      label="Comparer Catapult avec d'autres joueurs"
+                    />
+                  </div>
+                </div>
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <StatTable
                     rows={[
