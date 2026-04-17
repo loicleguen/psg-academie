@@ -114,7 +114,7 @@ export default function Country() {
               <p className="text-xl">Aucun pays enregistré</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 max-w-5xl mx-auto justify-items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-15 max-w-7xl mx-auto justify-items-center">
               {sortedCountries.map((country) => (
                 <div
                   key={country.id}
