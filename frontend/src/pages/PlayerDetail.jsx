@@ -1079,21 +1079,25 @@ export default function PlayerDetail() {
 
             {activeTab === 'veo' && (
               <>
-                <PlayerComparisonSelector
-                  filter={veoFilter}
-                  setFilter={setVeoFilter}
-                  selectedPlayer={selectedVeoPlayer}
-                  setSelectedPlayer={setSelectedVeoPlayer}
-                  allPlayers={allPlayers}
-                  allPlayersInfo={allPlayersInfo}
-                  playerName={playerName}
-                  playerInfo={playerInfo}
-                  comparedList={compareVeoStatsList}
-                  onAdd={handleVeoCompare}
-                  onClear={clearVeoComparison}
-                  loading={loading}
-                  label="Comparer VEO avec d'autres joueurs"
-                />
+                <div className="flex justify-center">
+                  <div className="w-full max-w-md">
+                    <PlayerComparisonSelector
+                      filter={veoFilter}
+                      setFilter={setVeoFilter}
+                      selectedPlayer={selectedVeoPlayer}
+                      setSelectedPlayer={setSelectedVeoPlayer}
+                      allPlayers={allPlayers}
+                      allPlayersInfo={allPlayersInfo}
+                      playerName={playerName}
+                      playerInfo={playerInfo}
+                      comparedList={compareVeoStatsList}
+                      onAdd={handleVeoCompare}
+                      onClear={clearVeoComparison}
+                      loading={loading}
+                      label="Comparer VEO avec d'autres joueurs"
+                    />
+                  </div>
+                </div>
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
                   {veoLoading ? (

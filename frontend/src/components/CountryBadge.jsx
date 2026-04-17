@@ -2,14 +2,26 @@ import React from 'react';
 import ReactCountryFlag from 'react-country-flag';
 import countries from 'i18n-iso-countries';
 import frLocale from 'i18n-iso-countries/langs/fr.json';
+import enLocale from 'i18n-iso-countries/langs/en.json';
+
 
 countries.registerLocale(frLocale);
+countries.registerLocale(enLocale);
 
 function getAlpha2FromName(name) {
   if (!name) return null;
-  const names = countries.getNames('fr');
-  const entry = Object.entries(names).find(([, n]) => n && n.toLowerCase() === name.toLowerCase());
-  return entry ? entry[0] : null;
+  
+  // Cherche d'abord en français
+  const frenchNames = countries.getNames('fr');
+  let entry = Object.entries(frenchNames).find(([, n]) => n && n.toLowerCase() === name.toLowerCase());
+  if (entry) return entry[0];
+  
+  // Si pas trouvé, cherche en anglais
+  const englishNames = countries.getNames('en');
+  entry = Object.entries(englishNames).find(([, n]) => n && n.toLowerCase() === name.toLowerCase());
+  if (entry) return entry[0];
+  
+  return null;
 }
 
 export default function CountryBadge({ countryName, size = '48px', showLabel = true }) {
