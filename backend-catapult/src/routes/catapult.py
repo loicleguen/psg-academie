@@ -22,6 +22,12 @@ from ..services.split_detector import SplitDetector
 from ..services.graph_generator import CatapultGraphGenerator
 from ..services.report_generator import SessionReportGenerator
 
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+from io import BytesIO
+import base64
+
 router = APIRouter(prefix="/catapult", tags=["Catapult GPS Data"])
 
 def _parse_mixed_date(val):
@@ -904,3 +910,72 @@ def get_session_players_global(
 
     results = session.exec(stmt).all()
     return sorted([r for r in results if r])
+
+
+@router.post("/players/{player_name}/radar-chart")
+async def generate_radar_chart(
+    player_name: str,
+    stats: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Make a radar chart for the player's stats (expects keys: minutes, distance, hsr, sprint, vmax, dec, pp, m_min)"""
+    try:
+        # Crée le graphique
+        fig, ax = plt.subplots(figsize=(6, 3), subplot_kw=dict(projection='polar'))
+        
+        labels = ['Minutes', 'Distance', 'HSR', 'Sprint', 'Vmax', 'DEC', 'PP', 'M/MIN']
+        values = [
+            stats.get('minutes', 0),
+            stats.get('distance', 0),
+            stats.get('hsr', 0),
+            stats.get('sprint', 0),
+            stats.get('vmax', 0),
+            stats.get('dec', 0),
+            stats.get('pp', 0),
+            stats.get('m_min', 0)
+        ]
+        
+        # Normalise chaque métrique indépendamment avec nouvelles limites maximales
+        max_vals = [200, 10000, 3000, 1500, 30, 50, 50, 100]
+        raw_values = values.copy()  # Garde les valeurs réelles
+        normalized_values = [(v / m * 100) if v and m else 0 for v, m in zip(values, max_vals)]
+        normalized_values = [min(v, 100) for v in normalized_values]
+        
+        # Ajoute le premier point à la fin pour fermer le polygone
+        plot_values = normalized_values + normalized_values[:1]
+        angles = [n / len(labels) * 2 * 3.14159 for n in range(len(labels))]
+        angles += angles[:1]
+        
+        ax.plot(angles, plot_values, 'o-', linewidth=2, color='#3b82f6')
+        ax.fill(angles, plot_values, alpha=0.25, color='#3b82f6')
+        ax.set_xticks(angles[:-1])
+        ax.set_ylim(0, 120)
+        
+        # Enlever les nombres sur les anneaux (20, 40, 60, 80, 100)
+        ax.set_yticks([])
+        
+        # Ajoute les valeurs réelles du joueur SOUS les noms des axes
+        for i, (angle, label, raw_val) in enumerate(zip(angles[:-1], labels, raw_values)):
+            # Position du texte plus loin que le graphique
+            text_radius = 115
+            display_val = f'{raw_val:.1f}' if raw_val < 100 else f'{raw_val:.0f}'
+            # Afficher le nom de la métrique ET la valeur en dessous
+            ax.text(angle, text_radius, f'{label}\n{display_val}', ha='center', va='bottom', 
+                   fontsize=8, fontweight='bold', color='#1f2937')
+        
+        # Redéfinir les xticks labels comme vides (pour qu'elles n'apparaissent pas au-dessus)
+        ax.set_xticklabels([])
+        
+        ax.grid(True)
+        
+        # Convertis en base64
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', bbox_inches='tight')
+        buffer.seek(0)
+        image_base64 = base64.b64encode(buffer.read()).decode()
+        plt.close(fig)
+        
+        return {"image": f"data:image/png;base64,{image_base64}"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

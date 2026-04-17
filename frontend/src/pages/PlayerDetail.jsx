@@ -154,7 +154,10 @@ export default function PlayerDetail() {
       const sessionObj = playerSessions.find(s => s.id === Number(selectedSession));
       if (sessionObj) {
         catapultService.getPlayerSessionStatsJson(sessionObj.session_title, playerName)
-          .then(stats => setSelectedSessionStats(stats));
+          .then(async (stats) => {
+            stats.radar_image = await generateRadarChart(stats);
+            setSelectedSessionStats(stats);
+          });
       }
     } else {
       setSelectedSessionStats(null);
@@ -333,6 +336,7 @@ export default function PlayerDetail() {
       }
       const stats = await catapultService.getPlayerSessionStatsJson(sessionObj.session_title, selectedPlayer);
       if (stats) {
+        stats.radar_image = await generateRadarChart(stats);
         setComparePlayersStats(prev => [...prev, stats]);
       } else {
         setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
@@ -351,6 +355,25 @@ export default function PlayerDetail() {
     setComparePlayersStats([]);
     setCompareVeoStatsList([]);
     setSearchParams({});
+  };
+
+  const generateRadarChart = async (statsObject) => {
+    try {
+      const response = await api.post(`/catapult/players/${playerName}/radar-chart`, {
+        minutes: statsObject.minutes,
+        distance: statsObject.distance,
+        hsr: statsObject.hsr,
+        sprint: statsObject.sprint,
+        vmax: statsObject.vmax,
+        dec: statsObject.dec,
+        pp: statsObject.pp,
+        m_min: statsObject['m/min'] || 0
+      });
+      return response.data.image;
+    } catch (err) {
+      console.error('Erreur génération graphique:', err);
+      return null;
+    }
   };
 
   const onCoordinatesClick = (coords) => {
@@ -446,7 +469,7 @@ export default function PlayerDetail() {
                 <td className="px-4 py-3 text-sm text-gray-600 font-medium">{r.label}</td>
                 {players.map((p, i) => (
                   <td key={i} className="px-4 py-3">
-                    <div className={`text-2xl font-bold ${r.color || ''}`}>{r.format ? r.format(p?.[r.key]) : (p?.[r.key] ?? '-')}</div>
+                    <div className={`text-2xl font-bold ${r.color || ''}`}>{r.format ? r.format(p?.[r.key], p) : (p?.[r.key] ?? '-')}</div>
                   </td>
                 ))}
               </tr>
@@ -1062,6 +1085,7 @@ export default function PlayerDetail() {
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <StatTable
                     rows={[
+                      { key: 'graph', label: 'Graph Radar', format: (v, player) => player?.radar_image ? (<img src={player.radar_image} alt="Radar" style={{width: '220px', height: '200px'}} />) : 'Chargement...'},
                       { key: 'minutes', label: 'Minutes', format: v => Math.round(v), color: 'text-blue-600' },
                       { key: 'distance', label: 'Distance (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
                       { key: 'hsr', label: 'HSR (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
