@@ -114,11 +114,11 @@ export default function Country() {
               <p className="text-xl">Aucun pays enregistré</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 max-w-4xl mx-auto justify-items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 max-w-5xl mx-auto justify-items-center">
               {sortedCountries.map((country) => (
                 <div
                   key={country.id}
-                  className="bg-white/50 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60 flex flex-col"
+                  className="bg-white/70 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60 flex flex-col"
                 >
                   <div 
                     onClick={() => handleCountryClick(country.name)}
