@@ -14,6 +14,7 @@ import TeamDetail from './pages/TeamDetail';
 import PlayerDetail from './pages/PlayerDetail';
 import Veo from './pages/Veo';
 import AdminPannel from './pages/AdminPannel';
+import Calendar from './pages/Calendar';
 
 function App() {
   return (
@@ -89,6 +90,17 @@ function App() {
               <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <Veo />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Calendar />
                 </Layout>
               </ProtectedRoute>
             }

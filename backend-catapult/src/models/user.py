@@ -16,6 +16,7 @@ class UserRole(str, Enum):
 
     ADMIN = "admin"
     COACH = "coach"
+    ANALYST = "analyst"
     PLAYER = "player"
 
 
@@ -31,9 +32,7 @@ class User(SQLModel, table=True):
             SAEnum(
                 UserRole,
                 name="userrole",
-                values_callable=lambda enum_cls: [
-                    e.value for e in enum_cls
-                ],  # <-- IMPORTANT
+                values_callable=lambda enum_cls: [e.value for e in enum_cls],
             ),
             nullable=False,
         ),
