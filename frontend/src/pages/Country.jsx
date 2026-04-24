@@ -86,6 +86,8 @@ export default function Country() {
     );
   }
 
+  const sortedCountries = [...countries].sort((a, b) => a.name.localeCompare(b.name));
+
   return (
     <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -112,15 +114,15 @@ export default function Country() {
               <p className="text-xl">Aucun pays enregistré</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10 max-w-2xl mx-auto justify-items-center">
-              {countries.map((country) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-15 max-w-7xl mx-auto justify-items-center">
+              {sortedCountries.map((country) => (
                 <div
                   key={country.id}
-                  className="bg-white/50 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60"
+                  className="bg-white/70 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden w-60 flex flex-col"
                 >
                   <div 
                     onClick={() => handleCountryClick(country.name)}
-                    className="py-2 px-4 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform"
+                    className="py-2 px-4 flex flex-col items-center cursor-pointer transform hover:scale-105 transition-transform flex-1"
                   >
                     <div className="mb-2">
                       <CountryBadge countryName={country.name} size="180px" showLabel={false} />
@@ -166,8 +168,8 @@ export default function Country() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white/60 rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
             <h2 className="text-2xl font-bold mb-4">
               {modalMode === 'create' ? 'Ajouter un pays' : 'Modifier le pays'}
             </h2>

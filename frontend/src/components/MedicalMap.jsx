@@ -3,6 +3,8 @@ import React, { useState, useRef } from 'react';
 const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries = [] }) => {
   const imageRef = useRef(null);
   const [hoveredInjury, setHoveredInjury] = useState(null);
+  const [restrictionDate, setRestrictionDate] = useState('');
+  const [restrictionType, setRestrictionType] = useState('no_sport');
 
   const handleImageClick = (e) => {
     if (!imageRef.current) return;
@@ -37,7 +39,7 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Colonne gauche : Image du corps */}
       <div className="relative">
-        <h3 className="font-semibold text-gray-700 mb-3">Cliquez sur la zone blessée</h3>
+        <h3 className="font-semibold text-gray-700 mb-3 text-center">Cliquez sur la zone blessée</h3>
         <div className="relative sticky top-4">
           <img
             ref={imageRef}
@@ -108,7 +110,7 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
 
       {/* Colonne droite : Historique des blessures */}
       <div>
-        <h3 className="font-semibold text-gray-700 mb-3">
+        <h3 className="font-semibold text-gray-700 mb-3 text-center">
           Historique des blessures ({injuries.length})
         </h3>
         
@@ -125,67 +127,83 @@ const MedicalMap = ({ onCoordinatesClick, onDeleteInjury, onEditInjury, injuries
             {injuries.map((injury) => (
               <div
                 key={injury.id}
-                className="p-3 bg-white border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition-all cursor-pointer relative group"
                 onMouseEnter={() => setHoveredInjury(injury.id)}
                 onMouseLeave={() => setHoveredInjury(null)}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 pr-8">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">
-                        {new Date(injury.injury_date).toLocaleDateString('fr-FR')}
-                      </span>
-                      {injury.body_part && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          {injury.body_part}
-                        </span>
-                      )}
+                <div className="grid grid-cols-4 gap-4 divide-x divide-gray-300 items-center mb-4 p-4 bg-gray-50 rounded-lg border"
+                  style={{gridTemplateColumns: "110px 200px 90px 60px"}}>
+                  {/* Colonne 1 : Date blessure + commentaire */}
+                  <div>
+                    <div className="text-gray-900 font-semibold">Début d'arrêt</div>
+                    <div className="px-0 font-medium text-blue-700 text-center pr-3">
+                      {new Date(injury.injury_date).toLocaleDateString('fr-FR')}
                     </div>
-                    {injury.comment && (
-                      <p className="mt-1 text-sm text-gray-600">{injury.comment}</p>
-                    )}
+                    <div className="text-sm text-gray-700 mt-2 text-center pr-2">{injury.comment}</div>
                   </div>
-                  <div className="flex-0 pr-3">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900 whitespace-nowrap">
-                        En arrêt jusqu'au
-                      </h3>
+
+                  {/* Colonne 2 : Jusqu'au + restrictionDate / Le joueur + restrictionType */}
+                  <div>
+                    <div className="text-gray-900 font-semibold text-center pr-2">Jusqu'au</div>
+                    <div className="font-medium text-blue-700 text-center pr-2">
+                      {injury.restriction_date
+                        ? new Date(injury.restriction_date).toLocaleDateString('fr-FR')
+                        : "Pas de date"}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-500">
-                        {injury.injury_end_date
-                          ? new Date(injury.injury_end_date).toLocaleDateString('fr-FR')
-                          : "Pas de date"}
-                      </span>
+                    <div className="text-gray-900 font-semibold mt-2 text-center pr-2">Le joueur</div>
+                    <div className="font-medium text-blue-700 text-center pr-3">
+                      {(() => {
+                        let colorClass = "";
+                        switch (injury.restriction_type) {
+                          case "no_sport":
+                            colorClass = "border-red-500 text-red-700 bg-red-50";
+                            break;
+                          case "light_training":
+                            colorClass = "border-yellow-400 text-yellow-700 bg-yellow-50";
+                            break;
+                          case "normal_play":
+                            colorClass = "border-green-500 text-green-700 bg-green-50";
+                            break;
+                          default:
+                            colorClass = "border-gray-300 text-gray-700 bg-gray-50";
+                        }
+                        const label = {
+                          no_sport: "Ne peut pas faire d'activité sportive",
+                          light_training: "Peut s'entraîner sans forcer",
+                          normal_play: "Peut jouer normalement"
+                        }[injury.restriction_type] || "Non renseigné";
+                        return (
+                          <span className={`inline-block px-2 py-1 rounded border font-semibold ${colorClass}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {injury.coord_x != null && injury.coord_y != null ? (
-                      <div className="text-xs text-green-500" title="Position enregistrée">
-                        
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-300" title="Position non enregistrée">
-                        
-                      </div>
-                    )}
-                    <div className="flex flex-col items-end gap-1">
-                      <button
-                        className="mb-1 px-2 py-1 text-xs bg-yellow-400 text-white rounded hover:bg-yellow-600"
-                        title="Modifier cette blessure"
-                        onClick={() => onEditInjury?.(injury)}
-                      >
-                        Modifier
-                      </button>
-                      {/* Bouton de suppression */}
-                      <button
-                        className="mb-1 px-2 py-1 text-xs bg-red-400 text-white rounded hover:bg-red-800"
-                        title="Supprimer cette blessure"
-                        onClick={(e) => handleDelete(e, injury.id)}
-                      >
-                        Supprimer
-                      </button>
+
+                  {/* Colonne 3 : Fin d'arrêt + injury_end_date */}
+                  <div>
+                    <div className="text-gray-900 font-semibold text-center pr-3">Fin d'arrêt</div>
+                    <div className="font-medium text-blue-700 mt-2 text-center pr-3">
+                      {injury.injury_end_date
+                        ? new Date(injury.injury_end_date).toLocaleDateString('fr-FR')
+                        : "Pas de date"}
                     </div>
+                  </div>
+
+                  {/* Colonne 4 : Boutons */}
+                  <div className="flex flex-col items-end gap-10 w-25 text-center pr-3">
+                    <button
+                      className="px-3 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-600"
+                      onClick={() => onEditInjury(injury)}
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-700"
+                      onClick={e => handleDelete(e, injury.id)}
+                    >
+                      Supprimer
+                    </button>
                   </div>
                 </div>
               </div>

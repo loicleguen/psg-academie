@@ -192,6 +192,9 @@ def update_my_profile(
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
     if user_update.password is not None:
+        # Vérification de l'ancien mot de passe
+        if not user_update.old_password or not AuthService.verify_password(user_update.old_password, current_user.hashed_password):
+            raise HTTPException(status_code=400, detail="Ancien mot de passe incorrect")
         current_user.hashed_password = AuthService.get_password_hash(user_update.password)
 
     # Gérer les champs liés au joueur si l'utilisateur est un joueur

@@ -56,6 +56,7 @@ class User(SQLModel, table=True):
     photo_url: Optional[str] = Field(default=None, max_length=1024)
     team: Optional["Team"] = Relationship(back_populates="players")
     injuries: List["Injury"] = Relationship(back_populates="user")
+    selected_catapult_session_id: Optional[int] = Field(default=None, foreign_key="catapultsession.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
@@ -148,6 +149,7 @@ class UserUpdateMe(SQLModel):
     """Schéma pour mettre à jour son propre profil (sans email ni role)"""
 
     password: Optional[str] = None
+    old_password: Optional[str] = None
     full_name: Optional[str] = None
     team_id: Optional[int] = None
     age: Optional[int] = None

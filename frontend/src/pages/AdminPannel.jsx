@@ -260,7 +260,7 @@ export default function AdminPannel() {
                   {u.id !== user?.id && (
                     <button
                       onClick={() => handleDelete(u.id)}
-                      className="text-red-600 hover:text-blue-600"
+                      className="text-sm text-red-600 hover:text-blue-600"
                     >
                       Supprimer
                     </button>

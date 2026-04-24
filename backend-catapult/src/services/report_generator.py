@@ -325,6 +325,69 @@ class SessionReportGenerator:
             player_max[player]['max_weekly_avg_pp']          = max_wk_pp
 
         return player_max
+    
+    @staticmethod
+    def get_player_session_stats_json(session_data: list, all_sessions: list, player_name: str) -> dict:
+        """
+        Retourne toutes les stats calculées pour un joueur donné dans une session, au format JSON.
+        """
+        # Trouver la ligne du joueur dans la session
+        player_row = next((s for s in session_data if s.get('player_name') == player_name), None)
+        if not player_row:
+            return {}
+
+        # Minutes
+        minutes = player_row.get('duration', 0) / 60 if player_row.get('duration') else 0
+        # Distance (m)
+        distance = player_row.get('distance_km', 0) * 1000
+        # HSR (m)
+        hsr = (player_row.get('speed_zone_3_km', 0) + player_row.get('speed_zone_4_km', 0) + player_row.get('speed_zone_5_km', 0)) * 1000
+        # Sprint (m)
+        sprint = player_row.get('sprint_distance_m', 0)
+        # Vmax (km/h)
+        vmax = player_row.get('top_speed', 0) * 3.6
+        # DEC
+        dec = player_row.get('decel_high_count', 0)
+        # PP
+        pp = player_row.get('power_plays', 0)
+        # M/MIN
+        m_per_min = player_row.get('distance_per_min', 0)
+        # VOL (volume = duration en minutes ?)
+        vol = minutes
+        # INT (intensité = player_load ?)
+        intensity = player_row.get('player_load', 0)
+
+        # Benchmarks pour les pourcentages
+        benchmarks = SessionReportGenerator.calculate_benchmarks(all_sessions)
+        personal_max = SessionReportGenerator.calculate_personal_max_by_player(all_sessions).get(player_name, {})
+
+        # Pourcentages
+        distance_percent = (distance / (benchmarks['distance_km'] * 1000) * 100) if benchmarks['distance_km'] else 0
+        hsr_percent = (hsr / benchmarks['hsr_total'] * 100) if benchmarks['hsr_total'] else 0
+        sprint_percent = (sprint / personal_max.get('max_sprint', 1) * 100) if personal_max.get('max_sprint') else 0
+        vmax_percent = (vmax / (personal_max.get('max_top_speed', 1) * 3.6) * 100) if personal_max.get('max_top_speed') else 0
+        dec_percent = (dec / personal_max.get('max_decel_high', 1) * 100) if personal_max.get('max_decel_high') else 0
+        pp_percent = (pp / personal_max.get('max_power_plays', 1) * 100) if personal_max.get('max_power_plays') else 0
+
+        return {
+            "minutes": minutes,
+            "distance": distance,
+            "distance_percent": distance_percent,
+            "hsr": hsr,
+            "hsr_percent": hsr_percent,
+            "sprint": sprint,
+            "sprint_percent": sprint_percent,
+            "vmax": vmax,
+            "vmax_percent": vmax_percent,
+            "dec": dec,
+            "dec_percent": dec_percent,
+            "pp": pp,
+            "pp_percent": pp_percent,
+            "m/min": m_per_min,
+            "vol": vol,
+            "int": intensity,
+            "player_name": player_name
+        }
 
     @staticmethod
     def draw_semi_gauge(ax, value: float, max_value: float, title: str, percentage: float, fmt: str = 'd'):
