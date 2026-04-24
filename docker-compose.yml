@@ -102,7 +102,7 @@ services:
       - /app/node_modules
     ports:
       - "5173:5173"
-    command: npm run dev -- --host
+    command: sh -c "npm ci && npm run dev -- --host"
     environment:
       - CHOKIDAR_USEPOLLING=true
 
