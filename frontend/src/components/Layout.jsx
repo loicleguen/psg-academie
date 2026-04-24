@@ -15,6 +15,8 @@ export default function Layout({ children }) {
 
   const isVEOActive = location.pathname.startsWith('/veo');
 
+  const isCalendarActive = location.pathname.startsWith('/calendar');
+
   const isSessionCatapultActive =
     location.pathname.startsWith('/catapult/sessions') ||
     location.pathname.startsWith('/catapult/upload') ||
@@ -35,7 +37,7 @@ export default function Layout({ children }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
+              <div className="shrink-0 flex items-center">
                 <NavLink
                   to="/country"
                   className={
@@ -53,8 +55,17 @@ export default function Layout({ children }) {
                     "inline-flex items-center px-4 h-10 bg-blue-500 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 " +
                     (isVEOActive ? "ring-5 ring-offset-5 ring-black" : "")
                   }
-                >
+                  >
                   VEO
+                </NavLink>
+                <NavLink
+                  to="/calendar"
+                  className={
+                    "inline-flex items-center px-4 h-10 bg-blue-500 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 " +
+                    (isCalendarActive ? "ring-5 ring-offset-5 ring-black" : "")
+                  }
+                >
+                  Calendrier
                 </NavLink>
                 <NavLink
                   to="/catapult/sessions"

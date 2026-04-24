@@ -10,6 +10,7 @@ from ..models.team import Team
 from ..models.catapult import CatapultSession
 from ..models.user import User
 from ..models.injury import Injury
+from ..models.calendar import CalendarEvent
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://psguser:psgpass@db:5432/psgdb")
 
