@@ -20,6 +20,7 @@ from src.models.academy import Academy
 from src.models.team import Team
 from src.models.user import User
 from src.models.catapult import CatapultSession
+from src.models.calendar import CalendarEvent
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
