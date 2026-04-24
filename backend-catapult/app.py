@@ -17,7 +17,7 @@ async def lifespan(app):
     init_db()
     yield
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, root_path="/api/physical")
 
 # Serve uploaded static files
 app.mount('/static', StaticFiles(directory='static'), name='static')
@@ -30,5 +30,5 @@ app.include_router(catapult_router)
 app.include_router(injury_router)
 
 @app.get("/")
-async def root(request: Request):
-    return RedirectResponse(url="/docs")
+async def root():
+    return {"message": "Catapult Module V1 API", "version": "1.0.0", "docs": "/api/physical/docs", "health": "/api/physical/health"}

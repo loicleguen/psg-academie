@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { catapultService } from '../services/catapultService';
 import api from '../services/api';
@@ -43,15 +43,21 @@ export default function PlayerDetail() {
   const [activeTab, setActiveTab] = useState('info');
   const [playerInfo, setPlayerInfo] = useState(null);
   const [playerStats, setPlayerStats] = useState(null);
+  const [catapultFilter, setCatapultFilter] = useState('all');
   const [comparePlayers, setComparePlayers] = useState([]);
   const [comparePlayersStats, setComparePlayersStats] = useState([]);
   const [veoStats, setVeoStats] = useState(null);
   const [compareVeoStatsList, setCompareVeoStatsList] = useState([]);
+  const [veoFilter, setVeoFilter] = useState('all');
+  const [selectedVeoPlayer, setSelectedVeoPlayer] = useState('');
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [veoLoading, setVeoLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [allPlayersInfo, setAllPlayersInfo] = useState([]);
+  const [playerSessions, setPlayerSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [selectedSessionStats, setSelectedSessionStats] = useState(null);
 
     // Medical state
   const [injuries, setInjuries] = useState([]);
@@ -60,7 +66,18 @@ export default function PlayerDetail() {
   const [editForm, setEditForm] = useState(null);
   const [clickCoordinates, setClickCoordinates] = useState(null);
   const [injuryDate, setInjuryDate] = useState('');
+  const [injuryEndDate, setInjuryEndDate] = useState('');
   const [injuryComment, setInjuryComment] = useState('');
+  const [showEditInjuryModal, setShowEditInjuryModal] = useState(false);
+  const [editInjuryForm, setEditInjuryForm] = useState(null);
+  const [restrictionDate, setRestrictionDate] = useState('');
+  const [restrictionType, setRestrictionType] = useState('no_sport');
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const passwordFormRef = useRef(null);
 
   const handlePhotoSelect = async (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -117,6 +134,45 @@ export default function PlayerDetail() {
     loadVeoStats();
   }, [playerName]);
 
+  // Charger les sessions à l'ouverture de l'onglet Catapult
+  useEffect(() => {
+    if (activeTab === 'catapult') {
+      catapultService.getSessionsByPlayer(playerName).then(sessions => {
+        // Filtrer sur les 6 derniers mois
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const filtered = sessions
+          .filter(s => new Date(s.date) >= sixMonthsAgo)
+          .sort((a, b) => new Date(b.date) - new Date(a.date)); // Tri décroissant
+        setPlayerSessions(filtered);
+      });
+    }
+  }, [activeTab, playerName]);
+
+  useEffect(() => {
+    if (selectedSession) {
+      const sessionObj = playerSessions.find(s => s.id === Number(selectedSession));
+      if (sessionObj) {
+        catapultService.getPlayerSessionStatsJson(sessionObj.session_title, playerName)
+          .then(async (stats) => {
+            stats.radar_image = await generateRadarChart(stats);
+            setSelectedSessionStats(stats);
+          });
+      }
+    } else {
+      setSelectedSessionStats(null);
+    }
+  }, [selectedSession, playerName, playerSessions]);
+
+  useEffect(() => {
+    // Charger la session sélectionnée au mount
+    catapultService.getSelectedSession(playerName).then(res => {
+      if (res && res.session_id) {
+        setSelectedSession(res.session_id.toString());
+      }
+    });
+  }, [playerName]);
+
   const fetchTeams = async () => {
     try {
       const res = await api.get('/teams/');
@@ -129,19 +185,21 @@ export default function PlayerDetail() {
   };
 
   useEffect(() => {
-    if (compareWith && activeTab === 'stats') {
+    if (compareWith && (activeTab === 'catapult' || activeTab === 'veo')) {
       setComparePlayers([compareWith]);
       (async () => {
         try {
           const s = await catapultService.getPlayerStats(compareWith);
           setComparePlayersStats([s]);
-        } catch (err) { console.debug(err);
+        } catch (err) { 
+          console.debug(err);
           setComparePlayersStats([]);
         }
       })();
-    } else if (activeTab !== 'stats') {
+    } else if (activeTab !== 'catapult' && activeTab !== 'veo') {
       setComparePlayers([]);
       setComparePlayersStats([]);
+      setCompareVeoStatsList([]);
     }
   }, [compareWith, activeTab]);
 
@@ -197,13 +255,6 @@ export default function PlayerDetail() {
     } catch (err) { console.debug(err); } finally {
       setLoading(false);
     }
-  };
-
-  const loadOneCompareStats = async (name) => {
-    try {
-      const stats = await catapultService.getPlayerStats(name);
-      return stats;
-    } catch (err) { console.debug(err); }
   };
 
   const loadVeoStats = async () => {
@@ -265,24 +316,36 @@ export default function PlayerDetail() {
       alert('Maximum 6 joueurs comparés.');
       return;
     }
-    const nameToAdd = selectedPlayer;
-    setComparePlayers(prev => [...prev, nameToAdd]);
+    setComparePlayers(prev => [...prev, selectedPlayer]);
     setSelectedPlayer('');
+
     try {
-      const [stats, veoStats] = await Promise.all([
-        loadOneCompareStats(nameToAdd),
-        loadCompareVeoStats(nameToAdd),
-      ]);
-      if (stats) {
-        setComparePlayersStats(prev => [...prev, stats]);
-      } else {
-        setComparePlayers(prev => prev.filter(p => p !== nameToAdd));
-        alert('Impossible de charger les stats pour ' + nameToAdd);
+      const { session_id } = await catapultService.getSelectedSession(selectedPlayer);
+      if (!session_id) {
+        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+        alert('Ce joueur n’a pas encore de session sélectionnée !');
         return;
       }
-      setCompareVeoStatsList(prev => [...prev, veoStats]);
-    } catch (err) { console.debug(err);
-      setComparePlayers(prev => prev.filter(p => p !== nameToAdd));
+      // Récupère les sessions du joueur comparé
+      const sessions = await catapultService.getSessionsByPlayer(selectedPlayer);
+      const sessionObj = sessions.find(s => s.id === Number(session_id));
+      if (!sessionObj) {
+        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+        alert('Impossible de trouver la session sélectionnée pour ce joueur !');
+        return;
+      }
+      const stats = await catapultService.getPlayerSessionStatsJson(sessionObj.session_title, selectedPlayer);
+      if (stats) {
+        stats.radar_image = await generateRadarChart(stats);
+        setComparePlayersStats(prev => [...prev, stats]);
+      } else {
+        setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+        alert('Impossible de charger les stats pour ' + selectedPlayer);
+      }
+    } catch (err) {
+      setComparePlayers(prev => prev.filter(p => p !== selectedPlayer));
+      alert(err?.response?.data?.detail || 'Erreur lors de la comparaison');
+      console.error(err);
     }
   };
 
@@ -294,17 +357,24 @@ export default function PlayerDetail() {
     setSearchParams({});
   };
 
-  const getAllPlayersList = () => {
-    return allPlayers.filter(name => name !== playerName);
+  const generateRadarChart = async (statsObject) => {
+    try {
+      const response = await api.post(`/catapult/players/${playerName}/radar-chart`, {
+        minutes: statsObject.minutes,
+        distance: statsObject.distance,
+        hsr: statsObject.hsr,
+        sprint: statsObject.sprint,
+        vmax: statsObject.vmax,
+        dec: statsObject.dec,
+        pp: statsObject.pp,
+        m_min: statsObject['m/min'] || 0
+      });
+      return response.data.image;
+    } catch (err) {
+      console.error('Erreur génération graphique:', err);
+      return null;
+    }
   };
-
-  const getSamePositionPlayers = () => {
-    if (!playerInfo?.position) return [];
-    return allPlayersInfo
-      .filter(p => p.position === playerInfo.position && p.player_name !== playerName)
-      .map(p => p.player_name);
-  };
-
 
   const onCoordinatesClick = (coords) => {
     setClickCoordinates(coords);
@@ -322,6 +392,9 @@ export default function PlayerDetail() {
       coord_x: clickCoordinates.coord_x,
       coord_y: clickCoordinates.coord_y,
       injury_date: injuryDate || new Date().toISOString().slice(0,10),
+      injury_end_date: injuryEndDate || null,
+      restriction_type: restrictionType,
+      restriction_date: restrictionDate,
       comment: injuryComment || ''
     };
 
@@ -339,8 +412,20 @@ export default function PlayerDetail() {
     } finally {
       setShowAddModal(false);
       setClickCoordinates(null);
+      setInjuryEndDate('');
     }
   };
+
+  const updateInjury = async (injuryId, payload) => {
+  if (!playerInfo?.id) return;
+  try {
+    await api.put(`/players/${playerInfo.id}/injuries/${injuryId}`, payload);
+    await fetchInjuries(); // Rafraîchir la liste après modification
+  } catch (err) {
+    console.error('Erreur lors de la mise à jour de la blessure:', err);
+    alert('Erreur lors de la mise à jour de la blessure');
+  }
+};
 
   const deleteInjury = async (injuryId) => {
     try {
@@ -363,8 +448,8 @@ export default function PlayerDetail() {
   }
 
     // Render a table where each player is a column and each row is a stat
-  const StatTable = ({ rows }) => {
-    const players = [playerStats, ...comparePlayersStats];
+  const StatTable = ({ rows, stats }) => {
+    const players = stats;
     return (
       <div className="overflow-x-auto">
         <table className="w-full table-auto border-collapse">
@@ -384,7 +469,7 @@ export default function PlayerDetail() {
                 <td className="px-4 py-3 text-sm text-gray-600 font-medium">{r.label}</td>
                 {players.map((p, i) => (
                   <td key={i} className="px-4 py-3">
-                    <div className={`text-2xl font-bold ${r.color || ''}`}>{r.format ? r.format(p?.[r.key]) : (p?.[r.key] ?? '-')}</div>
+                    <div className={`text-2xl font-bold ${r.color || ''}`}>{r.format ? r.format(p?.[r.key], p) : (p?.[r.key] ?? '-')}</div>
                   </td>
                 ))}
               </tr>
@@ -425,26 +510,177 @@ export default function PlayerDetail() {
     return acc;
   }, {});
 
-  const compareVeoMetricMaps = compareVeoStatsList.map(s =>
-    (s?.metrics ?? []).reduce((acc, metric) => {
-      acc[metric.slug] = metric.value;
-      return acc;
-    }, {})
-  );
+  const handleShowPasswordForm = () => {
+    setShowPasswordForm(true);
+    setTimeout(() => {
+      passwordFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      alert("Les nouveaux mots de passe ne correspondent pas.");
+      return;
+    }
+    try {
+      await api.put('/auth/me', { password: newPassword, old_password: oldPassword });
+      alert("Mot de passe modifié avec succès !");
+      setShowPasswordForm(false);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      alert("Erreur lors du changement de mot de passe : " + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+
+  const handleVeoCompare = async () => {
+    if (
+      !selectedVeoPlayer ||
+      compareVeoStatsList.some(cs => cs?.player_name === selectedVeoPlayer)
+    ) return;
+    try {
+      // Ajoute un état de loading si besoin
+      const stats = await veoService.getPlayerMetricsSummaryByName(selectedVeoPlayer);
+      setCompareVeoStatsList(prev => [...prev, stats]);
+      setSelectedVeoPlayer('');
+    } catch {
+      alert("Erreur lors de la comparaison VEO");
+    }
+  };
+
+  const clearVeoComparison = () => {
+    setCompareVeoStatsList([]);
+    setSelectedVeoPlayer('');
+  };
+
+  function PlayerComparisonSelector({
+    filter,
+    setFilter,
+    selectedPlayer,
+    setSelectedPlayer,
+    allPlayers,
+    allPlayersInfo,
+    playerName,
+    playerInfo,
+    comparedList,
+    onAdd,
+    onClear,
+    loading,
+    label = "Comparer avec d'autres joueurs"
+  }) {
+    // Fonctions de filtrage
+    const getAllPlayersList = () =>
+      allPlayers.filter(name => name !== playerName && !comparedList.some(cs => cs?.player_name === name || cs === name));
+
+    const getSamePositionPlayers = () => {
+      if (!playerInfo?.position) return [];
+      return allPlayers
+        .filter(name => name !== playerName && !comparedList.some(cs => cs?.player_name === name || cs === name))
+        .filter(name => {
+          const info = allPlayersInfo.find(p => p.player_name === name);
+          return info && info.position === playerInfo.position;
+        });
+    };
+
+    const filteredPlayers = filter === 'all' ? getAllPlayersList() : getSamePositionPlayers();
+
+    return (
+      <div className="bg-gray-50/50 rounded-lg p-2 mb-4 pl-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">{label}</h2>
+        <div className="flex gap-2 mb-2">
+          <button
+            className={`px-3 py-1 rounded ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setFilter('all')}
+          >
+            Tous les joueurs
+          </button>
+          <button
+            className={`px-3 py-1 rounded ${filter === 'samePosition' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setFilter('samePosition')}
+          >
+            Même poste {playerInfo?.position && `(${playerInfo.position})`}
+          </button>
+        </div>
+        <div className="flex gap-4 mb-4">
+          <select
+            value={selectedPlayer}
+            onChange={e => setSelectedPlayer(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">-- Choisir un joueur --</option>
+            {filteredPlayers.map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+          <button
+            onClick={onAdd}
+            disabled={!selectedPlayer || loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
+          >
+            Ajouter à la comparaison
+          </button>
+          {comparedList.length > 0 && (
+            <button
+              onClick={onClear}
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const ComparisonBlock = () => (
+    <div className="space-y-6">
+      <div className="bg-gray-50/50 rounded-lg pt-2 pr-6">
+        <label className="block mb-5 font-medium text-xl">Sélectionnez la meilleure session du joueur</label>
+        <select
+          value={selectedSession || ''}
+          onChange={e => setSelectedSession(e.target.value)}
+          className="mb-4 px-4 py-2 border rounded"
+        >
+          <option value="">-- Choisir une session --</option>
+          {playerSessions.map(session => (
+            <option key={session.id} value={session.id}>
+              {session.title} ({new Date(session.date).toLocaleDateString()})
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={async () => {
+            if (selectedSession) {
+              await catapultService.setSelectedSession(playerName, selectedSession);
+              alert("Session enregistrée !");
+            }
+          }}
+          className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          disabled={!selectedSession}
+        >
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-transparent p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="justify-self-start inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-4">
+          <h1 className="inline-block bg-white/50 px-4 py-2 rounded-md text-4xl font-bold text-black">
             {playerName}
           </h1>
-          <p className="justify-self-start bg-white/50 px-4 py-2 rounded-md text-l font-bold text-black">{playerInfo?.role || 'Joueur'}</p>
+          <p className="justify-self-center bg-white/50 px-4 py-2 rounded-md text-l font-bold text-black">{playerInfo?.role || 'Joueur'}</p>
         </div>
 
         <div className="bg-white/80 rounded-lg shadow-lg mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
+            <nav className="flex justify-center -mb-px">
               <button
                 onClick={() => setActiveTab('info')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
@@ -457,14 +693,25 @@ export default function PlayerDetail() {
               </button>
 
               <button
-                onClick={() => setActiveTab('stats')}
+                onClick={() => setActiveTab('catapult')}
                 className={`px- py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'stats'
+                  activeTab === 'catapult'
                     ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
                 }`}
               >
-                Stats Catapult et VEO
+                Stats Catapult
+              </button>
+
+              <button
+                onClick={() => setActiveTab('veo')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'veo'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Stats VEO
               </button>
               
               <button
@@ -583,10 +830,76 @@ export default function PlayerDetail() {
               )}
 
             {showEditModal && editForm && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8">
+                  <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
                       <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        {me && playerInfo?.id === me.id && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
+                            <button
+                              className="mb-4 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                              onClick={handleShowPasswordForm}
+                            >
+                              Modifier le mot de passe
+                            </button>
+                            {showPasswordForm && (
+                              <form
+                                style={{ maxHeight: '320px', overflowY: 'auto' }}
+                                ref={passwordFormRef}
+                                className="mb-2 p-2 bg-gray-50 rounded border flex flex-col gap-2 max-w-xs max-h-80 overflow-y-auto"
+                                onSubmit={handlePasswordChange}
+                              >
+                                <label>
+                                  Ancien mot de passe
+                                  <input
+                                    type="password"
+                                    className="w-full mt-1 px-2 py-1 border rounded"
+                                    value={oldPassword}
+                                    onChange={e => setOldPassword(e.target.value)}
+                                    required
+                                  />
+                                </label>
+                                <label>
+                                  Nouveau mot de passe
+                                  <input
+                                    type="password"
+                                    className="w-full mt-1 px-2 py-1 border rounded"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    required
+                                  />
+                                </label>
+                                <label>
+                                  Confirmer le nouveau mot de passe
+                                  <input
+                                    type="password"
+                                    className="w-full mt-1 px-2 py-1 border rounded"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                    required
+                                  />
+                                </label>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                                  >
+                                    Enregistrer
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                                    onClick={() => setShowPasswordForm(false)}
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Nom complet</label>
@@ -596,11 +909,6 @@ export default function PlayerDetail() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Email</label>
                           <input value={editForm.email || ''} onChange={(e)=>setEditForm({...editForm, email: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Player name</label>
-                          <input value={editForm.player_name || ''} onChange={(e)=>setEditForm({...editForm, player_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
                         </div>
 
                         <div>
@@ -750,96 +1058,127 @@ export default function PlayerDetail() {
                   </div>
                 )}
 
-{activeTab === 'stats' && playerStats && (
-              <div className="space-y-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                    </svg>
-                    <span className="font-semibold text-blue-900">Poste: {playerInfo?.position || 'Non défini'}</span>
+            {activeTab === 'catapult' && playerStats && (
+              <>
+                <div className="grid grid-cols-2 gap-6 mb-6">
+                  <div className="text-right">
+                    <ComparisonBlock />
+                  </div>
+                  <div>
+                    <PlayerComparisonSelector
+                      filter={catapultFilter}
+                      setFilter={setCatapultFilter}
+                      selectedPlayer={selectedPlayer}
+                      setSelectedPlayer={setSelectedPlayer}
+                      allPlayers={allPlayers}
+                      allPlayersInfo={allPlayersInfo}
+                      playerName={playerName}
+                      playerInfo={playerInfo}
+                      comparedList={comparePlayers}
+                      onAdd={handleCompare}
+                      onClear={clearComparison}
+                      loading={false}
+                      label="Comparer Catapult avec d'autres joueurs"
+                    />
                   </div>
                 </div>
-
-                <p className="text-black">Données des 3 derniers mois</p>
-
-                <div className="bg-gray-50/50 rounded-lg p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Comparer avec un autre joueur</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tous les joueurs
-                      </label>
-                      <select
-                        value={selectedPlayer}
-                        onChange={(e) => setSelectedPlayer(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">-- Choisir un joueur --</option>
-                        {getAllPlayersList().map(name => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Même poste {playerInfo?.position && `(${playerInfo.position})`}
-                      </label>
-                      <select
-                        value={selectedPlayer}
-                        onChange={(e) => setSelectedPlayer(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      >
-                        <option value="">-- Choisir un joueur --</option>
-                        {getSamePositionPlayers().map(name => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
-                      {getSamePositionPlayers().length === 0 && playerInfo?.position && (
-                        <p className="text-xs text-gray-500 mt-1">Aucun autre joueur au poste {playerInfo.position}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={handleCompare}
-                      disabled={!selectedPlayer}
-                      className="transform translate-x-[400px] px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Comparer
-                    </button>
-                    {comparePlayersStats.length > 0 && (
-                      <button
-                        onClick={clearComparison}
-                        className="transform translate-x-[400px] px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                      >
-                        Effacer
-                      </button>
-                    )}
-                  </div>
-                </div>
-
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
-                  
-                    <StatTable
-                      rows={[
-                        { key: 'sessions_count', label: 'Nombre de sessions', color: 'text-blue-600' },
-                        { key: 'vitesse_max', label: 'Vitesse Max (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
-                        { key: 'vitesse_avg', label: 'Vitesse Moyenne (m/s)', format: v => v?.toFixed(2), color: 'text-gray-900' },
-                        { key: 'hsr_max', label: 'HSR Max (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
-                        { key: 'hsr_avg', label: 'HSR Moyen (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
-                        { key: 'sprint_max', label: 'Sprint Max (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
-                        { key: 'sprint_avg', label: 'Sprint Moyen (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
-                        { key: 'distance_max', label: 'Distance Max (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
-                        { key: 'distance_avg', label: 'Distance Moyenne (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
-                        { key: 'dec_max', label: 'DEC Max', format: v => v?.toFixed(0), color: 'text-purple-600' },
-                        { key: 'dec_avg', label: 'DEC Moyen', format: v => v?.toFixed(0), color: 'text-purple-600' },
-                        { key: 'pp_max', label: 'PP Max', format: v => v?.toFixed(2), color: 'text-indigo-600' },
-                        { key: 'pp_avg', label: 'PP Moyen', format: v => v?.toFixed(2), color: 'text-indigo-600' },
-                      ]}
-                    />                </div>
-              </div>
+                  <StatTable
+                    rows={[
+                      { key: 'graph', label: 'Graph Radar', format: (v, player) => player?.radar_image ? (<img src={player.radar_image} alt="Radar" style={{width: '220px', height: '200px'}} />) : 'Chargement...'},
+                      { key: 'minutes', label: 'Minutes', format: v => Math.round(v), color: 'text-blue-600' },
+                      { key: 'distance', label: 'Distance (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
+                      { key: 'hsr', label: 'HSR (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
+                      { key: 'sprint', label: 'Sprint (m)', format: v => v?.toFixed(0), color: 'text-red-600' },
+                      { key: 'vmax', label: 'Vmax (km/h)', format: v => v?.toFixed(1), color: 'text-purple-600' },
+                      { key: 'dec', label: 'DEC', format: v => v?.toFixed(0), color: 'text-purple-600' },
+                      { key: 'pp', label: 'PP', format: v => v?.toFixed(0), color: 'text-indigo-600' },
+                      { key: 'm/min', label: 'M/MIN', format: v => v?.toFixed(1), color: 'text-green-600' },
+                    ]}
+                    stats={[selectedSessionStats, ...comparePlayersStats]}
+                  />
+                </div>
+              </>
+            )}
+
+            {activeTab === 'veo' && (
+              <>
+                <div className="flex justify-center">
+                  <div className="w-full max-w-md">
+                    <PlayerComparisonSelector
+                      filter={veoFilter}
+                      setFilter={setVeoFilter}
+                      selectedPlayer={selectedVeoPlayer}
+                      setSelectedPlayer={setSelectedVeoPlayer}
+                      allPlayers={allPlayers}
+                      allPlayersInfo={allPlayersInfo}
+                      playerName={playerName}
+                      playerInfo={playerInfo}
+                      comparedList={compareVeoStatsList}
+                      onAdd={handleVeoCompare}
+                      onClear={clearVeoComparison}
+                      loading={loading}
+                      label="Comparer VEO avec d'autres joueurs"
+                    />
+                  </div>
+                </div>
+                <div className="bg-white/50 rounded-lg border p-6 space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
+                  {veoLoading ? (
+                    <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
+                  ) : !veoStats ? (
+                    <p className="text-gray-500 text-sm">
+                      Aucune metrique VEO disponible pour ce joueur sur les sessions disponibles.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full table-auto border-collapse">
+                          <thead>
+                            <tr>
+                              <th className="px-4 py-2 text-left text-sm text-gray-600 font-medium">Métrique</th>
+                              <th className="px-4 py-2 text-left">
+                                <div className="text-xs text-gray-500">{veoStats.player_name || playerName}</div>
+                                <div className="text-xs text-gray-400">{veoStats.sessions_count} session(s)</div>
+                              </th>
+                              {compareVeoStatsList.map((cs, i) => (
+                                <th key={i} className="px-4 py-2 text-left">
+                                  <div className="text-xs text-gray-500">{cs?.player_name || comparePlayers[i]}</div>
+                                  <div className="text-xs text-gray-400">{cs?.sessions_count ?? 0} session(s)</div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {VEO_PLAYER_METRIC_ORDER.map((slug) => (
+                              <tr key={slug} className="border-t">
+                                <td className="px-4 py-3 text-sm text-gray-600 font-medium">
+                                  {VEO_PLAYER_METRIC_LABELS[slug] || slug}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                                  {formatVeoMetricValue(veoMetricMap[slug])}
+                                </td>
+                                {compareVeoStatsList.map((cs, i) => {
+                                  // On crée un mapping pour chaque joueur comparé
+                                  const csMetricMap = (cs?.metrics ?? []).reduce((acc, metric) => {
+                                    acc[metric.slug] = metric.value;
+                                    return acc;
+                                  }, {});
+                                  return (
+                                    <td key={i} className="px-4 py-3 text-sm font-bold text-gray-900">
+                                      {formatVeoMetricValue(csMetricMap[slug])}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
             )}
 
             {activeTab === 'medical' && (
@@ -848,26 +1187,63 @@ export default function PlayerDetail() {
                   injuries={injuries}
                   onCoordinatesClick={onCoordinatesClick}
                   onDeleteInjury={deleteInjury}
+                  onEditInjury={(injury) => {
+                    setEditInjuryForm(injury);
+                    setShowEditInjuryModal(true);
+                    setInjuryDate(injury.injury_date || '');
+                    setInjuryEndDate(injury.injury_end_date || '');
+                    setRestrictionDate(injury.restriction_date || '');
+                    setRestrictionType(injury.restriction_type || 'no_sport');
+                    setInjuryComment(injury.comment || '');
+                    setClickCoordinates({ coord_x: injury.coord_x, coord_y: injury.coord_y });
+                  }}
                 />
 
                 {showAddModal && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center">
                     <div className="absolute inset-0 bg-black opacity-40" onClick={() => setShowAddModal(false)}></div>
-                    <div className="bg-white rounded-lg shadow-lg z-60 p-6 w-full max-w-md">
-                      <h3 className="text-lg font-semibold mb-4">Ajouter une blessure</h3>
+                    <div className="bg-white rounded-lg shadow-lg z-60 p-6 w-full max-w-170">
+                      <h3 className="text-xl font-semibold mb-4">Ajouter une blessure</h3>
                       {clickCoordinates && (
                         <div className="mb-3 text-sm text-gray-600">
                           Position: {clickCoordinates.coord_x.toFixed(1)}%, {clickCoordinates.coord_y.toFixed(1)}%
                         </div>
                       )}
-                      <label className="block text-sm font-medium text-gray-700">Date de la blessure</label>
+                      <label className="block text-m font-medium text-gray-700">Date de la blessure</label>
                       <input 
                         type="date" 
                         value={injuryDate} 
                         onChange={(e) => setInjuryDate(e.target.value)} 
                         className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
                       />
-                      <label className="block text-sm font-medium text-gray-700">Commentaire (localisation, type...)</label>
+                      <label className="block text-m font-medium text-gray-700">En arrêt jusqu'au</label>
+                      <input 
+                        type="date" 
+                        value={injuryEndDate} 
+                        onChange={(e) => setInjuryEndDate(e.target.value)} 
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
+                      />
+                      <label className="mt-2 block text-m font-medium text-gray-700">Que permet cette blessure</label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span>Jusqu'au</span>
+                        <input
+                          type="date"
+                          value={restrictionDate}
+                          onChange={e => setRestrictionDate(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        />
+                        <span>Le joueur</span>
+                        <select
+                          value={restrictionType}
+                          onChange={e => setRestrictionType(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        >
+                          <option value="no_sport">Ne peut pas faire d'activité sportive</option>
+                          <option value="light_training">Peut s'entrainer sans forcer</option>
+                          <option value="normal_play">Peut jouer normalement</option>
+                        </select>
+                      </div>
+                      <label className="mt-4 block text-sm font-medium text-gray-700">Commentaire (localisation, type...)</label>
                       <textarea 
                         value={injuryComment} 
                         onChange={(e) => setInjuryComment(e.target.value)} 
@@ -877,7 +1253,7 @@ export default function PlayerDetail() {
                       ></textarea>
                       <div className="flex justify-end gap-3">
                         <button 
-                          onClick={() => setShowAddModal(false)} 
+                          onClick={() => { setShowAddModal(false); setInjuryEndDate(''); }} 
                           className="px-4 py-2 rounded border hover:bg-gray-50"
                         >
                           Annuler
@@ -893,62 +1269,84 @@ export default function PlayerDetail() {
                   </div>
                 )}
 
+                {showEditInjuryModal && editInjuryForm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-170 mx-4 my-8">
+                      <h3 className="text-lg font-semibold mb-4">Modifier la blessure</h3>
+                      <label className="block text-sm font-medium text-gray-700">Date de la blessure</label>
+                      <input
+                        type="date"
+                        value={injuryDate}
+                        onChange={(e) => setInjuryDate(e.target.value)}
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded"
+                      />
+                      <label className="block text-sm font-medium text-gray-700">En arrêt jusqu'au</label>
+                      <input
+                        type="date"
+                        value={injuryEndDate}
+                        onChange={(e) => setInjuryEndDate(e.target.value)}
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded"
+                      />
+                      <label className="mt-2 block text-m font-medium text-gray-700">Que permet cette blessure</label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span>Jusqu'au</span>
+                        <input
+                          type="date"
+                          value={restrictionDate}
+                          onChange={e => setRestrictionDate(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        />
+                        <span>Le joueur</span>
+                        <select
+                          value={restrictionType}
+                          onChange={e => setRestrictionType(e.target.value)}
+                          className="px-2 py-1 border rounded"
+                        >
+                          <option value="no_sport">Ne peut pas faire d'activité sportive</option>
+                          <option value="light_training">Peut s'entrainer sans forcer</option>
+                          <option value="normal_play">Peut jouer normalement</option>
+                        </select>
+                      </div>
+                      <label className="block text-sm font-medium text-gray-700">Commentaire</label>
+                      <textarea
+                        value={injuryComment}
+                        onChange={(e) => setInjuryComment(e.target.value)}
+                        className="mt-1 mb-4 w-full px-3 py-2 border rounded"
+                        rows={3}
+                      />
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => { setShowEditInjuryModal(false); setEditInjuryForm(null); }}
+                          className="px-4 py-2 rounded border hover:bg-gray-50"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await updateInjury(editInjuryForm.id, {
+                              injury_date: injuryDate,
+                              injury_end_date: injuryEndDate,
+                              comment: injuryComment,
+                              coord_x: clickCoordinates?.coord_x,
+                              coord_y: clickCoordinates?.coord_y,
+                              restriction_date: restrictionDate,
+                              restriction_type: restrictionType
+                            });
+                            setShowEditInjuryModal(false);
+                            setEditInjuryForm(null);
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Enregistrer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
-
-        {activeTab === 'stats' && (
-        <div className="bg-white/80 rounded-lg shadow-lg p-6 space-y-6 mt-8">
-          <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>
-          {veoLoading ? (
-            <p className="text-gray-500 text-sm">Chargement des metriques VEO...</p>
-          ) : !veoStats ? (
-            <p className="text-gray-500 text-sm">
-              Aucune metrique VEO disponible pour ce joueur sur les sessions disponibles.
-            </p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full table-auto border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-2 text-left text-sm text-gray-600 font-medium">Métrique</th>
-                      <th className="px-4 py-2 text-left">
-                        <div className="text-xs text-gray-500">{veoStats.player_name || playerName}</div>
-                        <div className="text-xs text-gray-400">{veoStats.sessions_count} session(s)</div>
-                      </th>
-                      {compareVeoStatsList.map((cs, i) => (
-                        <th key={i} className="px-4 py-2 text-left">
-                          <div className="text-xs text-gray-500">{cs?.player_name || comparePlayers[i]}</div>
-                          <div className="text-xs text-gray-400">{cs?.sessions_count ?? 0} session(s)</div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {VEO_PLAYER_METRIC_ORDER.map((slug) => (
-                      <tr key={slug} className="border-t">
-                        <td className="px-4 py-3 text-sm text-gray-600 font-medium">
-                          {VEO_PLAYER_METRIC_LABELS[slug] || slug}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                          {formatVeoMetricValue(veoMetricMap[slug])}
-                        </td>
-                        {compareVeoMetricMaps.map((map, i) => (
-                          <td key={i} className="px-4 py-3 text-sm font-bold text-orange-500">
-                            {formatVeoMetricValue(map[slug])}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-        )}
       </div>
     </div>
   );

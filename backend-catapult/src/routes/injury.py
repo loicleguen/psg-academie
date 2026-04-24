@@ -78,6 +78,9 @@ def create_injury(
         user_id=player_id,
         body_part=injury_data.body_part,
         injury_date=injury_data.injury_date,
+        injury_end_date=injury_data.injury_end_date,
+        restriction_date=injury_data.restriction_date,
+        restriction_type=injury_data.restriction_type,
         comment=injury_data.comment,
         coord_x=injury_data.coord_x,
         coord_y=injury_data.coord_y
@@ -135,6 +138,12 @@ def update_injury(
         db_injury.body_part = injury_data.body_part
     if injury_data.injury_date is not None:
         db_injury.injury_date = injury_data.injury_date
+    if injury_data.injury_end_date is not None:
+        db_injury.injury_end_date = injury_data.injury_end_date
+    if injury_data.restriction_date is not None:
+        db_injury.restriction_date = injury_data.restriction_date
+    if injury_data.restriction_type is not None:
+        db_injury.restriction_type = injury_data.restriction_type
     if injury_data.comment is not None:
         db_injury.comment = injury_data.comment
     if injury_data.coord_x is not None:
