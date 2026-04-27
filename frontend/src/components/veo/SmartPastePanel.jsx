@@ -67,19 +67,6 @@ function normalizeVeoValueToInputNumberString(value) {
 }
 
 /**
- * Pretty-print object for preview.
- * @param {any} data
- * @returns {string}
- */
-function prettyJson(data) {
-  try {
-    return JSON.stringify(data, null, 2);
-  } catch {
-    return String(data);
-  }
-}
-
-/**
  * IMPORTANT:
  * The `key` MUST match the backend `menu_type` returned by /parse-veo-clipboard.
  */
@@ -171,6 +158,97 @@ const SHOTMAP_LABEL_TO_INPUT_SLUG = {
   team_shotmap_attempts_outside_box_pct: { inputSlug: "team_shotmap_attempts_outside_box_pct" },
 };
 
+function buildPreviewRows(parsed, knownTeamMetricSlugs, appliedIds = []) {
+  if (!parsed?.type || !parsed?.data) return [];
+
+  const appliedSet = new Set(appliedIds);
+  const makeStatus = ({ id, inputSlug, value, supported = true, side = "OWN" }) => {
+    if (!supported) {
+      return { status: "Ignore", tone: "gray", detail: "Preview uniquement" };
+    }
+    if (!inputSlug || !knownTeamMetricSlugs.has(inputSlug)) {
+      return { status: "Ignore", tone: "orange", detail: "Champ non disponible" };
+    }
+    if (normalizeVeoValueToInputNumberString(value) === null) {
+      return { status: "Ignore", tone: "orange", detail: `Valeur invalide (${side})` };
+    }
+    if (appliedSet.has(id)) {
+      return { status: "Applique", tone: "green", detail: "Rempli dans le formulaire" };
+    }
+    return { status: "Pret", tone: "blue", detail: "Applicable" };
+  };
+
+  if (parsed.type === "statistiques") {
+    const stats = parsed.data?.stats || {};
+    const ownTeamName = parsed.data?.equipe || "Notre equipe";
+    const oppTeamName = parsed.data?.adversaire || "Adversaire";
+
+    return Object.entries(stats).map(([label, teamValues]) => {
+      const mapping = STAT_LABEL_TO_INPUT_SLUG[label];
+      const ownValue = teamValues?.[ownTeamName] ?? "";
+      const oppValue = teamValues?.[oppTeamName] ?? "";
+      const id = `statistiques:${label}`;
+      const ownStatus = makeStatus({
+        id,
+        inputSlug: mapping?.inputSlug,
+        value: ownValue,
+        supported: !!mapping?.inputSlug,
+        side: "notre equipe",
+      });
+      const oppStatus = makeStatus({
+        id,
+        inputSlug: mapping?.inputSlug,
+        value: oppValue,
+        supported: !!mapping?.inputSlug,
+        side: "adversaire",
+      });
+      const finalStatus = ownStatus.tone === "green" || oppStatus.tone === "green"
+        ? { status: "Applique", tone: "green", detail: "Rempli dans le formulaire" }
+        : ownStatus.tone === "blue" || oppStatus.tone === "blue"
+          ? { status: "Pret", tone: "blue", detail: "Applicable" }
+          : ownStatus;
+      return {
+        id,
+        metric: label,
+        own: ownValue || "-",
+        opponent: oppValue || "-",
+        ...finalStatus,
+      };
+    });
+  }
+
+  if (parsed.type === "carte_des_tirs") {
+    const innerData = parsed.data?.data || parsed.data || {};
+    return Object.entries(innerData).map(([label, value]) => {
+      const mapping = SHOTMAP_LABEL_TO_INPUT_SLUG[label];
+      const id = `carte_des_tirs:${label}`;
+      return {
+        id,
+        metric: label,
+        own: value || "-",
+        opponent: "-",
+        ...makeStatus({
+          id,
+          inputSlug: mapping?.inputSlug,
+          value,
+          supported: !!mapping?.inputSlug,
+        }),
+      };
+    });
+  }
+
+  const data = parsed.data?.data || parsed.data || {};
+  return Object.entries(data).map(([label, value]) => ({
+    id: `${parsed.type}:${label}`,
+    metric: label,
+    own: typeof value === "object" ? JSON.stringify(value) : String(value ?? "-"),
+    opponent: "-",
+    status: "Ignore",
+    tone: "gray",
+    detail: "Preview uniquement",
+  }));
+}
+
 export default function SmartPastePanel({
   entrySchema,
   selectedMatchId,
@@ -188,6 +266,7 @@ export default function SmartPastePanel({
   const [parseError, setParseError] = useState("");
   const [parsed, setParsed] = useState(null); // { type, data }
   const [lastAppliedSummary, setLastAppliedSummary] = useState("");
+  const [lastAppliedPreviewIds, setLastAppliedPreviewIds] = useState([]);
 
   // Hooks must ALWAYS run before any conditional return.
   const knownTeamMetricSlugs = useMemo(() => {
@@ -207,6 +286,11 @@ export default function SmartPastePanel({
     return found?.label || parsed.type;
   }, [parsed]);
 
+  const previewRows = useMemo(
+    () => buildPreviewRows(parsed, knownTeamMetricSlugs, lastAppliedPreviewIds),
+    [parsed, knownTeamMetricSlugs, lastAppliedPreviewIds],
+  );
+
   const canRender = Number.isFinite(selectedMatchId) && selectedMatchId > 0;
   if (!canRender) return null;
 
@@ -214,6 +298,7 @@ export default function SmartPastePanel({
     setParseError("");
     setParsed(null);
     setLastAppliedSummary("");
+    setLastAppliedPreviewIds([]);
 
     const safeText = String(rawText || "").trim();
     if (safeText.length < 10) {
@@ -268,8 +353,9 @@ export default function SmartPastePanel({
     const updates = {};
     const applied = [];
     const skipped = [];
+    const appliedRowIds = new Set();
 
-    const setIfValidAndKnown = (inputSlug, side, value) => {
+    const setIfValidAndKnown = (inputSlug, side, value, rowId) => {
       if (!inputSlug || !side) return;
 
       if (!knownTeamMetricSlugs.has(inputSlug)) {
@@ -285,6 +371,7 @@ export default function SmartPastePanel({
 
       updates[makeTeamMetricKey(inputSlug, side)] = normalized;
       applied.push(`${inputSlug} (${side}) = ${normalized}`);
+      if (rowId) appliedRowIds.add(rowId);
     };
 
     if (detectedType === "statistiques") {
@@ -298,9 +385,10 @@ export default function SmartPastePanel({
 
         const ownValue = teamValues?.[ownTeamName];
         const oppValue = teamValues?.[oppTeamName];
+        const rowId = `statistiques:${label}`;
 
-        if (ownValue !== undefined) setIfValidAndKnown(mapping.inputSlug, "OWN", ownValue);
-        if (oppValue !== undefined) setIfValidAndKnown(mapping.inputSlug, "OPPONENT", oppValue);
+        if (ownValue !== undefined) setIfValidAndKnown(mapping.inputSlug, "OWN", ownValue, rowId);
+        if (oppValue !== undefined) setIfValidAndKnown(mapping.inputSlug, "OPPONENT", oppValue, rowId);
       }
     }
 
@@ -314,7 +402,7 @@ export default function SmartPastePanel({
         if (!mapping?.inputSlug) continue;
 
         // Only OWN side is safe to auto-fill for shotmap.
-        setIfValidAndKnown(mapping.inputSlug, "OWN", value);
+        setIfValidAndKnown(mapping.inputSlug, "OWN", value, `carte_des_tirs:${label}`);
       }
     }
 
@@ -333,6 +421,7 @@ export default function SmartPastePanel({
       (skipped.length ? ` (ex: ${skipped[0]})` : "");
 
     setLastAppliedSummary(summary);
+    setLastAppliedPreviewIds(Array.from(appliedRowIds));
     setFlash("Valeurs appliquees dans le formulaire. Pense a enregistrer ensuite.");
   };
 
@@ -367,6 +456,7 @@ export default function SmartPastePanel({
                   setParsed(null);
                   setParseError("");
                   setLastAppliedSummary("");
+                  setLastAppliedPreviewIds([]);
                 }}
                 className={`px-3 py-2 rounded-md text-sm font-medium border ${
                   selectedMenu === opt.key
@@ -420,6 +510,7 @@ export default function SmartPastePanel({
                   onParsedChange?.(null);
                   setParseError("");
                   setLastAppliedSummary("");
+                  setLastAppliedPreviewIds([]);
                 }}
                 className="h-10 px-4 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
@@ -459,7 +550,7 @@ export default function SmartPastePanel({
 
           <div className="border rounded-md overflow-hidden">
             <div className="px-3 py-2 bg-gray-50 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <p className="text-sm font-medium text-gray-800">Preview parsing</p>
+              <p className="text-sm font-medium text-gray-800">Apercu des donnees detectees</p>
               <div className="text-xs text-gray-600">
                 {parsed?.type ? (
                   <>
@@ -474,8 +565,48 @@ export default function SmartPastePanel({
               </div>
             </div>
 
-            {parsed ? (
-              <pre className="p-3 text-xs overflow-auto bg-white">{prettyJson(parsed)}</pre>
+            {parsed && previewRows.length > 0 ? (
+              <div className="overflow-auto bg-white">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-white">
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Metrique</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Notre equipe</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Adversaire</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((row) => (
+                      <tr key={row.id} className="border-b last:border-b-0">
+                        <td className="px-3 py-2 font-medium text-gray-900">{row.metric}</td>
+                        <td className="px-3 py-2 text-gray-700">{row.own}</td>
+                        <td className="px-3 py-2 text-gray-700">{row.opponent}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              row.tone === "green"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : row.tone === "blue"
+                                  ? "bg-blue-50 text-blue-700"
+                                  : row.tone === "orange"
+                                    ? "bg-orange-50 text-orange-700"
+                                    : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {row.status}
+                          </span>
+                          <div className="mt-1 text-[11px] text-gray-500">{row.detail}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : parsed ? (
+              <div className="p-3 text-sm text-gray-500">
+                Donnees detectees, mais aucune ligne affichable pour ce menu.
+              </div>
             ) : (
               <div className="p-3 text-sm text-gray-500">
                 Colle le texte puis clique sur <span className="font-medium">Analyser</span>.

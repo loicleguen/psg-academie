@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import ShotmapOverview from "../components/veo/ShotmapOverview";
 import SmartPastePanel from '../components/veo/SmartPastePanel';
 import StatsBarsPanel from "../components/veo/StatsBarsPanel";
 import { catapultService } from '../services/catapultService';
 import { veoService } from '../services/veoService';
+import { buildVeoReportAnalysis } from '../utils/veoReportAnalysis';
 
 const MATCH_TYPES = ['LEAGUE', 'CUP', 'FRIENDLY', 'TOURNAMENT'];
+
+const VEO_WORKFLOW_STEPS = [
+  { key: 'SESSION', label: 'Session', helper: 'Creer ou choisir le match' },
+  { key: 'IMPORT', label: 'Importer VEO', helper: 'Coller les donnees et remplir' },
+  { key: 'VERIFY', label: 'Verifier donnees', helper: 'Controler qualite et joueurs' },
+  { key: 'REPORT', label: 'Voir rapport', helper: 'Lire et ouvrir le rendu' },
+];
 
 const EMPTY_MATCH_FORM = {
   date: '',
@@ -211,6 +220,18 @@ function formatPlayerDisplayName(player) {
   return `${firstName} ${lastName}`.trim();
 }
 
+function getParticipationMinutesValue(state) {
+  const minutes = Number(state?.minutes_played);
+  return Number.isFinite(minutes) ? minutes : 0;
+}
+
+function getParticipationRoleLabel(state) {
+  if (state?.is_starter) {
+    return 'Titulaire';
+  }
+  return getParticipationMinutesValue(state) > 0 ? 'Entré en jeu' : 'Présent';
+}
+
 function getMetricDisplayLabel(metric) {
   return METRIC_LABEL_OVERRIDES[metric.slug] || metric.label_fr;
 }
@@ -277,6 +298,7 @@ export default function Veo() {
   const [selectedMatchId, setSelectedMatchId] = useState('');
   const [summary, setSummary] = useState(null);
   const [matchForm, setMatchForm] = useState(EMPTY_MATCH_FORM);
+  const [activeWorkflowStep, setActiveWorkflowStep] = useState('SESSION');
 
   const [participationState, setParticipationState] = useState({});
   const [teamMetricInputs, setTeamMetricInputs] = useState({});
@@ -290,8 +312,14 @@ export default function Veo() {
   const [smartPasteParsed, setSmartPasteParsed] = useState(null);
   const latestSelectedMatchRequest = useRef(0);
 
-  const teamMetricsByCategory = entrySchema?.team_metrics_by_category ?? [];
-  const playerMetricsByCategory = entrySchema?.player_metrics_by_category ?? [];
+  const teamMetricsByCategory = useMemo(
+    () => entrySchema?.team_metrics_by_category ?? [],
+    [entrySchema]
+  );
+  const playerMetricsByCategory = useMemo(
+    () => entrySchema?.player_metrics_by_category ?? [],
+    [entrySchema]
+  );
 
   const persistedShotmapParsed = useMemo(() => {
     const getOwn = (slug) => teamMetricInputs?.[`${slug}__OWN`];
@@ -400,13 +428,25 @@ export default function Veo() {
   );
 
   const playersForMetricsGrid = useMemo(
-    () =>
-      [...players].sort((left, right) => {
+    () => {
+      const selectedPlayers = players.filter((player) => participationState[player.id]?.selected);
+      return selectedPlayers.sort((left, right) => {
+        const leftState = participationState[left.id] || {};
+        const rightState = participationState[right.id] || {};
+        const leftMinutes = getParticipationMinutesValue(leftState);
+        const rightMinutes = getParticipationMinutesValue(rightState);
+        if (leftMinutes !== rightMinutes) {
+          return rightMinutes - leftMinutes;
+        }
+        if (!!leftState.is_starter !== !!rightState.is_starter) {
+          return leftState.is_starter ? -1 : 1;
+        }
         const leftName = `${left.last_name || ''} ${left.first_name || ''}`.trim();
         const rightName = `${right.last_name || ''} ${right.first_name || ''}`.trim();
         return leftName.localeCompare(rightName, 'fr', { sensitivity: 'base' });
-      }),
-    [players]
+      });
+    },
+    [players, participationState]
   );
 
   const selectedCatapultSession = useMemo(
@@ -439,6 +479,15 @@ export default function Veo() {
       playerByCategory,
     };
   }, [teamMetricsByCategory, playerMetricsByCategory, allFlatPlayerMetrics]);
+
+  const veoReportAnalysis = useMemo(
+    () => buildVeoReportAnalysis({ summary, entrySchema }),
+    [summary, entrySchema]
+  );
+  const veoQuality = veoReportAnalysis.quality;
+  const selectedSessionReportPath = selectedCatapultSessionTitle
+    ? `/catapult/sessions/${encodeURIComponent(selectedCatapultSessionTitle)}`
+    : '';
 
   const setFlash = (message, type = 'success') => {
     if (type === 'success') {
@@ -945,6 +994,7 @@ export default function Veo() {
 
       await refreshMatches(result.match_id);
       setSelectedMatchId(String(result.match_id));
+      setActiveWorkflowStep('IMPORT');
       setFlash(
         `Session VEO creee: ${result.created_players} joueur(s) ajoute(s), ${result.participations_created} participation(s)`
       );
@@ -1049,7 +1099,11 @@ export default function Veo() {
       return;
     }
 
-    const knownPlayerIds = new Set(players.map((player) => Number(player.id)));
+    const selectedPlayerIds = new Set(
+      players
+        .filter((player) => participationState[player.id]?.selected)
+        .map((player) => Number(player.id))
+    );
 
     const values = Object.entries(playerMetricInputs)
       .map(([key, raw]) => {
@@ -1062,7 +1116,7 @@ export default function Veo() {
         }
         const [playerId, metricSlug] = key.split('__');
         const normalizedPlayerId = Number(playerId);
-        if (!knownPlayerIds.has(normalizedPlayerId)) {
+        if (!selectedPlayerIds.has(normalizedPlayerId)) {
           return null;
         }
         if (!knownPlayerMetricSlugs.has(metricSlug)) {
@@ -1275,6 +1329,193 @@ export default function Veo() {
     );
   };
 
+  const renderWorkflowStepper = () => (
+    <div className="bg-white/90 rounded-lg shadow p-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {VEO_WORKFLOW_STEPS.map((step, index) => {
+          const isActive = activeWorkflowStep === step.key;
+          const isLocked = step.key !== 'SESSION' && !summary;
+          return (
+            <button
+              key={step.key}
+              type="button"
+              disabled={isLocked}
+              onClick={() => setActiveWorkflowStep(step.key)}
+              className={`text-left rounded-md border p-3 transition ${
+                isActive
+                  ? 'border-blue-600 bg-blue-50 text-blue-900'
+                  : isLocked
+                    ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                    isActive ? 'bg-blue-600 text-white' : isLocked ? 'bg-gray-200 text-gray-400' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {index + 1}
+                </span>
+                <span className="font-semibold">{step.label}</span>
+              </div>
+              <p className="mt-2 text-xs">{step.helper}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderSelectedMatchHeader = () => {
+    if (!summary) return null;
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500">Session active</p>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {summary.match.opponent_name || 'Match VEO'}
+            </h2>
+            <p className="text-sm text-gray-600">
+              {summary.match.date} • Score {summary.match.score_for ?? 0}-{summary.match.score_against ?? 0}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadSelectedMatch(selectedMatchId)}
+            className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            disabled={saving}
+          >
+            Rafraichir
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDataQualityPanel = () => {
+    if (!summary) return null;
+    return (
+      <div className="bg-white rounded-lg shadow p-6 space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900">Qualite des donnees</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Les alertes ci-dessous indiquent quoi corriger avant de partager le rapport.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+            <p className="text-xs font-medium uppercase text-gray-500">Metriques equipe</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {veoQuality.teamMetricsFilled}
+              {veoQuality.expectedTeamMetricCells > 0 ? ` / ${veoQuality.expectedTeamMetricCells}` : ''}
+            </p>
+            <div className="mt-3 h-2 rounded bg-gray-200 overflow-hidden">
+              <div
+                className="h-2 bg-blue-600"
+                style={{ width: `${Math.max(0, Math.min(100, veoQuality.teamCompletionPct ?? 0))}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+            <p className="text-xs font-medium uppercase text-gray-500">Metriques joueurs</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {veoQuality.playerMetricValuesFilled}
+              {veoQuality.expectedPlayerMetricCells > 0 ? ` / ${veoQuality.expectedPlayerMetricCells}` : ''}
+            </p>
+            <div className="mt-3 h-2 rounded bg-gray-200 overflow-hidden">
+              <div
+                className="h-2 bg-emerald-600"
+                style={{ width: `${Math.max(0, Math.min(100, veoQuality.playerCompletionPct ?? 0))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {veoQuality.actions.map((action) => (
+            <div
+              key={action.key}
+              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border p-3 ${
+                action.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50'
+                  : action.tone === 'danger'
+                    ? 'border-rose-200 bg-rose-50'
+                    : 'border-orange-200 bg-orange-50'
+              }`}
+            >
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{action.label}</p>
+                <p className="text-xs text-gray-600">{action.detail}</p>
+              </div>
+              {action.tone !== 'success' && action.targetStep && action.targetStep !== activeWorkflowStep && (
+                <button
+                  type="button"
+                  onClick={() => setActiveWorkflowStep(action.targetStep)}
+                  className="self-start sm:self-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Corriger
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderReportPreview = () => {
+    if (!summary) return null;
+    return (
+      <div className="space-y-4">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500">Rapport VEO</p>
+              <h3 className="text-2xl font-bold text-gray-900">{summary.match.veo_title || summary.match.opponent_name}</h3>
+              <p className="mt-1 text-sm text-gray-600">Synthese factuelle des donnees importees et verifiees.</p>
+            </div>
+            {selectedSessionReportPath ? (
+              <Link
+                to={selectedSessionReportPath}
+                className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Ouvrir le rapport dans la session
+              </Link>
+            ) : (
+              <p className="rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+                Aucun lien Catapult explicite pour cette session.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 lg:grid-cols-6 gap-3">
+            {veoReportAnalysis.reportKpis.map((kpi) => (
+              <div key={kpi.label} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs uppercase text-gray-500">{kpi.label}</p>
+                <p className="mt-1 text-xl font-bold text-gray-900">{kpi.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {renderDataQualityPanel()}
+        <div className="bg-white rounded-lg shadow p-6 space-y-4">
+          <StatsBarsPanel
+            summary={summary}
+            teamMetricInputs={teamMetricInputs}
+            clubShortLabel="Notre equipe"
+            opponentShortLabel="Adversaire"
+            embedded
+          />
+          {shotmapToDisplay ? <ShotmapOverview parsedShotmap={shotmapToDisplay} embedded /> : null}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -1346,6 +1587,9 @@ export default function Veo() {
           </details>
         </div>
 
+        {renderWorkflowStepper()}
+
+        {activeWorkflowStep === 'SESSION' && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <form
             onSubmit={handleCreateVeoSession}
@@ -1564,30 +1808,15 @@ export default function Veo() {
             )}
           </div>
         </div>
+        )}
 
         {summary && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Match selectionne: {summary.match.opponent_name}
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    {summary.match.date} • Score {summary.match.score_for ?? 0}-{summary.match.score_against ?? 0}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => loadSelectedMatch(selectedMatchId)}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  disabled={saving}
-                >
-                  Rafraichir
-                </button>
-              </div>
-            </div>
+            {renderSelectedMatchHeader()}
 
+            {activeWorkflowStep === 'REPORT' && renderReportPreview()}
+
+            {activeWorkflowStep === 'IMPORT' && (
             <SmartPastePanel
               entrySchema={entrySchema}
               selectedMatchId={selectedMatchId ? Number(selectedMatchId) : null}
@@ -1596,7 +1825,11 @@ export default function Veo() {
               setFlash={setFlash}
               onParsedChange={setSmartPasteParsed} 
             />
+            )}
 
+            {activeWorkflowStep === 'VERIFY' && renderDataQualityPanel()}
+
+            {activeWorkflowStep === 'VERIFY' && (
             <details className="bg-white rounded-lg shadow group" open>
               <summary className="cursor-pointer select-none px-6 py-4 flex items-center justify-between">
                 <div>
@@ -1698,12 +1931,16 @@ export default function Veo() {
                 </div>
               </div>
             </details>
+            )}
 
             {/* ✅ Metrics team: use renderer (no duplicated JSX, no "mode simplifie") */}
+            {activeWorkflowStep === 'IMPORT' && (
             <div className="bg-white rounded-lg shadow p-6 space-y-4">
               {renderTeamMetricsInputs({ embedded: true })}
             </div>
+            )}
 
+            {activeWorkflowStep === 'VERIFY' && (
             <details className="bg-white rounded-lg shadow group" open>
               <summary className="cursor-pointer select-none px-6 py-4 flex items-center justify-between">
                 <div>
@@ -1714,8 +1951,13 @@ export default function Veo() {
               </summary>
 
               <div className="px-6 pb-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Joueurs presents au match</p>
+                    <p className="text-xs text-gray-500">
+                      Tri par temps de jeu décroissant. Les titulaires et les joueurs entrés sont signalés pour lire la feuille en quelques secondes.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1735,13 +1977,17 @@ export default function Veo() {
                   </p>
               )}
               {playersForMetricsGrid.length === 0 ? (
-                <p className="text-sm text-gray-500">Aucun joueur disponible pour cette equipe.</p>
+                <p className="text-sm text-gray-500">
+                  Aucun joueur selectionne pour ce match. Coche les joueurs presents dans Participations pour saisir leurs metriques.
+                </p>
               ) : (
                 <div className="overflow-auto border rounded-md">
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="border-b bg-gray-50">
                         <th className="text-left py-2 px-3">Joueur</th>
+                        <th className="text-left py-2 px-3 whitespace-nowrap">Statut</th>
+                        <th className="text-left py-2 px-3 whitespace-nowrap">Temps</th>
                         {visibleFlatPlayerMetrics.map((metric) => {
                           const metaLabel = getMetricMetaLabel(metric);
                           return (
@@ -1754,10 +2000,40 @@ export default function Veo() {
                       </tr>
                     </thead>
                     <tbody>
-                      {playersForMetricsGrid.map((player) => (
-                        <tr key={player.id} className="border-b last:border-b-0">
+                      {playersForMetricsGrid.map((player) => {
+                        const state = participationState[player.id] || {};
+                        const minutes = getParticipationMinutesValue(state);
+                        const hasMinutes = minutes > 0;
+                        const roleLabel = getParticipationRoleLabel(state);
+                        const rowClass = state.is_starter
+                          ? 'bg-blue-50/80'
+                          : hasMinutes
+                            ? 'bg-emerald-50/70'
+                            : 'bg-white';
+                        const badgeClass = state.is_starter
+                          ? 'bg-blue-100 text-blue-800 border-blue-200'
+                          : hasMinutes
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : 'bg-gray-100 text-gray-600 border-gray-200';
+                        return (
+                        <tr key={player.id} className={`border-b last:border-b-0 ${rowClass}`}>
                           <td className="py-2 px-3 font-medium whitespace-nowrap">
-                            {formatPlayerDisplayName(player)}
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  state.is_starter ? 'bg-blue-600' : hasMinutes ? 'bg-emerald-600' : 'bg-gray-300'
+                                }`}
+                              />
+                              {formatPlayerDisplayName(player)}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClass}`}>
+                              {roleLabel}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {hasMinutes ? `${minutes} min` : '-'}
                           </td>
                           {visibleFlatPlayerMetrics.map((metric) => {
                             const key = makePlayerMetricKey(player.id, metric.slug);
@@ -1779,14 +2055,21 @@ export default function Veo() {
                             );
                           })}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
               </div>
           </details>
+          )}
         </div>  
+        )}
+        {!summary && activeWorkflowStep !== 'SESSION' && (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
+            Choisis ou cree une session VEO pour continuer ce parcours.
+          </div>
         )}
       </div>
     </div>

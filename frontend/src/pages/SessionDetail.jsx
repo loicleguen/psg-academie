@@ -5,51 +5,12 @@ import { catapultService } from '../services/catapultService';
 import { veoService } from '../services/veoService';
 import api from '../services/api';
 import { ChartBarIcon, DocumentChartBarIcon, UserGroupIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
-
-const UNIT_LABELS = {
-  count: '',
-  '%': '%',
-  minutes: 'min',
-  seconds: 'sec',
-};
-
-const METRIC_LABELS = {
-  team_possession_minutes: 'Possession (minutes)',
-  team_possession_pct: 'Possession',
-  team_possession_third_att_pct: 'Possession tiers offensif',
-  team_possession_third_def_pct: 'Possession tiers defensif',
-  team_possession_third_mid_pct: 'Possession tiers milieu',
-  team_possession_won: 'Possessions gagnees',
-  team_longest_sequence: 'Sequence la plus longue',
-  team_passes_completed: 'Passes reussies',
-  team_pass_zone_att_pct: 'Passes en zone offensive',
-  team_pass_zone_mid_pct: 'Passes en zone milieu',
-  team_pass_zone_def_pct: 'Passes en zone defensive',
-  team_sequences_3_5: 'Sequences 3-5 passes',
-  team_sequences_6_plus: 'Sequences 6+ passes',
-  team_corners: 'Corners',
-  team_free_kicks: 'Coups francs',
-  team_throw_ins: 'Touches',
-  team_goals_scored: 'Buts marques',
-  team_goals_conceded: 'Buts encaisses',
-  team_shots: 'Tirs',
-  team_shots_conceded: 'Tirs encaisses',
-};
-
-const PLAYER_METRIC_LABELS = {
-  player_goal_assists: 'Passes decisives',
-  player_shots: 'Tirs',
-  player_shots_on_target: 'Tirs cadres',
-  player_goals: 'Buts',
-  player_duels_won: 'Duels gagnes',
-  player_fouls_committed: 'Fautes',
-  player_cards: 'Cartons',
-  player_offsides: 'Hors-jeu',
-  player_dribbles_won: 'Dribbles reussis',
-  player_tackles_won: 'Tacles reussis',
-  player_recoveries: 'Recuperations',
-  player_ball_losses: 'Pertes de balle',
-};
+import {
+  buildVeoReportAnalysis,
+  formatVeoMetricValue,
+  formatVeoPlayerMetricLabel,
+  formatVeoTeamMetricLabel,
+} from '../utils/veoReportAnalysis';
 
 const KPI_COMPARISON_ROWS = [
   { label: 'Buts', ownSlug: 'team_goals_scored', opponentSlug: 'team_goals_conceded' },
@@ -72,6 +33,21 @@ const OWN_SLUG_BY_OPPONENT_ALIAS = Object.fromEntries(
 
 const HIDDEN_VEO_TEAM_METRIC_SLUGS = new Set(['team_goal_kicks']);
 const CLUB_LOGO_PATH = '/club_logo.png';
+
+const PREFERRED_VEO_PLAYER_METRIC_ORDER = [
+  'player_goal_assists',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_fouls_committed',
+  'player_cards',
+  'player_offsides',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+  'player_ball_losses',
+];
 
 const KPI_TONE_CLASSES = {
   good: {
@@ -101,84 +77,16 @@ const KPI_TONE_CLASSES = {
   },
 };
 
-function normalizeNumeric(value) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  const numeric = Number(value);
-  return Number.isNaN(numeric) ? null : numeric;
-}
-
-function getPerformanceTone(metricKey, rawValue) {
-  const value = normalizeNumeric(rawValue);
-  if (value === null) {
-    return 'neutral';
-  }
-
-  if (metricKey === 'team_possession_pct') {
-    if (value >= 55) return 'good';
-    if (value >= 50) return 'medium';
-    if (value >= 45) return 'warning';
-    return 'danger';
-  }
-
-  if (metricKey === 'team_passes_completed') {
-    if (value >= 320) return 'good';
-    if (value >= 260) return 'medium';
-    if (value >= 200) return 'warning';
-    return 'danger';
-  }
-
-  if (metricKey === 'team_shots') {
-    if (value >= 10) return 'good';
-    if (value >= 7) return 'medium';
-    if (value >= 4) return 'warning';
-    return 'danger';
-  }
-
-  if (metricKey === 'team_goals_scored') {
-    if (value >= 2) return 'good';
-    if (value >= 1) return 'medium';
-    return 'danger';
-  }
-
-  if (metricKey === 'team_corners') {
-    if (value >= 6) return 'good';
-    if (value >= 4) return 'medium';
-    if (value >= 2) return 'warning';
-    return 'danger';
-  }
-
-  if (metricKey === 'global_score') {
-    if (value >= 8) return 'good';
-    if (value >= 6) return 'medium';
-    if (value >= 4) return 'warning';
-    return 'danger';
-  }
-
-  return 'neutral';
-}
-
-function clampScore(value) {
-  return Math.max(0, Math.min(10, Math.round(value)));
-}
-
 function formatMetricLabel(metric) {
-  return METRIC_LABELS[metric.metric_slug] || metric.metric_label;
+  return formatVeoTeamMetricLabel(metric);
 }
 
 function formatPlayerMetricLabel(column) {
-  return PLAYER_METRIC_LABELS[column.slug] || column.label;
+  return formatVeoPlayerMetricLabel(column);
 }
 
 function formatMetricValue(value, unit) {
-  if (value === null || value === undefined) {
-    return '-';
-  }
-  const numericValue = Number(value);
-  const displayValue = Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
-  const displayUnit = UNIT_LABELS[unit] ?? unit ?? '';
-  return displayUnit ? `${displayValue} ${displayUnit}` : displayValue;
+  return formatVeoMetricValue(value, unit);
 }
 
 function makeTeamTag(name, fallback = 'TEAM') {
@@ -199,6 +107,37 @@ function makeTeamTag(name, fallback = 'TEAM') {
   return cleaned.slice(0, 3).toUpperCase();
 }
 
+function normalizeNameForCompare(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function namesLookAlike(left, right) {
+  const normalizedLeft = normalizeNameForCompare(left);
+  const normalizedRight = normalizeNameForCompare(right);
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+  if (normalizedLeft === normalizedRight) {
+    return true;
+  }
+
+  const leftTokens = new Set(normalizedLeft.split(' ').filter(Boolean));
+  const rightTokens = new Set(normalizedRight.split(' ').filter(Boolean));
+  const leftInRight = [...leftTokens].every((token) => rightTokens.has(token));
+  const rightInLeft = [...rightTokens].every((token) => leftTokens.has(token));
+  return leftInRight || rightInLeft;
+}
+
+function getParticipationMinutesValue(participation) {
+  const minutes = Number(participation?.minutes_played);
+  return Number.isFinite(minutes) ? minutes : 0;
+}
+
 function sanitizeFilename(value) {
   return (value || 'rapport-veo')
     .normalize('NFD')
@@ -216,27 +155,6 @@ function escapeSvg(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function wrapText(text, maxChars = 56) {
-  const words = String(text || '').split(/\s+/).filter(Boolean);
-  if (words.length === 0) {
-    return [''];
-  }
-
-  const lines = [];
-  let current = words[0];
-  for (let i = 1; i < words.length; i += 1) {
-    const next = `${current} ${words[i]}`;
-    if (next.length > maxChars) {
-      lines.push(current);
-      current = words[i];
-    } else {
-      current = next;
-    }
-  }
-  lines.push(current);
-  return lines;
 }
 
 function csvCell(value) {
@@ -441,7 +359,6 @@ function BUILD_VEO_REPORT_SVG({
   scoreLabel,
   matchType,
   teamName,
-  globalScoreLabel,
   qualityTeamLabel,
   qualityPlayerLabel,
   kpis,
@@ -449,12 +366,10 @@ function BUILD_VEO_REPORT_SVG({
   comparisonChartData,
   territoryRows,
   passZoneRows,
-  analysisSections,
-  recommendations,
   logoDataUrl = '',
 }) {
   const width = 1600;
-  const height = 2280;
+  const height = 1480;
   const chartLeft = 70;
   const chartWidth = width - chartLeft * 2;
 
@@ -468,10 +383,6 @@ function BUILD_VEO_REPORT_SVG({
   const comparisonRowHeight = 44;
   const comparisonRowsVisible = comparisonRows.slice(0, 8);
   const comparisonTableHeight = 52 + comparisonRowsVisible.length * comparisonRowHeight;
-  const analysisStartY = comparisonStartY + comparisonTableHeight + 28;
-  const analysisCardHeight = 210;
-  const analysisCardGap = 20;
-  const recommendationsStartY = analysisStartY + analysisCardHeight * 2 + analysisCardGap + 20;
   const footerY = height - 40;
 
   const kpiSvg = kpis
@@ -584,50 +495,6 @@ function BUILD_VEO_REPORT_SVG({
     })
     .join('');
 
-  const analysisCards = analysisSections
-    .slice(0, 4)
-    .map((section, idx) => {
-      const col = idx % 2;
-      const row = Math.floor(idx / 2);
-      const x = chartLeft + col * (chartWidth / 2 + 10);
-      const y = analysisStartY + row * (analysisCardHeight + analysisCardGap);
-      const cardWidth = chartWidth / 2 - 10;
-      const bulletLines = section.bullets.flatMap((bullet) => wrapText(`• ${bullet}`, 62)).slice(0, 5);
-      const bulletsSvg = bulletLines
-        .map(
-          (line, lineIdx) => `
-        <text x="${x + 24}" y="${y + 92 + lineIdx * 30}" fill="#cbd5e1" font-size="17" font-family="Arial, sans-serif">${escapeSvg(
-            line
-          )}</text>
-      `
-        )
-        .join('');
-
-      return `
-      <rect x="${x}" y="${y}" width="${cardWidth}" height="${analysisCardHeight}" rx="14" fill="#243247" />
-      <text x="${x + 24}" y="${y + 40}" fill="#f8fafc" font-size="24" font-weight="700" font-family="Arial, sans-serif">${escapeSvg(
-        section.title
-      )}</text>
-      <text x="${x + cardWidth - 24}" y="${y + 40}" text-anchor="end" fill="#60a5fa" font-size="24" font-weight="700" font-family="Arial, sans-serif">${escapeSvg(
-        `${section.score}/10`
-      )}</text>
-      ${bulletsSvg}
-    `;
-    })
-    .join('');
-
-  const recommendationLines = recommendations
-    .flatMap((item) => wrapText(`• ${item}`, 122))
-    .slice(0, 8)
-    .map(
-      (line, idx) => `
-    <text x="${chartLeft + 24}" y="${recommendationsStartY + 74 + idx * 30}" fill="#e2e8f0" font-size="18" font-family="Arial, sans-serif">${escapeSvg(
-        line
-      )}</text>
-  `
-    )
-    .join('');
-
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#1a2332" />
@@ -652,9 +519,7 @@ function BUILD_VEO_REPORT_SVG({
   ${kpiSvg}
 
   <rect x="${chartLeft}" y="${qualityStartY}" width="${chartWidth}" height="150" rx="14" fill="#243247" />
-  <text x="${chartLeft + 24}" y="${qualityStartY + 50}" fill="#f8fafc" font-size="28" font-weight="700" font-family="Arial, sans-serif">Score global plan de jeu: ${escapeSvg(
-    globalScoreLabel
-  )}</text>
+  <text x="${chartLeft + 24}" y="${qualityStartY + 50}" fill="#f8fafc" font-size="28" font-weight="700" font-family="Arial, sans-serif">Qualite des donnees VEO</text>
   <text x="${chartLeft + 24}" y="${qualityStartY + 95}" fill="#cbd5e1" font-size="20" font-family="Arial, sans-serif">${escapeSvg(
     qualityTeamLabel
   )}</text>
@@ -681,12 +546,6 @@ function BUILD_VEO_REPORT_SVG({
   <text x="${chartLeft + 1155}" y="${comparisonStartY + 90}" text-anchor="middle" fill="#93c5fd" font-size="18" font-family="Arial, sans-serif">Adversaire</text>
   ${comparisonSvg}
 
-  ${analysisCards}
-
-  <rect x="${chartLeft}" y="${recommendationsStartY}" width="${chartWidth}" height="300" rx="14" fill="#243247" />
-  <text x="${chartLeft + 24}" y="${recommendationsStartY + 40}" fill="#f8fafc" font-size="26" font-weight="700" font-family="Arial, sans-serif">Recommandations coach</text>
-  ${recommendationLines}
-
   <text x="${chartLeft}" y="${footerY}" fill="#94a3b8" font-size="18" font-family="Arial, sans-serif">Genere depuis PSG Academie - Rapport VEO centralise</text>
 </svg>`;
 }
@@ -707,6 +566,7 @@ export default function SessionDetail() {
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [sessionInfo, setSessionInfo] = useState(null);
   const [, _setLoadingSessionInfo] = useState(true);
+  const [veoMatchesForDate, setVeoMatchesForDate] = useState([]);
   const [selectedVeoMatchId, setSelectedVeoMatchId] = useState('');
   const [veoSummary, setVeoSummary] = useState(null);
   const [loadingVeoSummary, setLoadingVeoSummary] = useState(false);
@@ -794,6 +654,7 @@ export default function SessionDetail() {
   useEffect(() => {
     const fetchVeoMatches = async () => {
       if (!sessionDate) {
+        setVeoMatchesForDate([]);
         setSelectedVeoMatchId('');
         setVeoSummary(null);
         return;
@@ -801,21 +662,24 @@ export default function SessionDetail() {
 
       try {
         const matches = await veoService.getMatchesByDate(sessionDate);
+        const normalizedMatches = Array.isArray(matches) ? matches : [];
+        setVeoMatchesForDate(normalizedMatches);
 
         const normalizedTitle = (sessionTitle || '').trim().toLowerCase();
-        const matchByTitle = matches.find(
+        const matchByTitle = normalizedMatches.find(
           (match) => (match.veo_title || '').trim().toLowerCase() === normalizedTitle
         );
 
         if (matchByTitle) {
           setSelectedVeoMatchId(String(matchByTitle.id));
         } else {
-          setSelectedVeoMatchId(matches.length > 0 ? String(matches[0].id) : '');
-          if (matches.length === 0) {
+          setSelectedVeoMatchId(normalizedMatches.length > 0 ? String(normalizedMatches[0].id) : '');
+          if (normalizedMatches.length === 0) {
             setVeoSummary(null);
           }
         }
       } catch (err) {
+        setVeoMatchesForDate([]);
         setSelectedVeoMatchId('');
         setVeoSummary(null);
         console.error(err);
@@ -881,8 +745,6 @@ export default function SessionDetail() {
       if (data.report_image) {
         setReportImage(`data:image/png;base64,${data.report_image}`);
         setShowReport(true);
-        setShowVeoReport(true);
-        setVeoReportMode('GRAPH');
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Erreur lors de la génération du rapport');
@@ -890,6 +752,20 @@ export default function SessionDetail() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGenerateVeoReport = () => {
+    if (!selectedVeoMatchId) {
+      setError("Selectionne un match VEO pour generer le rapport.");
+      return;
+    }
+
+    setError('');
+    setShowReport(false);
+    setShowWeeklyReport(false);
+    setShowIndividualReport(false);
+    setShowVeoReport(true);
+    setVeoReportMode('GRAPH');
   };
 
   const handleGenerateWeeklyReport = async () => {
@@ -1013,6 +889,14 @@ export default function SessionDetail() {
       onClick: handleGenerateSessionReport
     },
     {
+      id: 'veo',
+      title: 'Rapport VEO',
+      description: 'Lecture tactique dédiée avec choix explicite du match VEO associe',
+      icon: DocumentChartBarIcon,
+      available: veoMatchesForDate.length > 0,
+      onClick: handleGenerateVeoReport
+    },
+    {
       id: 'weekly',
       title: 'Rapport Hebdomadaire',
       description: 'Synthèse de la semaine d\'entraînement avec comparaison des sessions',
@@ -1030,14 +914,19 @@ export default function SessionDetail() {
     }
   ];
 
+  const veoReportAnalysis = useMemo(
+    () => buildVeoReportAnalysis({ summary: veoSummary, entrySchema: veoEntrySchema }),
+    [veoSummary, veoEntrySchema]
+  );
+  const veoQualityActions = veoReportAnalysis.quality.actions;
+
   const veoPossession = getTeamMetric(veoSummary, 'team_possession_pct', 'OWN');
   const veoPasses = getTeamMetric(veoSummary, 'team_passes_completed', 'OWN');
   const veoShots = getTeamMetric(veoSummary, 'team_shots', 'OWN');
-  const veoShotsAgainst = getTeamMetric(veoSummary, 'team_shots_conceded', 'OPPONENT');
   const veoGoals = getTeamMetric(veoSummary, 'team_goals_scored', 'OWN');
-  const veoGoalsAgainst = getTeamMetric(veoSummary, 'team_goals_conceded', 'OPPONENT');
   const veoCorners = getTeamMetric(veoSummary, 'team_corners', 'OWN');
-  const veoPlayersTracked = veoSummary?.player_metrics?.players?.length ?? 0;
+  const veoPlayersTracked = veoReportAnalysis.playersTracked;
+  const veoPresentPlayers = veoReportAnalysis.presentPlayers;
   const ownTeamLabel = sessionInfo?.team_name || sessionInfo?.team || 'TEG';
   const ownTeamTag = makeTeamTag(ownTeamLabel, 'TEG');
   const opponentTeamLabel = veoSummary?.match?.opponent_name || 'Adversaire';
@@ -1066,79 +955,16 @@ export default function SessionDetail() {
     [veoOpponentMetrics]
   );
 
-  const getOwnMetricValue = (slug) => veoOwnMetricMap.get(slug)?.value ?? null;
-  const getOpponentMetricValue = (slug) => veoOpponentMetricMap.get(slug)?.value ?? null;
-
-  const veoTeamMetricsFilled = useMemo(() => {
-    const keys = new Set();
-
-    veoOwnMetrics.forEach((metric) => {
-      keys.add(`${metric.metric_slug}__OWN`);
-    });
-
-    veoOpponentMetrics.forEach((metric) => {
-      const mappedSlug = OWN_SLUG_BY_OPPONENT_ALIAS[metric.metric_slug] || metric.metric_slug;
-      keys.add(`${mappedSlug}__OPPONENT`);
-    });
-
-    return keys.size;
-  }, [veoOwnMetrics, veoOpponentMetrics]);
-  const veoShotConversion =
-    veoShots && veoShots > 0 && veoGoals !== null ? (veoGoals / veoShots) * 100 : null;
-  const veoShotBalance =
-    veoShots !== null && veoShotsAgainst !== null ? veoShots - veoShotsAgainst : null;
   const opponentPossession =
     veoPossession !== null ? Number((100 - veoPossession).toFixed(1)) : null;
-  const possessionOffThird = getOwnMetricValue('team_possession_third_att_pct');
-  const possessionMidThird = getOwnMetricValue('team_possession_third_mid_pct');
-  const passZoneAtt = getOwnMetricValue('team_pass_zone_att_pct');
-  const passZoneMid = getOwnMetricValue('team_pass_zone_mid_pct');
-
-  const veoExpectedTeamMetricCells = useMemo(() => {
-    const groups = veoEntrySchema?.team_metrics_by_category ?? [];
-    return groups.reduce(
-      (total, group) =>
-        total +
-        (group.metrics ?? []).reduce((groupTotal, metric) => {
-          if (HIDDEN_VEO_TEAM_METRIC_SLUGS.has(metric.slug)) {
-            return groupTotal;
-          }
-
-          if (OWN_SLUG_BY_OPPONENT_ALIAS[metric.slug]) {
-            return groupTotal;
-          }
-
-          if (metric.side === 'OPPONENT') {
-            return groupTotal + 1;
-          }
-
-          return groupTotal + 2;
-        }, 0),
-      0
-    );
-  }, [veoEntrySchema]);
-
-  const veoCatalogPlayerMetricsCount = useMemo(() => {
-    const groups = veoEntrySchema?.player_metrics_by_category ?? [];
-    return groups.reduce((acc, group) => acc + (group.metrics?.length ?? 0), 0);
-  }, [veoEntrySchema]);
-
-  const veoPlayerMetricValuesFilled = useMemo(() => {
-    const valuesByPlayer = veoSummary?.player_metrics?.values ?? {};
-    return Object.values(valuesByPlayer).reduce((total, row) => {
-      const rowValues = Object.values(row || {});
-      return total + rowValues.filter((value) => value !== null && value !== undefined).length;
-    }, 0);
-  }, [veoSummary]);
-
-  const veoExpectedPlayerMetricCells =
-    (veoSummary?.participations?.length ?? 0) * veoCatalogPlayerMetricsCount;
-  const veoTeamCompletionPct =
-    veoExpectedTeamMetricCells > 0 ? (veoTeamMetricsFilled / veoExpectedTeamMetricCells) * 100 : null;
-  const veoPlayerCompletionPct =
-    veoExpectedPlayerMetricCells > 0
-      ? (veoPlayerMetricValuesFilled / veoExpectedPlayerMetricCells) * 100
-      : null;
+  const {
+    teamMetricsFilled: veoTeamMetricsFilled,
+    expectedTeamMetricCells: veoExpectedTeamMetricCells,
+    teamCompletionPct: veoTeamCompletionPct,
+    playerMetricValuesFilled: veoPlayerMetricValuesFilled,
+    expectedPlayerMetricCells: veoExpectedPlayerMetricCells,
+    playerCompletionPct: veoPlayerCompletionPct,
+  } = veoReportAnalysis.quality;
 
   const comparisonRows = useMemo(
     () =>
@@ -1186,55 +1012,8 @@ export default function SessionDetail() {
     [veoOwnMetricMap, veoOpponentMetricMap, opponentPossession]
   );
 
-  const territoryRows = useMemo(() => {
-    const ownAtt = Number(getOwnMetricValue('team_possession_third_att_pct') ?? 0);
-    const ownMid = Number(getOwnMetricValue('team_possession_third_mid_pct') ?? 0);
-    const ownDef = Number(getOwnMetricValue('team_possession_third_def_pct') ?? 0);
-
-    const oppAtt =
-      getOpponentMetricValue('team_possession_third_att_pct') !== null
-        ? Number(getOpponentMetricValue('team_possession_third_att_pct'))
-        : Math.max(0, 100 - ownDef - ownMid);
-    const oppMid =
-      getOpponentMetricValue('team_possession_third_mid_pct') !== null
-        ? Number(getOpponentMetricValue('team_possession_third_mid_pct'))
-        : Math.max(0, 100 - ownAtt - ownDef);
-    const oppDef =
-      getOpponentMetricValue('team_possession_third_def_pct') !== null
-        ? Number(getOpponentMetricValue('team_possession_third_def_pct'))
-        : Math.max(0, 100 - ownAtt - ownMid);
-
-    return [
-      { label: 'Tiers offensif', ownPct: Math.round(ownAtt), oppPct: Math.round(oppAtt) },
-      { label: 'Tiers milieu', ownPct: Math.round(ownMid), oppPct: Math.round(oppMid) },
-      { label: 'Tiers defensif', ownPct: Math.round(ownDef), oppPct: Math.round(oppDef) },
-    ];
-  }, [veoOwnMetricMap, veoOpponentMetricMap]);
-
-  const passZoneRows = useMemo(() => {
-    const ownAtt = Number(getOwnMetricValue('team_pass_zone_att_pct') ?? 0);
-    const ownMid = Number(getOwnMetricValue('team_pass_zone_mid_pct') ?? 0);
-    const ownDef = Number(getOwnMetricValue('team_pass_zone_def_pct') ?? 0);
-
-    const oppAtt =
-      getOpponentMetricValue('team_pass_zone_att_pct') !== null
-        ? Number(getOpponentMetricValue('team_pass_zone_att_pct'))
-        : Math.max(0, 100 - ownDef - ownMid);
-    const oppMid =
-      getOpponentMetricValue('team_pass_zone_mid_pct') !== null
-        ? Number(getOpponentMetricValue('team_pass_zone_mid_pct'))
-        : Math.max(0, 100 - ownAtt - ownDef);
-    const oppDef =
-      getOpponentMetricValue('team_pass_zone_def_pct') !== null
-        ? Number(getOpponentMetricValue('team_pass_zone_def_pct'))
-        : Math.max(0, 100 - ownAtt - ownMid);
-
-    return [
-      { label: 'Zone defensive', ownPct: Math.round(ownDef), oppPct: Math.round(oppDef) },
-      { label: 'Zone milieu', ownPct: Math.round(ownMid), oppPct: Math.round(oppMid) },
-      { label: 'Zone offensive', ownPct: Math.round(ownAtt), oppPct: Math.round(oppAtt) },
-    ];
-  }, [veoOwnMetricMap, veoOpponentMetricMap]);
+  const territoryRows = veoReportAnalysis.territoryRows;
+  const passZoneRows = veoReportAnalysis.passZoneRows;
 
   const comparisonVisualRows = useMemo(
     () =>
@@ -1276,169 +1055,53 @@ export default function SessionDetail() {
     [passZoneRows, zoneViewSide]
   );
 
-  const coachAnalysis = useMemo(() => {
-    const possessionScoreBase = veoPossession === null ? 5 : veoPossession >= 55 ? 7 : veoPossession >= 50 ? 6 : 4;
-    const progressionScoreBase =
-      passZoneAtt === null ? 5 : passZoneAtt >= 20 ? 7 : passZoneAtt >= 15 ? 6 : 4;
-    const finishingScoreBase =
-      veoShotConversion === null ? 4 : veoShotConversion >= 25 ? 8 : veoShotConversion >= 12 ? 6 : 3;
-    const defensiveScoreBase =
-      veoGoalsAgainst === null ? 5 : veoGoalsAgainst === 0 ? 8 : veoGoalsAgainst <= 1 ? 6 : 4;
-
-    const possessionScore = clampScore(
-      possessionScoreBase + (possessionOffThird !== null && possessionOffThird >= 20 ? 1 : 0)
-    );
-    const progressionScore = clampScore(
-      progressionScoreBase + (passZoneMid !== null && passZoneMid <= 70 ? 1 : 0)
-    );
-    const finishingScore = clampScore(
-      finishingScoreBase + (veoShots !== null && veoShots >= 10 ? 1 : 0)
-    );
-    const defensiveScore = clampScore(
-      defensiveScoreBase + (veoShotsAgainst !== null && veoShotsAgainst <= 8 ? 1 : 0)
-    );
-
-    const globalScore = clampScore(
-      (possessionScore + progressionScore + finishingScore + defensiveScore) / 4
-    );
-
-    const recommendations = [];
-    if (finishingScore <= 5) {
-      recommendations.push('Prioriser un cycle finition: enchainement controle-frappe dans la surface.');
-    }
-    if (progressionScore <= 5) {
-      recommendations.push('Augmenter les circuits vers le dernier tiers (appui-remise + appel profondeur).');
-    }
-    if (defensiveScore <= 5) {
-      recommendations.push('Travailler la protection axe + pressing a la perte sur 8-10 secondes.');
-    }
-    if (possessionScore <= 5) {
-      recommendations.push('Renforcer la qualite de conservation sous pression (rondo directionnel).');
-    }
-    if (recommendations.length === 0) {
-      recommendations.push('Conserver les principes actuels et augmenter le volume de situations de tir.');
-    }
-
-    const sections = [
-      {
-        title: 'Maitrise et occupation',
-        score: possessionScore,
-        bullets: [
-          `Possession: ${formatMetricValue(veoPossession, '%')} (adversaire ${formatMetricValue(opponentPossession, '%')}).`,
-          `Occupation tiers offensif: ${formatMetricValue(possessionOffThird, '%')}.`,
-          `Occupation tiers milieu: ${formatMetricValue(possessionMidThird, '%')}.`,
-        ],
-      },
-      {
-        title: 'Progression et creation',
-        score: progressionScore,
-        bullets: [
-          `Passes reussies: ${formatMetricValue(veoPasses, '')}.`,
-          `Passes en zone offensive: ${formatMetricValue(passZoneAtt, '%')}.`,
-          `Passes en zone milieu: ${formatMetricValue(passZoneMid, '%')}.`,
-        ],
-      },
-      {
-        title: 'Finition',
-        score: finishingScore,
-        bullets: [
-          `Tirs: ${formatMetricValue(veoShots, '')}, buts: ${formatMetricValue(veoGoals, '')}.`,
-          `Conversion tirs/buts: ${formatMetricValue(veoShotConversion, '%')}.`,
-          `Differentiel tirs: ${veoShotBalance === null ? '-' : veoShotBalance > 0 ? `+${veoShotBalance}` : veoShotBalance}.`,
-        ],
-      },
-      {
-        title: 'Solidite defensive',
-        score: defensiveScore,
-        bullets: [
-          `Tirs encaisses: ${formatMetricValue(veoShotsAgainst, '')}.`,
-          `Buts encaisses: ${formatMetricValue(veoGoalsAgainst, '')}.`,
-          `Corners obtenus: ${formatMetricValue(veoCorners, '')}.`,
-        ],
-      },
-    ];
-
-    return {
-      globalScore,
-      sections,
-      recommendations,
-    };
-  }, [
-    veoPossession,
-    opponentPossession,
-    possessionOffThird,
-    possessionMidThird,
-    passZoneAtt,
-    passZoneMid,
-    veoPasses,
-    veoShots,
-    veoGoals,
-    veoShotConversion,
-    veoShotBalance,
-    veoShotsAgainst,
-    veoGoalsAgainst,
-    veoCorners,
-  ]);
-
-  const preferredPlayerMetricOrder = [
-    'player_goal_assists',
-    'player_shots',
-    'player_shots_on_target',
-    'player_goals',
-    'player_duels_won',
-    'player_fouls_committed',
-    'player_cards',
-    'player_offsides',
-    'player_dribbles_won',
-    'player_tackles_won',
-    'player_recoveries',
-    'player_ball_losses',
-  ];
-
-  const veoPlayerColumns = (() => {
+  const veoPlayerColumns = useMemo(() => {
     const allColumns = veoSummary?.player_metrics?.columns ?? [];
-    const selected = allColumns.filter((col) => preferredPlayerMetricOrder.includes(col.slug));
+    const selected = allColumns.filter((col) => PREFERRED_VEO_PLAYER_METRIC_ORDER.includes(col.slug));
     if (selected.length > 0) {
       return selected;
     }
     return allColumns.slice(0, 6);
-  })();
+  }, [veoSummary]);
 
-  const veoReportKpis = useMemo(
-    () => [
-      {
-        label: 'Possession',
-        value: veoPossession !== null ? `${veoPossession.toFixed(1)}%` : '-',
-        tone: getPerformanceTone('team_possession_pct', veoPossession),
-      },
-      {
-        label: 'Passes',
-        value: formatMetricValue(veoPasses, ''),
-        tone: getPerformanceTone('team_passes_completed', veoPasses),
-      },
-      {
-        label: 'Tirs',
-        value: formatMetricValue(veoShots, ''),
-        tone: getPerformanceTone('team_shots', veoShots),
-      },
-      {
-        label: 'Buts',
-        value: formatMetricValue(veoGoals, ''),
-        tone: getPerformanceTone('team_goals_scored', veoGoals),
-      },
-      {
-        label: 'Corners',
-        value: formatMetricValue(veoCorners, ''),
-        tone: getPerformanceTone('team_corners', veoCorners),
-      },
-      {
-        label: 'Score plan de jeu',
-        value: `${coachAnalysis.globalScore}/10`,
-        tone: getPerformanceTone('global_score', coachAnalysis.globalScore),
-      },
-    ],
-    [veoPossession, veoPasses, veoShots, veoGoals, veoCorners, coachAnalysis.globalScore]
-  );
+  const veoReportKpis = veoReportAnalysis.reportKpis;
+
+  const selectedVeoPlayerMatchReport = useMemo(() => {
+    if (!selectedPlayer || !veoSummary) {
+      return null;
+    }
+
+    const player = veoPresentPlayers.find((candidate) => namesLookAlike(candidate.name, selectedPlayer));
+    if (!player) {
+      return null;
+    }
+
+    const participation = (veoSummary.participations ?? []).find(
+      (item) => Number(item.player_id) === Number(player.id)
+    );
+    const valuesBySlug = veoSummary.player_metrics?.values?.[String(player.id)] ?? {};
+    const metricRows = veoPlayerColumns.map((column) => ({
+      slug: column.slug,
+      label: formatPlayerMetricLabel(column),
+      value: valuesBySlug[column.slug],
+      displayValue: formatMetricValue(valuesBySlug[column.slug], column.unit),
+    }));
+    const filledMetricRows = metricRows.filter(
+      (row) => row.value !== null && row.value !== undefined
+    );
+    const nonZeroMetricRows = filledMetricRows.filter((row) => Number(row.value) !== 0);
+    const minutes = getParticipationMinutesValue(participation);
+
+    return {
+      player,
+      participation,
+      minutes,
+      roleLabel: participation?.is_starter ? 'Titulaire' : minutes > 0 ? 'Entré en jeu' : 'Présent',
+      metricRows,
+      filledMetricRows,
+      nonZeroMetricRows,
+    };
+  }, [selectedPlayer, veoSummary, veoPresentPlayers, veoPlayerColumns]);
 
   const handleDownloadVeoStyledReport = async () => {
     if (!veoSummary) {
@@ -1469,7 +1132,6 @@ export default function SessionDetail() {
       scoreLabel: `Score ${veoSummary.match.score_for ?? 0}-${veoSummary.match.score_against ?? 0}`,
       matchType: veoSummary.match.match_type || 'MATCH',
       teamName: ownTeamLabel,
-      globalScoreLabel: `${coachAnalysis.globalScore}/10`,
       qualityTeamLabel: `Qualite metriques equipe: ${veoTeamMetricsFilled} / ${veoExpectedTeamMetricCells || '-'}`,
       qualityPlayerLabel: `Qualite metriques joueurs: ${veoPlayerMetricValuesFilled} / ${veoExpectedPlayerMetricCells || '-'}`,
       kpis: veoReportKpis,
@@ -1477,13 +1139,6 @@ export default function SessionDetail() {
       comparisonChartData,
       territoryRows,
       passZoneRows,
-      analysisSections: coachAnalysis.sections,
-      recommendations: coachManualNote.trim()
-        ? coachManualNote
-            .split('\n')
-            .map((line) => line.trim())
-            .filter(Boolean)
-        : coachAnalysis.recommendations,
       logoDataUrl,
     });
 
@@ -1545,21 +1200,8 @@ export default function SessionDetail() {
     image.src = svgUrl;
   };
 
-  const visibleOpponentMetrics = useMemo(() => {
-    return veoOpponentMetrics.slice(0, 8).map((metric) => ({
-      label: formatMetricLabel(metric),
-      value: formatMetricValue(metric.value, metric.unit),
-      tone: getPerformanceTone(metric.metric_slug, metric.value),
-    }));
-  }, [veoOpponentMetrics]);
-
-  const visibleOwnMetrics = useMemo(() => {
-    return veoOwnMetrics.slice(0, 8).map((metric) => ({
-      label: formatMetricLabel(metric),
-      value: formatMetricValue(metric.value, metric.unit),
-      tone: getPerformanceTone(metric.metric_slug, metric.value),
-    }));
-  }, [veoOwnMetrics]);
+  const visibleOpponentMetrics = veoReportAnalysis.visibleOpponentMetrics;
+  const visibleOwnMetrics = veoReportAnalysis.visibleOwnMetrics;
 
   const handleDownloadVeoRawCsv = () => {
     if (!veoSummary) {
@@ -1608,7 +1250,7 @@ export default function SessionDetail() {
         'Joueur',
         ...veoPlayerColumns.map((column) => formatPlayerMetricLabel(column)),
       ]);
-      (veoSummary.player_metrics?.players ?? []).forEach((player) => {
+      veoPresentPlayers.forEach((player) => {
         rows.push([
           player.name,
           ...veoPlayerColumns.map((column) => {
@@ -1686,9 +1328,58 @@ export default function SessionDetail() {
         )}
 
         {/* Report type cards - player select integrated inside individual card */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4 mb-8">
           {reportTypes.map((report) => {
             const Icon = report.icon;
+            if (report.id === 'veo') {
+              return (
+                <div key={report.id} className="flex flex-col gap-2">
+                  <div className="bg-white/80 rounded-lg shadow px-4 py-3">
+                    <label htmlFor="veo-match-select" className="block text-xs font-medium text-gray-600 mb-1">
+                      Match VEO associe
+                    </label>
+                    <select
+                      id="veo-match-select"
+                      value={selectedVeoMatchId}
+                      onChange={(e) => setSelectedVeoMatchId(e.target.value)}
+                      className="block w-full pl-3 pr-10 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                    >
+                      {veoMatchesForDate.length === 0 ? (
+                        <option value="">Aucun match VEO sur cette date</option>
+                      ) : (
+                        veoMatchesForDate.map((match) => (
+                          <option key={match.id} value={String(match.id)}>
+                            {match.opponent_name} - {match.score_for ?? 0}-{match.score_against ?? 0}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                  <button
+                    onClick={report.onClick}
+                    disabled={!report.available || loading}
+                    className={`
+                      relative rounded-lg border p-6 text-left transition-all flex-1
+                      ${report.available
+                        ? 'border-gray-300 bg-white/80 hover:border-blue-500 hover:shadow-lg cursor-pointer'
+                        : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'}
+                      ${loading && report.available ? 'opacity-50' : ''}
+                    `}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Icon className={`h-8 w-8 ${report.available ? 'text-blue-600' : 'text-gray-400'}`} />
+                      {!report.available && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+                          A completer
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">{report.title}</h3>
+                    <p className="mt-2 text-sm text-gray-500">{report.description}</p>
+                  </button>
+                </div>
+              );
+            }
             if (report.id === 'individual') {
               return (
                 <div key={report.id} className="flex flex-col gap-2">
@@ -1788,7 +1479,7 @@ export default function SessionDetail() {
           </div>
         )}
 
-        {showReport && (
+        {showVeoReport && (
           <div className="bg-white/80 rounded-lg shadow-lg p-6 mt-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
@@ -1836,14 +1527,7 @@ export default function SessionDetail() {
               )}
             </div>
 
-            {!showVeoReport ? (
-              <div className="rounded-md bg-yellow-50 p-4">
-                <p className="text-sm text-yellow-800">
-                  Aucun match Veo associe a cette session. Cree ou complete un match depuis l'onglet VEO,
-                  puis regénère le rapport de séance.
-                </p>
-              </div>
-            ) : loadingVeoSummary ? (
+            {loadingVeoSummary ? (
               <div className="rounded-md bg-blue-50 p-4">
                 <div className="flex items-center gap-2 text-sm text-blue-900">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
@@ -1859,7 +1543,8 @@ export default function SessionDetail() {
             ) : (
               <div className="space-y-6">
                 {veoReportMode === 'GRAPH' && (
-                  <div ref={veoGraphReportRef} className="rounded-xl overflow-hidden border border-slate-700 bg-[#141f30]">
+                  <>
+                    <div ref={veoGraphReportRef} className="rounded-xl overflow-hidden border border-slate-700 bg-[#141f30]">
                     <div className="bg-white mx-4 mt-4 rounded-md px-6 py-5">
                       <div className="flex flex-wrap items-end justify-between gap-4">
                         <div className="flex items-center gap-4">
@@ -1895,71 +1580,62 @@ export default function SessionDetail() {
                         })}
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                        <div className="rounded-md border border-blue-400/30 bg-linear-to-br from-blue-500/20 to-slate-900/30 p-4">
-                          <p className="text-xs uppercase tracking-wide text-blue-200">Score global plan de jeu</p>
-                          <p className="mt-2 text-4xl font-bold text-white">{coachAnalysis.globalScore}/10</p>
-                          <p className="mt-2 text-xs text-blue-100">
-                            Lecture globale basée sur maîtrise, progression, finition et solidité.
-                          </p>
-                        </div>
-                        <div className="rounded-md border border-slate-600 bg-[#223146] p-4">
-                          <p className="text-sm font-semibold text-white">Qualité des données</p>
-                          <div className="mt-3 space-y-3">
-                            <div>
-                              <div className="flex items-center justify-between text-xs text-slate-300">
-                                <span>Équipe</span>
-                                <span>
-                                  {veoTeamMetricsFilled}
-                                  {veoExpectedTeamMetricCells > 0 ? ` / ${veoExpectedTeamMetricCells}` : ''}
-                                  {veoTeamCompletionPct !== null ? ` (${veoTeamCompletionPct.toFixed(0)}%)` : ''}
-                                </span>
-                              </div>
-                              <div className="mt-1 h-2 rounded-full bg-slate-700 overflow-hidden">
-                                <div
-                                  className="h-2 bg-blue-400"
-                                  style={{
-                                    width: `${Math.max(0, Math.min(100, veoTeamCompletionPct ?? 0))}%`,
-                                  }}
-                                ></div>
-                              </div>
+                      <div className="rounded-md border border-slate-600 bg-[#223146] p-4">
+                        <p className="text-sm font-semibold text-white">Qualité des données</p>
+                        <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          <div>
+                            <div className="flex items-center justify-between text-xs text-slate-300">
+                              <span>Équipe</span>
+                              <span>
+                                {veoTeamMetricsFilled}
+                                {veoExpectedTeamMetricCells > 0 ? ` / ${veoExpectedTeamMetricCells}` : ''}
+                                {veoTeamCompletionPct !== null ? ` (${veoTeamCompletionPct.toFixed(0)}%)` : ''}
+                              </span>
                             </div>
-                            <div>
-                              <div className="flex items-center justify-between text-xs text-slate-300">
-                                <span>Joueurs</span>
-                                <span>
-                                  {veoPlayerMetricValuesFilled}
-                                  {veoExpectedPlayerMetricCells > 0 ? ` / ${veoExpectedPlayerMetricCells}` : ''}
-                                  {veoPlayerCompletionPct !== null ? ` (${veoPlayerCompletionPct.toFixed(0)}%)` : ''}
-                                </span>
-                              </div>
-                              <div className="mt-1 h-2 rounded-full bg-slate-700 overflow-hidden">
-                                <div
-                                  className="h-2 bg-emerald-400"
-                                  style={{
-                                    width: `${Math.max(0, Math.min(100, veoPlayerCompletionPct ?? 0))}%`,
-                                  }}
-                                ></div>
-                              </div>
+                            <div className="mt-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                              <div
+                                className="h-2 bg-blue-400"
+                                style={{
+                                  width: `${Math.max(0, Math.min(100, veoTeamCompletionPct ?? 0))}%`,
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between text-xs text-slate-300">
+                              <span>Joueurs presents</span>
+                              <span>
+                                {veoPlayerMetricValuesFilled}
+                                {veoExpectedPlayerMetricCells > 0 ? ` / ${veoExpectedPlayerMetricCells}` : ''}
+                                {veoPlayerCompletionPct !== null ? ` (${veoPlayerCompletionPct.toFixed(0)}%)` : ''}
+                              </span>
+                            </div>
+                            <div className="mt-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                              <div
+                                className="h-2 bg-emerald-400"
+                                style={{
+                                  width: `${Math.max(0, Math.min(100, veoPlayerCompletionPct ?? 0))}%`,
+                                }}
+                              ></div>
                             </div>
                           </div>
                         </div>
-                        <div className="rounded-md border border-slate-600 bg-[#223146] p-4">
-                          <p className="text-sm font-semibold text-white mb-3">Profil de performance</p>
-                          <div className="space-y-2">
-                            {coachAnalysis.sections.map((section) => (
-                              <div key={`profile-${section.title}`} className="space-y-1">
-                                <div className="flex items-center justify-between text-xs text-slate-300">
-                                  <span>{section.title}</span>
-                                  <span>{section.score}/10</span>
-                                </div>
-                                <div className="h-2 rounded bg-slate-700 overflow-hidden">
-                                  <div
-                                    className="h-2 bg-blue-400"
-                                    style={{ width: `${section.score * 10}%` }}
-                                  ></div>
-                                </div>
-                              </div>
+                        <div className="mt-3 border-t border-slate-600 pt-3">
+                          <p className="text-xs font-semibold text-slate-200">A verifier</p>
+                          <div className="mt-2 grid grid-cols-1 lg:grid-cols-3 gap-2">
+                            {veoQualityActions.slice(0, 3).map((action) => (
+                              <p
+                                key={action.key}
+                                className={`rounded px-2 py-1 text-[11px] ${
+                                  action.tone === 'success'
+                                    ? 'bg-emerald-500/10 text-emerald-200'
+                                    : action.tone === 'danger'
+                                      ? 'bg-rose-500/10 text-rose-200'
+                                      : 'bg-orange-500/10 text-orange-200'
+                                }`}
+                              >
+                                {action.label}
+                              </p>
                             ))}
                           </div>
                         </div>
@@ -2112,71 +1788,38 @@ export default function SessionDetail() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                        {coachAnalysis.sections.map((section) => {
-                          const scoreTone =
-                            section.score >= 8
-                              ? 'border-emerald-400/30 bg-emerald-500/5 text-emerald-200'
-                              : section.score >= 6
-                                ? 'border-blue-400/30 bg-blue-500/5 text-blue-200'
-                                : 'border-orange-400/30 bg-orange-500/5 text-orange-200';
-                          return (
-                            <div key={section.title} className={`rounded-md border p-4 ${scoreTone}`}>
-                              <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-sm font-semibold text-white">{section.title}</h3>
-                                <span className="text-sm font-bold text-white">{section.score}/10</span>
-                              </div>
-                              <ul className="space-y-1 text-sm text-slate-200">
-                                {section.bullets.map((bullet) => (
-                                  <li key={bullet}>• {bullet}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="rounded-md border border-slate-600 bg-[#223146] p-4">
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <h3 className="text-sm font-semibold text-white">Notes coach (manuel)</h3>
-                          {coachNoteSaved && <span className="text-[11px] text-emerald-300">Sauvegardé</span>}
-                        </div>
-                        <textarea
-                          value={coachManualNote}
-                          onChange={(e) => setCoachManualNote(e.target.value)}
-                          placeholder="Ajoute ici tes observations et recommandations terrain pour ce match..."
-                          rows={5}
-                          className="w-full rounded-md border border-slate-500 bg-[#141f30] text-slate-100 placeholder-slate-400 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <div className="mt-2 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleSaveCoachNote}
-                            className="inline-flex items-center px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500"
-                          >
-                            Enregistrer la note
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleClearCoachNote}
-                            className="inline-flex items-center px-3 py-1.5 rounded border border-slate-500 text-slate-200 text-xs font-semibold hover:bg-slate-700"
-                          >
-                            Vider
-                          </button>
-                        </div>
-                        <details className="mt-3 pt-3 border-t border-slate-600">
-                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            Suggestions automatiques (optionnel)
-                          </summary>
-                          <ul className="mt-2 space-y-1 text-sm text-slate-200">
-                            {coachAnalysis.recommendations.map((item) => (
-                              <li key={item}>• {item}</li>
-                            ))}
-                          </ul>
-                        </details>
-                      </div>
                     </div>
                   </div>
+                  <div className="rounded-md border border-gray-200 bg-white p-4">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h3 className="text-sm font-semibold text-gray-900">Notes coach internes</h3>
+                      {coachNoteSaved && <span className="text-[11px] text-emerald-700">Sauvegarde</span>}
+                    </div>
+                    <textarea
+                      value={coachManualNote}
+                      onChange={(e) => setCoachManualNote(e.target.value)}
+                      placeholder="Observations internes non incluses dans le rapport exporte."
+                      rows={4}
+                      className="w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 text-sm p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveCoachNote}
+                        className="inline-flex items-center px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500"
+                      >
+                        Enregistrer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearCoachNote}
+                        className="inline-flex items-center px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-semibold hover:bg-gray-50"
+                      >
+                        Vider
+                      </button>
+                    </div>
+                  </div>
+                  </>
                 )}
 
                 {veoReportMode === 'DATA' && (
@@ -2298,7 +1941,7 @@ export default function SessionDetail() {
 
                     <div className="border rounded-md p-4">
                       <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                        Metriques joueurs ({veoPlayersTracked} joueurs suivis)
+                        Metriques joueurs ({veoPlayersTracked} joueurs presents)
                       </h3>
                       {veoPlayersTracked === 0 || veoPlayerColumns.length === 0 ? (
                         <p className="text-sm text-gray-500">Aucune metrique joueur disponible.</p>
@@ -2316,7 +1959,7 @@ export default function SessionDetail() {
                               </tr>
                             </thead>
                             <tbody>
-                              {(veoSummary.player_metrics?.players ?? []).map((player) => (
+                              {veoPresentPlayers.map((player) => (
                                 <tr key={player.id} className="border-b last:border-b-0">
                                   <td className="py-2 pr-3 font-medium">{player.name}</td>
                                   {veoPlayerColumns.map((column) => {
@@ -2391,6 +2034,94 @@ export default function SessionDetail() {
                 className="max-w-full h-auto rounded-lg"
                 onError={() => setError('Erreur lors du chargement du rapport individuel.')}
               />
+            </div>
+            <div className="mt-6 rounded-lg border border-blue-100 bg-white/85 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-blue-600">Complément VEO</p>
+                  <h3 className="text-lg font-semibold text-gray-900">Rapport joueur sur le match</h3>
+                  <p className="text-sm text-gray-600">
+                    Données issues du match VEO sélectionné, sans moyenne ni comparaison automatique.
+                  </p>
+                </div>
+                {veoSummary && (
+                  <div className="text-left sm:text-right text-xs text-gray-500">
+                    <p className="font-semibold text-gray-800">{veoSummary.match.opponent_name}</p>
+                    <p>{veoSummary.match.date} • Score {veoSummary.match.score_for ?? 0}-{veoSummary.match.score_against ?? 0}</p>
+                  </div>
+                )}
+              </div>
+
+              {loadingVeoSummary ? (
+                <p className="mt-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                  Chargement des données VEO du joueur...
+                </p>
+              ) : !selectedVeoMatchId || !veoSummary ? (
+                <p className="mt-4 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+                  Sélectionne un match VEO dans la carte Rapport VEO pour ajouter les métriques du joueur.
+                </p>
+              ) : !selectedVeoPlayerMatchReport ? (
+                <p className="mt-4 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+                  {selectedPlayer} n'est pas présent dans les participations VEO de ce match.
+                </p>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs uppercase text-gray-500">Joueur</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900">{selectedVeoPlayerMatchReport.player.name}</p>
+                    </div>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs uppercase text-gray-500">Statut</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900">{selectedVeoPlayerMatchReport.roleLabel}</p>
+                    </div>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs uppercase text-gray-500">Temps de jeu</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900">
+                        {selectedVeoPlayerMatchReport.minutes > 0 ? `${selectedVeoPlayerMatchReport.minutes} min` : '-'}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs uppercase text-gray-500">Poste</p>
+                      <p className="mt-1 text-sm font-bold text-gray-900">
+                        {selectedVeoPlayerMatchReport.participation?.position_played ||
+                          selectedVeoPlayerMatchReport.participation?.main_position ||
+                          '-'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedVeoPlayerMatchReport.nonZeroMetricRows.length > 0 && (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      {selectedVeoPlayerMatchReport.nonZeroMetricRows.slice(0, 4).map((metric) => (
+                        <div key={`veo-player-kpi-${metric.slug}`} className="rounded-md border border-blue-100 bg-blue-50 p-3">
+                          <p className="text-xs uppercase text-blue-700">{metric.label}</p>
+                          <p className="mt-1 text-xl font-bold text-blue-950">{metric.displayValue}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="overflow-auto rounded-md border border-gray-200">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-gray-50">
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Métrique VEO</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Valeur match</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedVeoPlayerMatchReport.metricRows.map((metric) => (
+                          <tr key={`individual-veo-${metric.slug}`} className="border-b last:border-b-0">
+                            <td className="px-3 py-2 text-gray-700">{metric.label}</td>
+                            <td className="px-3 py-2 font-semibold text-gray-900">{metric.displayValue}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
