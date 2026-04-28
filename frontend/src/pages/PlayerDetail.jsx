@@ -860,67 +860,6 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
                         </div>
                       </div>
                     </div>
-
-                    {showPasswordForm && canChangeOwnPassword && (
-                      <div className="mt-4 p-4 bg-gray-50 rounded border max-w-md">
-                        <form
-                          ref={passwordFormRef}
-                          className="flex flex-col gap-2"
-                          onSubmit={handlePasswordChange}
-                        >
-                          <label>
-                            Ancien mot de passe
-                            <input
-                              type="password"
-                              className="w-full mt-1 px-2 py-1 border rounded"
-                              value={oldPassword}
-                              onChange={(e) => setOldPassword(e.target.value)}
-                              required
-                            />
-                          </label>
-                          <label>
-                            Nouveau mot de passe
-                            <input
-                              type="password"
-                              className="w-full mt-1 px-2 py-1 border rounded"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              required
-                            />
-                          </label>
-                          <label>
-                            Confirmer le mot de passe
-                            <input
-                              type="password"
-                              className="w-full mt-1 px-2 py-1 border rounded"
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
-                              required
-                            />
-                          </label>
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              type="button"
-                              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                              onClick={() => {
-                                setShowPasswordForm(false);
-                                setOldPassword('');
-                                setNewPassword('');
-                                setConfirmPassword('');
-                              }}
-                            >
-                              Annuler
-                            </button>
-                            <button
-                              type="submit"
-                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            >
-                              Enregistrer
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    )}
                   </div>
 
                   {/* Colonne droite: boutons */}
@@ -1136,6 +1075,70 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
                       Enregistrer
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {showPasswordForm && canChangeOwnPassword && (
+              <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                  <h2 className="text-lg font-semibold mb-4">Modifier le mot de passe</h2>
+                  <form
+                    ref={passwordFormRef}
+                    className="flex flex-col gap-3"
+                    onSubmit={handlePasswordChange}
+                  >
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ancien mot de passe</label>
+                      <input
+                        type="password"
+                        className="w-full px-3 py-2 border rounded"
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau mot de passe</label>
+                      <input
+                        type="password"
+                        className="w-full px-3 py-2 border rounded"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
+                      <input
+                        type="password"
+                        className="w-full px-3 py-2 border rounded"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex gap-3 justify-end mt-4">
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                        onClick={() => {
+                          setShowPasswordForm(false);
+                          setOldPassword('');
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        }}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Enregistrer
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}
