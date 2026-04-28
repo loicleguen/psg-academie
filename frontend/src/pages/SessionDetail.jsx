@@ -49,6 +49,35 @@ const PREFERRED_VEO_PLAYER_METRIC_ORDER = [
   'player_ball_losses',
 ];
 
+const VEO_PLAYER_RADAR_METRICS = [
+  { slug: 'player_shots', label: 'Tirs' },
+  { slug: 'player_goal_assists', label: 'Passes D' },
+  { slug: 'player_duels_won', label: 'Duels' },
+  { slug: 'player_dribbles_won', label: 'Dribbles' },
+  { slug: 'player_tackles_won', label: 'Tacles' },
+  { slug: 'player_recoveries', label: 'Recup.' },
+];
+
+const VEO_PLAYER_ACTION_METRICS = [
+  'player_goal_assists',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+];
+
+const VEO_MATCH_LEADER_METRICS = [
+  { slug: 'player_goals', label: 'Buteurs' },
+  { slug: 'player_goal_assists', label: 'Passeurs' },
+  { slug: 'player_shots', label: 'Tireurs' },
+  { slug: 'player_duels_won', label: 'Duels gagnes' },
+  { slug: 'player_tackles_won', label: 'Tacles reussis' },
+  { slug: 'player_recoveries', label: 'Recuperateurs' },
+];
+
 const KPI_TONE_CLASSES = {
   good: {
     card: 'border-emerald-400/40 bg-emerald-500/10',
@@ -136,6 +165,111 @@ function namesLookAlike(left, right) {
 function getParticipationMinutesValue(participation) {
   const minutes = Number(participation?.minutes_played);
   return Number.isFinite(minutes) ? minutes : 0;
+}
+
+function toFiniteNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function buildRadarPolygonPoints(metricConfigs, valuesBySlug, maxBySlug, radius, center) {
+  return metricConfigs
+    .map((metric, index) => {
+      const angle = -Math.PI / 2 + (index * 2 * Math.PI) / metricConfigs.length;
+      const maxValue = Math.max(1, maxBySlug[metric.slug] ?? 1);
+      const value = Math.max(0, Math.min(1, toFiniteNumber(valuesBySlug[metric.slug]) / maxValue));
+      const distance = radius * value;
+      return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
+    })
+    .join(' ');
+}
+
+function VeoPlayerRadar({
+  title,
+  subtitle,
+  playerLabel,
+  averageLabel = 'Moyenne groupe',
+  playerValues,
+  averageValues,
+  maxBySlug,
+  dark = false,
+}) {
+  const size = 260;
+  const center = size / 2;
+  const radius = 78;
+  const gridLevels = [0.33, 0.66, 1];
+  const playerPoints = buildRadarPolygonPoints(VEO_PLAYER_RADAR_METRICS, playerValues, maxBySlug, radius, center);
+  const averagePoints = buildRadarPolygonPoints(VEO_PLAYER_RADAR_METRICS, averageValues, maxBySlug, radius, center);
+  const labelColor = dark ? '#cbd5e1' : '#475569';
+  const gridColor = dark ? '#475569' : '#cbd5e1';
+
+  return (
+    <div className={dark ? 'rounded-md border border-slate-600 bg-[#223146] p-4' : 'rounded-md border border-gray-200 bg-gray-50 p-4'}>
+      <div className="flex flex-col gap-1">
+        <p className={dark ? 'text-sm font-semibold text-white' : 'text-sm font-semibold text-gray-900'}>{title}</p>
+        {subtitle && <p className={dark ? 'text-xs text-slate-300' : 'text-xs text-gray-500'}>{subtitle}</p>}
+      </div>
+      <div className="mt-3 flex flex-col lg:flex-row lg:items-center gap-3">
+        <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto h-60 w-60 shrink-0">
+          {gridLevels.map((level) => {
+            const points = VEO_PLAYER_RADAR_METRICS.map((metric, index) => {
+              const angle = -Math.PI / 2 + (index * 2 * Math.PI) / VEO_PLAYER_RADAR_METRICS.length;
+              const distance = radius * level;
+              return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
+            }).join(' ');
+            return (
+              <polygon key={level} points={points} fill="none" stroke={gridColor} strokeWidth="1" opacity="0.55" />
+            );
+          })}
+          {VEO_PLAYER_RADAR_METRICS.map((metric, index) => {
+            const angle = -Math.PI / 2 + (index * 2 * Math.PI) / VEO_PLAYER_RADAR_METRICS.length;
+            const axisX = center + Math.cos(angle) * radius;
+            const axisY = center + Math.sin(angle) * radius;
+            const labelX = center + Math.cos(angle) * (radius + 28);
+            const labelY = center + Math.sin(angle) * (radius + 28);
+            return (
+              <g key={metric.slug}>
+                <line x1={center} y1={center} x2={axisX} y2={axisY} stroke={gridColor} strokeWidth="1" opacity="0.45" />
+                <text
+                  x={labelX}
+                  y={labelY}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={labelColor}
+                  fontSize="10"
+                  fontWeight="600"
+                >
+                  {metric.label}
+                </text>
+              </g>
+            );
+          })}
+          <polygon points={averagePoints} fill="#94a3b8" fillOpacity="0.18" stroke="#94a3b8" strokeWidth="2" />
+          <polygon points={playerPoints} fill="#3b82f6" fillOpacity="0.28" stroke="#2563eb" strokeWidth="3" />
+        </svg>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+            <span className={dark ? 'text-slate-200' : 'text-gray-700'}>{playerLabel}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+            <span className={dark ? 'text-slate-300' : 'text-gray-600'}>{averageLabel}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            {VEO_PLAYER_RADAR_METRICS.map((metric) => (
+              <div key={`radar-value-${metric.slug}`} className={dark ? 'rounded bg-slate-800/60 px-2 py-1' : 'rounded bg-white px-2 py-1'}>
+                <p className={dark ? 'text-[10px] uppercase text-slate-400' : 'text-[10px] uppercase text-gray-500'}>{metric.label}</p>
+                <p className={dark ? 'text-sm font-bold text-white' : 'text-sm font-bold text-gray-900'}>
+                  {formatMetricValue(playerValues[metric.slug], '')}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function sanitizeFilename(value) {
@@ -1064,6 +1198,95 @@ export default function SessionDetail() {
     return allColumns.slice(0, 6);
   }, [veoSummary]);
 
+  const veoPlayerVisualData = useMemo(() => {
+    const valuesByPlayer = veoSummary?.player_metrics?.values ?? {};
+    const participationsByPlayerId = new Map(
+      (veoSummary?.participations ?? []).map((participation) => [Number(participation.player_id), participation])
+    );
+
+    const rows = veoPresentPlayers
+      .map((player) => {
+        const participation = participationsByPlayerId.get(Number(player.id));
+        const rawValues = valuesByPlayer[String(player.id)] ?? {};
+        const metricValues = Object.fromEntries(
+          PREFERRED_VEO_PLAYER_METRIC_ORDER.map((slug) => [slug, toFiniteNumber(rawValues[slug])])
+        );
+        const actionTotal = VEO_PLAYER_ACTION_METRICS.reduce(
+          (total, slug) => total + toFiniteNumber(metricValues[slug]),
+          0
+        );
+        return {
+          player,
+          participation,
+          minutes: getParticipationMinutesValue(participation),
+          roleLabel: participation?.is_starter ? 'Titulaire' : getParticipationMinutesValue(participation) > 0 ? 'Entré' : 'Présent',
+          metricValues,
+          actionTotal,
+        };
+      })
+      .sort((left, right) => {
+        if (left.minutes !== right.minutes) {
+          return right.minutes - left.minutes;
+        }
+        if (left.actionTotal !== right.actionTotal) {
+          return right.actionTotal - left.actionTotal;
+        }
+        return left.player.name.localeCompare(right.player.name, 'fr', { sensitivity: 'base' });
+      });
+
+    const averageBase = rows.filter((row) => row.minutes > 0);
+    const rowsForAverage = averageBase.length > 0 ? averageBase : rows;
+    const averageValues = Object.fromEntries(
+      VEO_PLAYER_RADAR_METRICS.map((metric) => {
+        if (rowsForAverage.length === 0) {
+          return [metric.slug, 0];
+        }
+        const total = rowsForAverage.reduce((sum, row) => sum + toFiniteNumber(row.metricValues[metric.slug]), 0);
+        return [metric.slug, total / rowsForAverage.length];
+      })
+    );
+    const maxBySlug = Object.fromEntries(
+      VEO_PLAYER_RADAR_METRICS.map((metric) => [
+        metric.slug,
+        Math.max(1, toFiniteNumber(averageValues[metric.slug]), ...rows.map((row) => toFiniteNumber(row.metricValues[metric.slug]))),
+      ])
+    );
+    const maxActionTotal = Math.max(1, ...rows.map((row) => row.actionTotal));
+    const maxMinutes = Math.max(1, ...rows.map((row) => row.minutes));
+    const leaderCards = VEO_MATCH_LEADER_METRICS.map((metric) => {
+      const leaders = rows
+        .map((row) => ({
+          playerId: row.player.id,
+          playerName: row.player.name,
+          value: toFiniteNumber(row.metricValues[metric.slug]),
+          minutes: row.minutes,
+          roleLabel: row.roleLabel,
+        }))
+        .filter((row) => row.value > 0)
+        .sort((left, right) => {
+          if (left.value !== right.value) {
+            return right.value - left.value;
+          }
+          if (left.minutes !== right.minutes) {
+            return right.minutes - left.minutes;
+          }
+          return left.playerName.localeCompare(right.playerName, 'fr', { sensitivity: 'base' });
+        })
+        .slice(0, 3);
+      const maxValue = Math.max(1, ...leaders.map((leader) => leader.value));
+      return { ...metric, leaders, maxValue };
+    });
+
+    return {
+      rows,
+      averageValues,
+      maxBySlug,
+      maxActionTotal,
+      maxMinutes,
+      leaderCards,
+    };
+  }, [veoSummary, veoPresentPlayers]);
+
   const veoReportKpis = veoReportAnalysis.reportKpis;
 
   const selectedVeoPlayerMatchReport = useMemo(() => {
@@ -1091,6 +1314,7 @@ export default function SessionDetail() {
     );
     const nonZeroMetricRows = filledMetricRows.filter((row) => Number(row.value) !== 0);
     const minutes = getParticipationMinutesValue(participation);
+    const visualRow = veoPlayerVisualData.rows.find((row) => Number(row.player.id) === Number(player.id));
 
     return {
       player,
@@ -1100,8 +1324,9 @@ export default function SessionDetail() {
       metricRows,
       filledMetricRows,
       nonZeroMetricRows,
+      visualRow,
     };
-  }, [selectedPlayer, veoSummary, veoPresentPlayers, veoPlayerColumns]);
+  }, [selectedPlayer, veoSummary, veoPresentPlayers, veoPlayerColumns, veoPlayerVisualData]);
 
   const handleDownloadVeoStyledReport = async () => {
     if (!veoSummary) {
@@ -1788,6 +2013,49 @@ export default function SessionDetail() {
                         </div>
                       </div>
 
+                      {veoPlayerVisualData.leaderCards.some((card) => card.leaders.length > 0) && (
+                        <div className="rounded-md border border-slate-600 bg-[#223146] p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-semibold text-white">Leaders VEO du match</p>
+                              <p className="text-xs text-slate-400">Classements par métrique clé, sur tous les joueurs présents.</p>
+                            </div>
+                            <span className="rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-slate-300">
+                              {veoPlayerVisualData.rows.length} joueurs
+                            </span>
+                          </div>
+                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {veoPlayerVisualData.leaderCards.map((card) => (
+                              <div key={`leader-${card.slug}`} className="rounded border border-slate-700 bg-[#1b283a] p-3">
+                                <p className="text-xs font-semibold uppercase text-slate-300">{card.label}</p>
+                                {card.leaders.length === 0 ? (
+                                  <p className="mt-3 text-xs text-slate-500">Aucune valeur renseignee.</p>
+                                ) : (
+                                  <div className="mt-3 space-y-2">
+                                    {card.leaders.map((leader, index) => {
+                                      const pct = Math.min(100, (leader.value / card.maxValue) * 100);
+                                      return (
+                                        <div key={`${card.slug}-${leader.playerId}`} className="space-y-1">
+                                          <div className="flex items-center justify-between gap-2 text-xs">
+                                            <span className="truncate font-semibold text-slate-100">
+                                              {index + 1}. {leader.playerName}
+                                            </span>
+                                            <span className="font-bold text-blue-200">{formatMetricValue(leader.value, '')}</span>
+                                          </div>
+                                          <div className="h-2 rounded bg-slate-700">
+                                            <div className="h-2 rounded bg-blue-400" style={{ width: `${pct}%` }} />
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                     </div>
                   </div>
                   <div className="rounded-md border border-gray-200 bg-white p-4">
@@ -2041,15 +2309,35 @@ export default function SessionDetail() {
                   <p className="text-xs uppercase tracking-wide text-blue-600">Complément VEO</p>
                   <h3 className="text-lg font-semibold text-gray-900">Rapport joueur sur le match</h3>
                   <p className="text-sm text-gray-600">
-                    Données issues du match VEO sélectionné, sans moyenne ni comparaison automatique.
+                    Données issues du match VEO choisi pour ce joueur.
                   </p>
                 </div>
-                {veoSummary && (
-                  <div className="text-left sm:text-right text-xs text-gray-500">
-                    <p className="font-semibold text-gray-800">{veoSummary.match.opponent_name}</p>
-                    <p>{veoSummary.match.date} • Score {veoSummary.match.score_for ?? 0}-{veoSummary.match.score_against ?? 0}</p>
-                  </div>
-                )}
+                <div className="w-full sm:w-72">
+                  <label htmlFor="individual-veo-match-select" className="block text-xs font-medium text-gray-600">
+                    Match VEO
+                  </label>
+                  <select
+                    id="individual-veo-match-select"
+                    value={selectedVeoMatchId}
+                    onChange={(event) => setSelectedVeoMatchId(event.target.value)}
+                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {veoMatchesForDate.length === 0 ? (
+                      <option value="">Aucun match VEO</option>
+                    ) : (
+                      veoMatchesForDate.map((match) => (
+                        <option key={match.id} value={String(match.id)}>
+                          {match.opponent_name} - {match.score_for ?? 0}-{match.score_against ?? 0}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {veoSummary && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {veoSummary.match.date} • {veoSummary.match.match_type}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {loadingVeoSummary ? (
@@ -2090,6 +2378,17 @@ export default function SessionDetail() {
                       </p>
                     </div>
                   </div>
+
+                  {selectedVeoPlayerMatchReport.visualRow && (
+                    <VeoPlayerRadar
+                      title="Profil VEO du match"
+                      subtitle="Comparaison au groupe des joueurs entrés en jeu"
+                      playerLabel={selectedVeoPlayerMatchReport.player.name}
+                      playerValues={selectedVeoPlayerMatchReport.visualRow.metricValues}
+                      averageValues={veoPlayerVisualData.averageValues}
+                      maxBySlug={veoPlayerVisualData.maxBySlug}
+                    />
+                  )}
 
                   {selectedVeoPlayerMatchReport.nonZeroMetricRows.length > 0 && (
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

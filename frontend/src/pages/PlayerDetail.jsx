@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { catapultService } from '../services/catapultService';
 import api from '../services/api';
 import MedicalMap from '../components/MedicalMap';
@@ -35,6 +36,161 @@ const VEO_PLAYER_METRIC_LABELS = {
   player_ball_losses: 'Pertes de balle',
 };
 
+const VEO_PLAYER_ACTION_METRICS = [
+  'player_goal_assists',
+  'player_shots',
+  'player_shots_on_target',
+  'player_goals',
+  'player_duels_won',
+  'player_dribbles_won',
+  'player_tackles_won',
+  'player_recoveries',
+];
+
+const VEO_RADAR_METRICS = [
+  { slug: 'player_goals', label: 'Buts' },
+  { slug: 'player_shots_on_target', label: 'Tirs cadres' },
+  { slug: 'player_duels_won', label: 'Duels' },
+  { slug: 'player_dribbles_won', label: 'Dribbles' },
+  { slug: 'player_tackles_won', label: 'Tacles' },
+  { slug: 'player_recoveries', label: 'Récup.' },
+];
+
+const VEO_NEGATIVE_METRICS = new Set([
+  'player_fouls_committed',
+  'player_cards',
+  'player_offsides',
+  'player_ball_losses',
+]);
+
+const VEO_DECISION_METRICS = [
+  { slug: 'player_goals', label: 'Buts', weight: 3 },
+  { slug: 'player_goal_assists', label: 'Passes D', weight: 2 },
+  { slug: 'player_shots_on_target', label: 'Tirs cadrés', weight: 1.5 },
+  { slug: 'player_shots', label: 'Tirs', weight: 0.7 },
+  { slug: 'player_duels_won', label: 'Duels', weight: 0.8 },
+  { slug: 'player_dribbles_won', label: 'Dribbles', weight: 0.8 },
+  { slug: 'player_tackles_won', label: 'Tacles', weight: 0.9 },
+  { slug: 'player_recoveries', label: 'Récups', weight: 0.8 },
+  { slug: 'player_fouls_committed', label: 'Fautes', weight: 0.8, lowerIsBetter: true },
+  { slug: 'player_cards', label: 'Cartons', weight: 1.2, lowerIsBetter: true },
+  { slug: 'player_offsides', label: 'Hors-jeu', weight: 0.6, lowerIsBetter: true },
+  { slug: 'player_ball_losses', label: 'Pertes', weight: 0.8, lowerIsBetter: true },
+];
+
+const VEO_COMPARISON_COLORS = ['#2563eb', '#0f766e', '#7c3aed', '#ea580c', '#be123c'];
+
+function normalizeNameForCompare(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function namesLookAlike(left, right) {
+  const normalizedLeft = normalizeNameForCompare(left);
+  const normalizedRight = normalizeNameForCompare(right);
+  if (!normalizedLeft || !normalizedRight) return false;
+  if (normalizedLeft === normalizedRight) return true;
+
+  const leftTokens = new Set(normalizedLeft.split(' ').filter(Boolean));
+  const rightTokens = new Set(normalizedRight.split(' ').filter(Boolean));
+  return (
+    [...leftTokens].every((token) => rightTokens.has(token)) ||
+    [...rightTokens].every((token) => leftTokens.has(token))
+  );
+}
+
+function toFiniteNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function formatCompactVeoNumber(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return '-';
+  return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
+}
+
+function formatSignedVeoNumber(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue === 0) return '0';
+  return `${numericValue > 0 ? '+' : ''}${formatCompactVeoNumber(numericValue)}`;
+}
+
+function getRadarPoint(index, total, valuePct, radius = 88, center = 120) {
+  const angle = -Math.PI / 2 + (index * 2 * Math.PI) / total;
+  const clampedPct = Math.max(0, Math.min(100, valuePct));
+  const distance = radius * (clampedPct / 100);
+  return {
+    x: center + Math.cos(angle) * distance,
+    y: center + Math.sin(angle) * distance,
+  };
+}
+
+function buildRadarPolygonPoints(values, radius = 88, center = 120) {
+  return values
+    .map((value, index) => {
+      const point = getRadarPoint(index, values.length, value, radius, center);
+      return `${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+function getVeoReferenceStorageKey(name) {
+  return `veo_reference_match_${normalizeNameForCompare(name)}`;
+}
+
+function formatVeoMatchLabel(match) {
+  if (!match) return 'Match VEO';
+  const dateLabel = match.date ? new Date(match.date).toLocaleDateString('fr-FR') : 'Date inconnue';
+  return `${dateLabel} vs ${match.opponent_name || 'Adversaire'} (${match.score_for ?? 0}-${match.score_against ?? 0})`;
+}
+
+function buildVeoPlayerMatchRow(summary, targetPlayerName) {
+  const participation = (summary?.participations ?? []).find((item) =>
+    namesLookAlike(item.player_name, targetPlayerName)
+  );
+  const gridPlayer = (summary?.player_metrics?.players ?? []).find((item) =>
+    namesLookAlike(item.name, targetPlayerName)
+  );
+  const playerId = participation?.player_id ?? gridPlayer?.id;
+  if (!playerId) return null;
+
+  const rawValues = summary?.player_metrics?.values?.[String(playerId)] ?? {};
+  const metrics = Object.fromEntries(
+    VEO_PLAYER_METRIC_ORDER.map((slug) => [slug, toFiniteNumber(rawValues[slug])])
+  );
+  const actionTotal = VEO_PLAYER_ACTION_METRICS.reduce(
+    (total, slug) => total + toFiniteNumber(metrics[slug]),
+    0
+  );
+  const minutes = toFiniteNumber(participation?.minutes_played);
+
+  return {
+    matchId: String(summary.match.id),
+    playerId,
+    playerName: participation?.player_name || gridPlayer?.name || targetPlayerName,
+    match: summary.match,
+    label: formatVeoMatchLabel(summary.match),
+    minutes,
+    roleLabel: participation?.is_starter ? 'Titulaire' : minutes > 0 ? 'Entré en jeu' : 'Présent',
+    position: participation?.position_played || participation?.main_position || gridPlayer?.main_position || '-',
+    metrics,
+    actionTotal,
+  };
+}
+
+function getBestVeoMatchRow(rows) {
+  return [...rows].sort((left, right) => {
+    if (left.actionTotal !== right.actionTotal) return right.actionTotal - left.actionTotal;
+    if (left.minutes !== right.minutes) return right.minutes - left.minutes;
+    return new Date(right.match?.date || 0) - new Date(left.match?.date || 0);
+  })[0] || null;
+}
+
 export default function PlayerDetail() {
   const { playerName } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,6 +206,13 @@ export default function PlayerDetail() {
   const [compareVeoStatsList, setCompareVeoStatsList] = useState([]);
   const [veoFilter, setVeoFilter] = useState('all');
   const [selectedVeoPlayer, setSelectedVeoPlayer] = useState('');
+  const [veoMatchSummaries, setVeoMatchSummaries] = useState([]);
+  const [veoMatchLoading, setVeoMatchLoading] = useState(false);
+  const [pendingVeoReferenceMatchId, setPendingVeoReferenceMatchId] = useState('');
+  const [activeVeoReferenceMatchId, setActiveVeoReferenceMatchId] = useState('');
+  const [selectedVeoSecondaryMatchId, setSelectedVeoSecondaryMatchId] = useState('');
+  const [selectedVeoCompareMatchIds, setSelectedVeoCompareMatchIds] = useState({});
+  const [veoReferenceSaved, setVeoReferenceSaved] = useState(false);
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [veoLoading, setVeoLoading] = useState(true);
@@ -209,6 +372,51 @@ export default function PlayerDetail() {
     }
   }, [activeTab, playerInfo]);
 
+  useEffect(() => {
+    if (activeTab !== 'veo' || veoMatchSummaries.length > 0) {
+      return;
+    }
+
+    let isMounted = true;
+    const loadVeoMatchSummaries = async () => {
+      try {
+        setVeoMatchLoading(true);
+        const matches = await veoService.getMatches();
+        const sortedMatches = [...(Array.isArray(matches) ? matches : [])].sort(
+          (left, right) => new Date(right.date || 0) - new Date(left.date || 0)
+        );
+        const summaries = await Promise.all(
+          sortedMatches.map(async (match) => {
+            try {
+              return await veoService.getMatchSummary(match.id);
+            } catch (error) {
+              console.debug('Résumé VEO indisponible:', match.id, error);
+              return null;
+            }
+          })
+        );
+        if (isMounted) {
+          setVeoMatchSummaries(summaries.filter(Boolean));
+        }
+      } catch (error) {
+        console.error('Erreur chargement matchs VEO:', error);
+        if (isMounted) {
+          setVeoMatchSummaries([]);
+        }
+      } finally {
+        if (isMounted) {
+          setVeoMatchLoading(false);
+        }
+      }
+    };
+
+    loadVeoMatchSummaries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, veoMatchSummaries.length]);
+
   const loadPlayerInfo = async () => {
     try {
       const cached = localStorage.getItem('user');
@@ -281,6 +489,219 @@ export default function PlayerDetail() {
         console.error('Erreur chargement stats VEO comparaison:', error);
       }
       return null;
+    }
+  };
+
+  const primaryVeoMatchRows = useMemo(
+    () =>
+      veoMatchSummaries
+        .map((summary) => buildVeoPlayerMatchRow(summary, playerName))
+        .filter(Boolean),
+    [veoMatchSummaries, playerName]
+  );
+
+  const compareVeoPlayerNames = useMemo(
+    () =>
+      compareVeoStatsList
+        .map((stats) => stats?.player_name)
+        .filter(Boolean),
+    [compareVeoStatsList]
+  );
+
+  const veoMatchRowsByPlayer = useMemo(() => {
+    const rowsByPlayer = {
+      [playerName]: primaryVeoMatchRows,
+    };
+    compareVeoPlayerNames.forEach((name) => {
+      rowsByPlayer[name] = veoMatchSummaries
+        .map((summary) => buildVeoPlayerMatchRow(summary, name))
+        .filter(Boolean);
+    });
+    return rowsByPlayer;
+  }, [playerName, primaryVeoMatchRows, compareVeoPlayerNames, veoMatchSummaries]);
+
+  useEffect(() => {
+    if (primaryVeoMatchRows.length === 0) {
+      setPendingVeoReferenceMatchId('');
+      setActiveVeoReferenceMatchId('');
+      setSelectedVeoSecondaryMatchId('');
+      return;
+    }
+
+    const savedMatchId = localStorage.getItem(getVeoReferenceStorageKey(playerName));
+    const savedExists = primaryVeoMatchRows.some((row) => row.matchId === savedMatchId);
+    const bestRow = getBestVeoMatchRow(primaryVeoMatchRows);
+    const nextActiveReferenceId = savedExists ? savedMatchId : '';
+    const nextPendingReferenceId = nextActiveReferenceId || bestRow?.matchId || '';
+
+    setActiveVeoReferenceMatchId(nextActiveReferenceId);
+    setPendingVeoReferenceMatchId(nextPendingReferenceId);
+    setSelectedVeoSecondaryMatchId((current) =>
+      current && primaryVeoMatchRows.some((row) => row.matchId === current)
+        ? current
+        : ''
+    );
+  }, [primaryVeoMatchRows, playerName]);
+
+  useEffect(() => {
+    setSelectedVeoCompareMatchIds((current) => {
+      const next = {};
+      compareVeoPlayerNames.forEach((name) => {
+        const rows = veoMatchRowsByPlayer[name] || [];
+        const currentMatchId = current[name];
+        const bestRow = getBestVeoMatchRow(rows);
+        next[name] =
+          currentMatchId && rows.some((row) => row.matchId === currentMatchId)
+            ? currentMatchId
+            : bestRow?.matchId || '';
+      });
+      return next;
+    });
+  }, [compareVeoPlayerNames, veoMatchRowsByPlayer]);
+
+  const activeVeoReferenceRow = useMemo(
+    () => primaryVeoMatchRows.find((row) => row.matchId === activeVeoReferenceMatchId) || null,
+    [primaryVeoMatchRows, activeVeoReferenceMatchId]
+  );
+
+  const pendingVeoReferenceRow = useMemo(
+    () => primaryVeoMatchRows.find((row) => row.matchId === pendingVeoReferenceMatchId) || null,
+    [primaryVeoMatchRows, pendingVeoReferenceMatchId]
+  );
+
+  const hasPendingVeoReferenceChange =
+    !!pendingVeoReferenceMatchId && pendingVeoReferenceMatchId !== activeVeoReferenceMatchId;
+
+  const selectedVeoMatchComparisonRows = useMemo(() => {
+    const rows = [];
+    if (activeVeoReferenceRow) {
+      rows.push({ ...activeVeoReferenceRow, columnLabel: playerName, columnTag: 'Référence' });
+    }
+
+    const secondaryRow = primaryVeoMatchRows.find((row) => row.matchId === selectedVeoSecondaryMatchId);
+    if (secondaryRow && secondaryRow.matchId !== activeVeoReferenceMatchId) {
+      rows.push({ ...secondaryRow, columnLabel: playerName, columnTag: 'Autre match' });
+    }
+
+    compareVeoPlayerNames.forEach((name) => {
+      const matchId = selectedVeoCompareMatchIds[name];
+      const row = (veoMatchRowsByPlayer[name] || []).find((item) => item.matchId === matchId);
+      if (row) {
+        rows.push({ ...row, columnLabel: name, columnTag: 'Comparé' });
+      }
+    });
+
+    return rows;
+  }, [
+    playerName,
+    primaryVeoMatchRows,
+    activeVeoReferenceMatchId,
+    activeVeoReferenceRow,
+    selectedVeoSecondaryMatchId,
+    compareVeoPlayerNames,
+    selectedVeoCompareMatchIds,
+    veoMatchRowsByPlayer,
+  ]);
+
+  const veoComparisonDisplayRows = useMemo(
+    () =>
+      selectedVeoMatchComparisonRows.map((row, index) => ({
+        ...row,
+        comparisonKey: `veo_comp_${index}`,
+        color: VEO_COMPARISON_COLORS[index % VEO_COMPARISON_COLORS.length],
+      })),
+    [selectedVeoMatchComparisonRows]
+  );
+
+  const activeVeoComparisonReferenceRow = useMemo(
+    () => veoComparisonDisplayRows.find((row) => row.columnTag === 'Référence') || null,
+    [veoComparisonDisplayRows]
+  );
+
+  const veoRadarData = useMemo(
+    () =>
+      VEO_RADAR_METRICS.map((metric) => {
+        const maxValue = Math.max(
+          1,
+          ...veoComparisonDisplayRows.map((row) => toFiniteNumber(row.metrics?.[metric.slug]))
+        );
+        const dataPoint = { metric: metric.label };
+        veoComparisonDisplayRows.forEach((row) => {
+          dataPoint[row.comparisonKey] = Math.round(
+            (toFiniteNumber(row.metrics?.[metric.slug]) / maxValue) * 100
+          );
+        });
+        return dataPoint;
+      }),
+    [veoComparisonDisplayRows]
+  );
+
+  const veoDecisionInsights = useMemo(() => {
+    if (!activeVeoComparisonReferenceRow) {
+      return [];
+    }
+
+    return veoComparisonDisplayRows
+      .filter((row) => row.comparisonKey !== activeVeoComparisonReferenceRow.comparisonKey)
+      .map((row) => {
+        const deltas = VEO_DECISION_METRICS.map((metric) => {
+          const value = toFiniteNumber(row.metrics?.[metric.slug]);
+          const referenceValue = toFiniteNumber(activeVeoComparisonReferenceRow.metrics?.[metric.slug]);
+          const delta = value - referenceValue;
+          const impact = (metric.lowerIsBetter ? -delta : delta) * metric.weight;
+
+          return {
+            ...metric,
+            value,
+            referenceValue,
+            delta,
+            impact,
+          };
+        }).filter((metric) => metric.delta !== 0);
+
+        const sortedByImpact = [...deltas].sort((left, right) => Math.abs(right.impact) - Math.abs(left.impact));
+        const positives = sortedByImpact.filter((metric) => metric.impact > 0).slice(0, 3);
+        const negatives = sortedByImpact.filter((metric) => metric.impact < 0).slice(0, 3);
+        const score = deltas.reduce((total, metric) => total + metric.impact, 0);
+
+        return {
+          row,
+          score,
+          positives,
+          negatives,
+          chartData: sortedByImpact.slice(0, 6).map((metric) => ({
+            name: metric.label,
+            delta: metric.delta,
+            impact: Number(metric.impact.toFixed(2)),
+            fill: metric.impact >= 0 ? '#16a34a' : '#dc2626',
+          })),
+        };
+      });
+  }, [activeVeoComparisonReferenceRow, veoComparisonDisplayRows]);
+
+  const handleSaveVeoReferenceMatch = () => {
+    if (!pendingVeoReferenceMatchId) return;
+    localStorage.setItem(getVeoReferenceStorageKey(playerName), pendingVeoReferenceMatchId);
+    setActiveVeoReferenceMatchId(pendingVeoReferenceMatchId);
+    setVeoReferenceSaved(true);
+    setTimeout(() => setVeoReferenceSaved(false), 1800);
+  };
+
+  const handleRemoveVeoComparisonRow = (row) => {
+    if (row.columnTag === 'Autre match') {
+      setSelectedVeoSecondaryMatchId('');
+      return;
+    }
+
+    if (row.columnTag === 'Comparé') {
+      setCompareVeoStatsList((current) =>
+        current.filter((stats) => stats?.player_name !== row.columnLabel)
+      );
+      setSelectedVeoCompareMatchIds((current) => {
+        const next = { ...current };
+        delete next[row.columnLabel];
+        return next;
+      });
     }
   };
 
@@ -498,11 +919,40 @@ export default function PlayerDetail() {
     if (value === null || value === undefined) {
       return '-';
     }
-    const numericValue = Number(value);
-    if (Number.isNaN(numericValue)) {
-      return '-';
+    return formatCompactVeoNumber(value);
+  };
+
+  const renderVeoMetricDeltaBadge = (row, slug) => {
+    if (
+      !activeVeoComparisonReferenceRow ||
+      row.comparisonKey === activeVeoComparisonReferenceRow.comparisonKey
+    ) {
+      return null;
     }
-    return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
+
+    const delta =
+      toFiniteNumber(row.metrics?.[slug]) -
+      toFiniteNumber(activeVeoComparisonReferenceRow.metrics?.[slug]);
+    if (delta === 0) {
+      return (
+        <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
+          =
+        </span>
+      );
+    }
+
+    const lowerIsBetter = VEO_NEGATIVE_METRICS.has(slug);
+    const isPositive = lowerIsBetter ? delta < 0 : delta > 0;
+
+    return (
+      <span
+        className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+          isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+        }`}
+      >
+        {formatSignedVeoNumber(delta)}
+      </span>
+    );
   };
 
   const veoMetricMap = (veoStats?.metrics ?? []).reduce((acc, metric) => {
@@ -555,6 +1005,7 @@ export default function PlayerDetail() {
   const clearVeoComparison = () => {
     setCompareVeoStatsList([]);
     setSelectedVeoPlayer('');
+    setSelectedVeoCompareMatchIds({});
   };
 
   function PlayerComparisonSelector({
@@ -1104,7 +1555,7 @@ export default function PlayerDetail() {
             {activeTab === 'veo' && (
               <>
                 <div className="flex justify-center">
-                  <div className="w-full max-w-md">
+                  <div className="w-full max-w-2xl">
                     <PlayerComparisonSelector
                       filter={veoFilter}
                       setFilter={setVeoFilter}
@@ -1121,6 +1572,390 @@ export default function PlayerDetail() {
                       label="Comparer VEO avec d'autres joueurs"
                     />
                   </div>
+                </div>
+                <div className="bg-white/50 rounded-lg border p-6 space-y-5">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Comparaison VEO par match</h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Sélectionne un match à préparer, puis valide-le pour en faire la référence coach du joueur.
+                    </p>
+                  </div>
+
+                  {veoMatchLoading ? (
+                    <p className="text-sm text-gray-500">Chargement des matchs VEO...</p>
+                  ) : primaryVeoMatchRows.length === 0 ? (
+                    <p className="rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+                      Aucun match VEO trouvé pour ce joueur.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                        <div className="rounded-md border border-gray-200 bg-gray-50 p-3 lg:col-span-2">
+                          <label className="block text-xs font-semibold uppercase text-gray-500">
+                            Match à définir comme référence
+                          </label>
+                          <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                            <select
+                              value={pendingVeoReferenceMatchId}
+                              onChange={(event) => setPendingVeoReferenceMatchId(event.target.value)}
+                              className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {primaryVeoMatchRows.map((row) => (
+                                <option key={row.matchId} value={row.matchId}>
+                                  {row.label} • {row.minutes || 0} min • {row.actionTotal} actions
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={handleSaveVeoReferenceMatch}
+                              disabled={!pendingVeoReferenceMatchId || !hasPendingVeoReferenceChange}
+                              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300"
+                            >
+                              Valider référence
+                            </button>
+                          </div>
+                          <div className="mt-2 space-y-1 text-xs">
+                            {activeVeoReferenceRow ? (
+                              <p className="font-semibold text-blue-800">
+                                Référence active: {activeVeoReferenceRow.label}
+                              </p>
+                            ) : (
+                              <p className="font-semibold text-orange-700">
+                                Aucune référence validée: la sélection ci-dessus est seulement une proposition.
+                              </p>
+                            )}
+                            {hasPendingVeoReferenceChange && pendingVeoReferenceRow && (
+                              <p className="text-gray-600">
+                                Sélection en attente: {pendingVeoReferenceRow.label}. Clique sur Valider référence pour l'appliquer.
+                              </p>
+                            )}
+                          </div>
+                          {veoReferenceSaved && (
+                            <p className="mt-2 text-xs font-semibold text-emerald-700">Match référence enregistré.</p>
+                          )}
+                        </div>
+
+                        <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                          <label className="block text-xs font-semibold uppercase text-gray-500">
+                            Autre match du joueur
+                          </label>
+                          <select
+                            value={selectedVeoSecondaryMatchId}
+                            onChange={(event) => setSelectedVeoSecondaryMatchId(event.target.value)}
+                            className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Ne pas comparer</option>
+                            {primaryVeoMatchRows.map((row) => (
+                              <option key={row.matchId} value={row.matchId}>
+                                {row.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {compareVeoPlayerNames.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {compareVeoPlayerNames.map((name) => {
+                            const rows = veoMatchRowsByPlayer[name] || [];
+                            return (
+                              <div key={`veo-match-select-${name}`} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                                <label className="block text-xs font-semibold uppercase text-gray-500">
+                                  Match pour {name}
+                                </label>
+                                <select
+                                  value={selectedVeoCompareMatchIds[name] || ''}
+                                  onChange={(event) =>
+                                    setSelectedVeoCompareMatchIds((prev) => ({
+                                      ...prev,
+                                      [name]: event.target.value,
+                                    }))
+                                  }
+                                  className="mt-2 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  {rows.length === 0 ? (
+                                    <option value="">Aucun match VEO</option>
+                                  ) : (
+                                    rows.map((row) => (
+                                      <option key={row.matchId} value={row.matchId}>
+                                        {row.label} • {row.minutes || 0} min
+                                      </option>
+                                    ))
+                                  )}
+                                </select>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {veoComparisonDisplayRows.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {veoComparisonDisplayRows.map((row) => (
+                              <div
+                                key={row.comparisonKey}
+                                className="rounded-md border bg-white/85 p-3 shadow-sm"
+                                style={{ borderColor: `${row.color}55`, boxShadow: `inset 4px 0 0 ${row.color}` }}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="truncate text-sm font-bold text-blue-950">{row.columnLabel}</p>
+                                  <div className="flex items-center gap-1">
+                                    <span
+                                      className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold"
+                                      style={{ color: row.color }}
+                                    >
+                                      {row.columnTag}
+                                    </span>
+                                    {row.columnTag !== 'Référence' && (
+                                      <button
+                                        type="button"
+                                        title="Retirer de la comparaison"
+                                        aria-label={`Retirer ${row.columnLabel} ${row.columnTag} de la comparaison`}
+                                        onClick={() => handleRemoveVeoComparisonRow(row)}
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-500 hover:bg-rose-50 hover:text-rose-700"
+                                      >
+                                        <XMarkIcon className="h-4 w-4" aria-hidden="true" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="mt-1 text-xs text-gray-600">{row.label}</p>
+                                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                                  <div className="rounded bg-white/80 px-2 py-1">
+                                    <p className="text-[10px] uppercase text-gray-500">Minutes</p>
+                                    <p className="font-bold text-gray-900">{row.minutes || 0}</p>
+                                  </div>
+                                  <div className="rounded bg-white/80 px-2 py-1">
+                                    <p className="text-[10px] uppercase text-gray-500">Actions</p>
+                                    <p className="font-bold text-gray-900">{row.actionTotal}</p>
+                                  </div>
+                                  <div className="rounded bg-white/80 px-2 py-1">
+                                    <p className="text-[10px] uppercase text-gray-500">Poste</p>
+                                    <p className="truncate font-bold text-gray-900">{row.position}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+                            <div className="rounded-md border border-gray-200 bg-white/85 p-4 xl:col-span-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <h3 className="text-sm font-bold text-gray-900">Profil comparé</h3>
+                                  <p className="text-xs text-gray-500">Score normalisé par métrique, 100 = meilleur volume affiché.</p>
+                                </div>
+                              </div>
+                              <div className="mt-3">
+                                <svg
+                                  viewBox="0 0 240 240"
+                                  className="mx-auto h-72 w-full max-w-sm"
+                                  role="img"
+                                  aria-label="Radar comparatif VEO"
+                                >
+                                  {[25, 50, 75, 100].map((level) => (
+                                    <polygon
+                                      key={`grid-${level}`}
+                                      points={buildRadarPolygonPoints(Array(VEO_RADAR_METRICS.length).fill(level))}
+                                      fill="none"
+                                      stroke="#cbd5e1"
+                                      strokeWidth="1"
+                                    />
+                                  ))}
+                                  {VEO_RADAR_METRICS.map((metric, index) => {
+                                    const axisPoint = getRadarPoint(index, VEO_RADAR_METRICS.length, 100);
+                                    const labelPoint = getRadarPoint(index, VEO_RADAR_METRICS.length, 118);
+                                    const anchor =
+                                      labelPoint.x > 126 ? 'start' : labelPoint.x < 114 ? 'end' : 'middle';
+                                    return (
+                                      <g key={`axis-${metric.slug}`}>
+                                        <line
+                                          x1="120"
+                                          y1="120"
+                                          x2={axisPoint.x}
+                                          y2={axisPoint.y}
+                                          stroke="#e2e8f0"
+                                          strokeWidth="1"
+                                        />
+                                        <text
+                                          x={labelPoint.x}
+                                          y={labelPoint.y}
+                                          textAnchor={anchor}
+                                          dominantBaseline="middle"
+                                          fontSize="10"
+                                          fontWeight="700"
+                                          fill="#475569"
+                                        >
+                                          {metric.label}
+                                        </text>
+                                      </g>
+                                    );
+                                  })}
+                                  {veoComparisonDisplayRows.map((row) => {
+                                    const values = veoRadarData.map((point) => point[row.comparisonKey] || 0);
+                                    return (
+                                      <polygon
+                                        key={`shape-${row.comparisonKey}`}
+                                        points={buildRadarPolygonPoints(values)}
+                                        fill={row.color}
+                                        fillOpacity={row.columnTag === 'Référence' ? '0.18' : '0.08'}
+                                        stroke={row.color}
+                                        strokeWidth={row.columnTag === 'Référence' ? '3' : '2'}
+                                      />
+                                    );
+                                  })}
+                                </svg>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {veoComparisonDisplayRows.map((row) => (
+                                    <span key={`legend-${row.comparisonKey}`} className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 text-[11px] font-semibold text-gray-700">
+                                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} />
+                                      {row.columnTag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-md border border-gray-200 bg-white/85 p-4 xl:col-span-3">
+                              <h3 className="text-sm font-bold text-gray-900">Lecture rapide vs référence</h3>
+                              {!activeVeoComparisonReferenceRow ? (
+                                <p className="mt-3 rounded-md bg-orange-50 px-3 py-2 text-sm text-orange-800">
+                                  Valide un match de référence pour afficher les écarts décisionnels.
+                                </p>
+                              ) : veoDecisionInsights.length === 0 ? (
+                                <p className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                                  Ajoute un autre match ou un joueur comparé pour générer les écarts.
+                                </p>
+                              ) : (
+                                <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                  {veoDecisionInsights.map((insight) => {
+                                    const scoreTone =
+                                      insight.score > 0.5
+                                        ? 'text-emerald-700 bg-emerald-50'
+                                        : insight.score < -0.5
+                                          ? 'text-rose-700 bg-rose-50'
+                                          : 'text-gray-700 bg-gray-100';
+                                    return (
+                                      <div key={`insight-${insight.row.comparisonKey}`} className="rounded-md border border-gray-200 bg-white p-3">
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="min-w-0">
+                                            <p className="truncate text-sm font-bold text-gray-900">{insight.row.columnLabel}</p>
+                                            <p className="text-xs text-gray-500">{insight.row.columnTag}</p>
+                                          </div>
+                                          <span className={`rounded-full px-2 py-1 text-xs font-bold ${scoreTone}`}>
+                                            {formatSignedVeoNumber(insight.score)}
+                                          </span>
+                                        </div>
+                                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                          <div className="rounded bg-emerald-50 px-3 py-2">
+                                            <p className="text-[11px] font-bold uppercase text-emerald-700">Avantages</p>
+                                            <div className="mt-1 space-y-1">
+                                              {insight.positives.length === 0 ? (
+                                                <p className="text-xs text-emerald-800">Aucun écart favorable net.</p>
+                                              ) : (
+                                                insight.positives.map((metric) => (
+                                                  <p key={`pos-${insight.row.comparisonKey}-${metric.slug}`} className="text-xs text-emerald-900">
+                                                    {metric.label}: {formatSignedVeoNumber(metric.delta)}
+                                                  </p>
+                                                ))
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div className="rounded bg-rose-50 px-3 py-2">
+                                            <p className="text-[11px] font-bold uppercase text-rose-700">Alertes</p>
+                                            <div className="mt-1 space-y-1">
+                                              {insight.negatives.length === 0 ? (
+                                                <p className="text-xs text-rose-800">Aucun signal négatif majeur.</p>
+                                              ) : (
+                                                insight.negatives.map((metric) => (
+                                                  <p key={`neg-${insight.row.comparisonKey}-${metric.slug}`} className="text-xs text-rose-900">
+                                                    {metric.label}: {formatSignedVeoNumber(metric.delta)}
+                                                  </p>
+                                                ))
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {insight.chartData.length > 0 && (
+                                          <div className="mt-3 space-y-2">
+                                            {(() => {
+                                              const maxImpact = Math.max(
+                                                1,
+                                                ...insight.chartData.map((entry) => Math.abs(entry.impact))
+                                              );
+                                              return insight.chartData.map((entry) => {
+                                                const isPositive = entry.impact >= 0;
+                                                const widthPct = Math.max(
+                                                  8,
+                                                  Math.min(50, (Math.abs(entry.impact) / maxImpact) * 50)
+                                                );
+                                                return (
+                                                  <div key={`bar-${insight.row.comparisonKey}-${entry.name}`} className="grid grid-cols-[72px_1fr_42px] items-center gap-2">
+                                                    <span className="truncate text-[11px] font-semibold text-gray-600">{entry.name}</span>
+                                                    <div className="relative h-5 rounded bg-gray-100">
+                                                      <span className="absolute left-1/2 top-0 h-full w-px bg-gray-300" />
+                                                      <span
+                                                        className={`absolute top-1 h-3 rounded ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                                                        style={
+                                                          isPositive
+                                                            ? { left: '50%', width: `${widthPct}%` }
+                                                            : { right: '50%', width: `${widthPct}%` }
+                                                        }
+                                                      />
+                                                    </div>
+                                                    <span className={`text-right text-[11px] font-bold ${isPositive ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                      {formatSignedVeoNumber(entry.delta)}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              });
+                                            })()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="overflow-x-auto rounded-md border border-gray-200 bg-white/80">
+                            <table className="min-w-full table-auto border-collapse text-sm">
+                              <thead>
+                                <tr className="border-b bg-gray-50">
+                                  <th className="px-4 py-2 text-left font-semibold text-gray-700">Métrique</th>
+                                  {veoComparisonDisplayRows.map((row) => (
+                                    <th key={`head-${row.comparisonKey}`} className="px-4 py-2 text-left">
+                                      <div className="text-xs font-bold text-gray-700">{row.columnLabel}</div>
+                                      <div className="text-[11px]" style={{ color: row.color }}>{row.columnTag}</div>
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {VEO_PLAYER_METRIC_ORDER.map((slug) => (
+                                  <tr key={`match-row-${slug}`} className="border-b last:border-b-0">
+                                    <td className="px-4 py-3 font-medium text-gray-600">
+                                      {VEO_PLAYER_METRIC_LABELS[slug] || slug}
+                                    </td>
+                                    {veoComparisonDisplayRows.map((row) => (
+                                      <td key={`${row.comparisonKey}-${slug}`} className="px-4 py-3 font-bold text-gray-900">
+                                        <span>{formatVeoMetricValue(row.metrics[slug])}</span>
+                                        {renderVeoMetricDeltaBadge(row, slug)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900">Metriques VEO (moyenne par session)</h2>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { TrashIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import ShotmapOverview from "../components/veo/ShotmapOverview";
 import SmartPastePanel from '../components/veo/SmartPastePanel';
@@ -90,6 +91,18 @@ const METRIC_LABEL_OVERRIDES = {
   player_tackles_won: 'Tacles reussis',
   player_recoveries: 'Recuperations',
   player_ball_losses: 'Pertes de balle',
+};
+
+const PLAYER_METRIC_MAX_VALUES = {
+  player_cards: 3,
+};
+
+const PLAYER_METRIC_AUTO_ZERO_LABELS = {
+  player_goal_assists: 'Equipe sans but',
+  player_goals: 'Equipe sans but',
+  player_shots: 'Equipe sans tir',
+  player_shots_on_target: 'Equipe sans tir',
+  player_fouls_committed: 'Equipe sans faute',
 };
 
 const UNIT_LABELS = {
@@ -232,6 +245,14 @@ function getParticipationRoleLabel(state) {
   return getParticipationMinutesValue(state) > 0 ? 'Entré en jeu' : 'Présent';
 }
 
+function getNumericInputValue(value) {
+  if (value === '' || value === null || value === undefined) {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function getMetricDisplayLabel(metric) {
   return METRIC_LABEL_OVERRIDES[metric.slug] || metric.label_fr;
 }
@@ -288,6 +309,7 @@ function buildTeamMetricFieldConfigs(metric) {
 export default function Veo() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingMatchId, setDeletingMatchId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -407,6 +429,24 @@ export default function Veo() {
     return index;
   }, [allTeamMetricFields]);
 
+  const ownTeamMetricValueBySlug = useMemo(() => {
+    const values = {};
+    (summary?.team_metrics?.OWN ?? []).forEach((metric) => {
+      values[metric.metric_slug] = metric.value;
+    });
+    Object.entries(teamMetricInputs).forEach(([key, raw]) => {
+      const field = teamMetricFieldByInputKey.get(key);
+      if (!field || field.inputSide !== 'OWN') {
+        return;
+      }
+      const numeric = getNumericInputValue(raw);
+      if (numeric !== null) {
+        values[field.saveSlug] = numeric;
+      }
+    });
+    return values;
+  }, [summary, teamMetricInputs, teamMetricFieldByInputKey]);
+
   const knownPlayerMetricSlugs = useMemo(
     () => new Set(allFlatPlayerMetrics.map((metric) => metric.slug)),
     [allFlatPlayerMetrics]
@@ -448,6 +488,106 @@ export default function Veo() {
     },
     [players, participationState]
   );
+
+  const autoZeroPlayerMetricReasons = useMemo(() => {
+    const reasons = {};
+    const scoreFor = getNumericInputValue(summary?.match?.score_for ?? matchForm.score_for);
+    const shots = getNumericInputValue(ownTeamMetricValueBySlug.team_shots);
+    const fouls = getNumericInputValue(ownTeamMetricValueBySlug.team_fouls);
+
+    if (scoreFor === 0) {
+      reasons.player_goals = PLAYER_METRIC_AUTO_ZERO_LABELS.player_goals;
+      reasons.player_goal_assists = PLAYER_METRIC_AUTO_ZERO_LABELS.player_goal_assists;
+    }
+    if (shots === 0) {
+      reasons.player_shots = PLAYER_METRIC_AUTO_ZERO_LABELS.player_shots;
+      reasons.player_shots_on_target = PLAYER_METRIC_AUTO_ZERO_LABELS.player_shots_on_target;
+    }
+    if (fouls === 0) {
+      reasons.player_fouls_committed = PLAYER_METRIC_AUTO_ZERO_LABELS.player_fouls_committed;
+    }
+
+    return reasons;
+  }, [summary, matchForm.score_for, ownTeamMetricValueBySlug]);
+
+  const getDisplayedPlayerMetricInputValue = (playerId, metricSlug, hasMinutes = true) => {
+    if (!hasMinutes || autoZeroPlayerMetricReasons[metricSlug]) {
+      return '0';
+    }
+    return playerMetricInputs[makePlayerMetricKey(playerId, metricSlug)] ?? '0';
+  };
+
+  const playerMetricValidation = useMemo(() => {
+    const errors = [];
+    const warnings = [];
+    const totals = {};
+    const scoreFor = getNumericInputValue(summary?.match?.score_for ?? matchForm.score_for);
+    const teamShots = getNumericInputValue(ownTeamMetricValueBySlug.team_shots);
+
+    playersForMetricsGrid.forEach((player) => {
+      const state = participationState[player.id] || {};
+      const hasMinutes = getParticipationMinutesValue(state) > 0;
+      visibleFlatPlayerMetrics.forEach((metric) => {
+        const raw = !hasMinutes || autoZeroPlayerMetricReasons[metric.slug]
+          ? '0'
+          : playerMetricInputs[makePlayerMetricKey(player.id, metric.slug)] ?? '0';
+        const value = getNumericInputValue(raw) ?? 0;
+        const playerName = formatPlayerDisplayName(player);
+        totals[metric.slug] = (totals[metric.slug] || 0) + value;
+
+        if (value < 0) {
+          errors.push(`${playerName}: ${getMetricDisplayLabel(metric)} ne peut pas etre negatif.`);
+        }
+
+        const maxValue = PLAYER_METRIC_MAX_VALUES[metric.slug];
+        if (maxValue !== undefined && value > maxValue) {
+          errors.push(`${playerName}: ${getMetricDisplayLabel(metric)} ne peut pas depasser ${maxValue}.`);
+        }
+      });
+
+      const shots =
+        getNumericInputValue(
+          !hasMinutes || autoZeroPlayerMetricReasons.player_shots
+            ? '0'
+            : playerMetricInputs[makePlayerMetricKey(player.id, 'player_shots')] ?? '0'
+        ) ?? 0;
+      const shotsOnTarget =
+        getNumericInputValue(
+          !hasMinutes || autoZeroPlayerMetricReasons.player_shots_on_target
+            ? '0'
+            : playerMetricInputs[makePlayerMetricKey(player.id, 'player_shots_on_target')] ?? '0'
+        ) ?? 0;
+      if (shotsOnTarget > shots) {
+        errors.push(`${formatPlayerDisplayName(player)}: tirs cadres superieurs aux tirs.`);
+      }
+    });
+
+    if (scoreFor !== null) {
+      const totalGoals = totals.player_goals || 0;
+      const totalAssists = totals.player_goal_assists || 0;
+      if (totalGoals > scoreFor) {
+        errors.push(`Total buts joueurs (${totalGoals}) superieur au score equipe (${scoreFor}).`);
+      }
+      if (totalAssists > scoreFor) {
+        warnings.push(`Total passes decisives (${totalAssists}) superieur au nombre de buts equipe (${scoreFor}).`);
+      }
+    }
+
+    if (teamShots !== null && (totals.player_shots || 0) > teamShots) {
+      warnings.push(`Total tirs joueurs (${totals.player_shots || 0}) superieur aux tirs equipe (${teamShots}).`);
+    }
+
+    return { errors, warnings, totals };
+  }, [
+    playersForMetricsGrid,
+    participationState,
+    visibleFlatPlayerMetrics,
+    playerMetricInputs,
+    autoZeroPlayerMetricReasons,
+    summary,
+    matchForm.score_for,
+    ownTeamMetricValueBySlug,
+  ]);
 
   const selectedCatapultSession = useMemo(
     () =>
@@ -1006,6 +1146,47 @@ export default function Veo() {
     }
   };
 
+  const handleDeleteVeoSession = async (match) => {
+    if (!match?.id) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Supprimer la session VEO "${formatMatchLabel(match)}" ?\n\nLes participations et metriques associees seront aussi supprimees.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const matchId = String(match.id);
+    const wasSelected = matchId === String(selectedMatchId);
+
+    try {
+      setDeletingMatchId(matchId);
+      setSaving(true);
+      await veoService.deleteMatch(Number(match.id));
+      const refreshedMatches = await refreshMatches();
+
+      if (wasSelected) {
+        latestSelectedMatchRequest.current += 1;
+        const nextMatch = refreshedMatches.find((item) => String(item.id) !== matchId) || null;
+        setSelectedMatchId(nextMatch ? String(nextMatch.id) : '');
+        if (!nextMatch) {
+          resetSelectedMatchState();
+          setActiveWorkflowStep('SESSION');
+        }
+      }
+
+      setFlash('Session VEO supprimee');
+    } catch (err) {
+      console.error(err);
+      setFlash(err.response?.data?.detail || 'Erreur lors de la suppression de la session VEO', 'error');
+    } finally {
+      setDeletingMatchId('');
+      setSaving(false);
+    }
+  };
+
   const handleParticipationChange = (playerId, field, value) => {
     setParticipationState((prev) => ({
       ...prev,
@@ -1098,37 +1279,53 @@ export default function Veo() {
     if (!selectedMatchId) {
       return;
     }
+    if (playerMetricValidation.errors.length > 0) {
+      setFlash(playerMetricValidation.errors[0], 'error');
+      return;
+    }
 
-    const selectedPlayerIds = new Set(
-      players
-        .filter((player) => participationState[player.id]?.selected)
+    const selectedPlayers = players.filter((player) => participationState[player.id]?.selected);
+    const selectedPlayerIds = new Set(selectedPlayers.map((player) => Number(player.id)));
+    const zeroMinutePlayerIds = new Set(
+      selectedPlayers
+        .filter((player) => getParticipationMinutesValue(participationState[player.id]) <= 0)
         .map((player) => Number(player.id))
     );
+    const valuesByKey = new Map();
 
-    const values = Object.entries(playerMetricInputs)
-      .map(([key, raw]) => {
-        if (raw === '' || raw === null || raw === undefined) {
-          return null;
+    selectedPlayers.forEach((player) => {
+      const normalizedPlayerId = Number(player.id);
+      if (!selectedPlayerIds.has(normalizedPlayerId) || zeroMinutePlayerIds.has(normalizedPlayerId)) {
+        return;
+      }
+      allFlatPlayerMetrics.forEach((metric) => {
+        if (!knownPlayerMetricSlugs.has(metric.slug)) {
+          return;
         }
-        const value = Number(raw);
-        if (Number.isNaN(value)) {
-          return null;
-        }
-        const [playerId, metricSlug] = key.split('__');
-        const normalizedPlayerId = Number(playerId);
-        if (!selectedPlayerIds.has(normalizedPlayerId)) {
-          return null;
-        }
-        if (!knownPlayerMetricSlugs.has(metricSlug)) {
-          return null;
-        }
-        return {
+        const raw = getDisplayedPlayerMetricInputValue(normalizedPlayerId, metric.slug, true);
+        const value = getNumericInputValue(raw) ?? 0;
+        valuesByKey.set(`${normalizedPlayerId}__${metric.slug}`, {
           player_id: normalizedPlayerId,
-          metric_slug: metricSlug,
+          metric_slug: metric.slug,
           value,
-        };
-      })
-      .filter(Boolean);
+        });
+      });
+    });
+
+    zeroMinutePlayerIds.forEach((playerId) => {
+      allFlatPlayerMetrics.forEach((metric) => {
+        if (!knownPlayerMetricSlugs.has(metric.slug)) {
+          return;
+        }
+        valuesByKey.set(`${playerId}__${metric.slug}`, {
+          player_id: playerId,
+          metric_slug: metric.slug,
+          value: 0,
+        });
+      });
+    });
+
+    const values = Array.from(valuesByKey.values());
 
     try {
       setSaving(true);
@@ -1136,7 +1333,10 @@ export default function Veo() {
       if (result.errors?.length) {
         setFlash(`Sauvegarde partielle: ${result.errors.join(' | ')}`, 'error');
       } else {
-        setFlash('Metriques joueurs enregistrees');
+        const warningSuffix = playerMetricValidation.warnings.length > 0
+          ? ` A verifier: ${playerMetricValidation.warnings[0]}`
+          : '';
+        setFlash(`Metriques joueurs enregistrees. Les champs vides et joueurs sans temps de jeu sont a 0.${warningSuffix}`);
       }
       await loadSelectedMatch(selectedMatchId);
     } catch (err) {
@@ -1792,15 +1992,31 @@ export default function Veo() {
                   {matches.map((match) => (
                     <li
                       key={match.id}
-                      className={`px-3 py-2 cursor-pointer ${
+                      className={`flex items-center gap-2 px-3 py-2 ${
                         String(match.id) === selectedMatchId ? 'bg-blue-50' : 'hover:bg-gray-50'
                       }`}
-                      onClick={() => setSelectedMatchId(String(match.id))}
                     >
-                      <p className="text-sm font-medium text-gray-900">{match.opponent_name}</p>
-                      <p className="text-xs text-gray-500">
-                        {match.date} • {match.match_type} • {match.score_for ?? 0}-{match.score_against ?? 0}
-                      </p>
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 text-left"
+                        onClick={() => setSelectedMatchId(String(match.id))}
+                      >
+                        <p className="truncate text-sm font-medium text-gray-900">{match.opponent_name}</p>
+                        <p className="truncate text-xs text-gray-500">
+                          {match.date} • {match.match_type} • {match.score_for ?? 0}-{match.score_against ?? 0}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        title="Supprimer la session VEO"
+                        aria-label={`Supprimer ${formatMatchLabel(match)}`}
+                        disabled={saving || deletingMatchId === String(match.id)}
+                        onClick={() => handleDeleteVeoSession(match)}
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <TrashIcon className="h-4 w-4" aria-hidden="true" />
+                        <span className="sr-only">Supprimer</span>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -1976,23 +2192,64 @@ export default function Veo() {
                     {rosterSyncMessage}
                   </p>
               )}
+              {(Object.keys(autoZeroPlayerMetricReasons).length > 0 ||
+                playerMetricValidation.errors.length > 0 ||
+                playerMetricValidation.warnings.length > 0) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {Object.keys(autoZeroPlayerMetricReasons).length > 0 && (
+                    <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                      <p className="font-semibold">Remplissage automatique</p>
+                      <p className="mt-1">
+                        {Object.entries(autoZeroPlayerMetricReasons)
+                          .map(([slug, reason]) => `${getMetricDisplayLabel({ slug, label_fr: slug })}: 0 (${reason})`)
+                          .join(' • ')}
+                      </p>
+                    </div>
+                  )}
+                  {(playerMetricValidation.errors.length > 0 || playerMetricValidation.warnings.length > 0) && (
+                    <div
+                      className={`rounded-md border px-3 py-2 text-xs ${
+                        playerMetricValidation.errors.length > 0
+                          ? 'border-rose-100 bg-rose-50 text-rose-900'
+                          : 'border-orange-100 bg-orange-50 text-orange-900'
+                      }`}
+                    >
+                      <p className="font-semibold">
+                        {playerMetricValidation.errors.length > 0 ? 'Incoherence bloquante' : 'A verifier'}
+                      </p>
+                      <p className="mt-1">
+                        {(playerMetricValidation.errors[0] || playerMetricValidation.warnings[0])}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               {playersForMetricsGrid.length === 0 ? (
                 <p className="text-sm text-gray-500">
                   Aucun joueur selectionne pour ce match. Coche les joueurs presents dans Participations pour saisir leurs metriques.
                 </p>
               ) : (
-                <div className="overflow-auto border rounded-md">
-                  <table className="min-w-full text-sm">
+                <div className="overflow-hidden border rounded-md">
+                  <table className="w-full table-fixed text-xs">
                     <thead>
                       <tr className="border-b bg-gray-50">
-                        <th className="text-left py-2 px-3">Joueur</th>
-                        <th className="text-left py-2 px-3 whitespace-nowrap">Statut</th>
-                        <th className="text-left py-2 px-3 whitespace-nowrap">Temps</th>
+                        <th className="w-36 text-left py-2 px-2">Joueur</th>
+                        <th className="w-24 text-left py-2 px-2">Statut</th>
+                        <th className="w-14 text-left py-2 px-1">Temps</th>
                         {visibleFlatPlayerMetrics.map((metric) => {
                           const metaLabel = getMetricMetaLabel(metric);
                           return (
-                            <th key={metric.slug} className="text-left py-2 px-3 whitespace-nowrap">
-                              <div className="font-medium">{getMetricDisplayLabel(metric)}</div>
+                            <th key={metric.slug} className="py-2 px-1 text-center align-bottom">
+                              <div className="mx-auto max-w-16 truncate font-medium" title={getMetricDisplayLabel(metric)}>
+                                {metric.slug === 'player_cards' ? (
+                                  <span className="inline-flex items-center justify-center gap-0.5">
+                                    <span className="inline-block h-3 w-2 rounded-[1px] bg-yellow-300 ring-1 ring-yellow-500" />
+                                    <span className="inline-block h-3 w-2 rounded-[1px] bg-red-500 ring-1 ring-red-700" />
+                                  </span>
+                                ) : (
+                                  getMetricDisplayLabel(metric)
+                                )}
+                              </div>
                               {metaLabel && <div className="text-[10px] text-gray-500">{metaLabel}</div>}
                             </th>
                           );
@@ -2017,33 +2274,39 @@ export default function Veo() {
                             : 'bg-gray-100 text-gray-600 border-gray-200';
                         return (
                         <tr key={player.id} className={`border-b last:border-b-0 ${rowClass}`}>
-                          <td className="py-2 px-3 font-medium whitespace-nowrap">
+                          <td className="py-2 px-2 font-medium">
                             <div className="flex items-center gap-2">
                               <span
                                 className={`h-2 w-2 rounded-full ${
                                   state.is_starter ? 'bg-blue-600' : hasMinutes ? 'bg-emerald-600' : 'bg-gray-300'
                                 }`}
                               />
-                              {formatPlayerDisplayName(player)}
+                              <span className="truncate">{formatPlayerDisplayName(player)}</span>
                             </div>
                           </td>
-                          <td className="py-2 px-3 whitespace-nowrap">
+                          <td className="py-2 px-2">
                             <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClass}`}>
                               {roleLabel}
                             </span>
                           </td>
-                          <td className="py-2 px-3 whitespace-nowrap text-sm font-semibold text-gray-900">
+                          <td className="py-2 px-1 text-xs font-semibold text-gray-900">
                             {hasMinutes ? `${minutes} min` : '-'}
                           </td>
                           {visibleFlatPlayerMetrics.map((metric) => {
                             const key = makePlayerMetricKey(player.id, metric.slug);
+                            const isAutoZero = !!autoZeroPlayerMetricReasons[metric.slug];
+                            const displayValue = getDisplayedPlayerMetricInputValue(player.id, metric.slug, hasMinutes);
                             return (
-                              <td key={key} className="py-2 px-3">
+                              <td key={key} className="py-2 px-1">
                                 <input
                                   type="number"
+                                  min="0"
+                                  max={PLAYER_METRIC_MAX_VALUES[metric.slug]}
                                   step={metric.datatype === 'INT' ? '1' : '0.01'}
-                                  className="h-9 w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  value={playerMetricInputs[key] ?? ''}
+                                  disabled={!hasMinutes || isAutoZero}
+                                  title={isAutoZero ? autoZeroPlayerMetricReasons[metric.slug] : undefined}
+                                  className="h-8 w-full min-w-0 rounded border border-gray-300 px-1 py-1 text-center text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                  value={displayValue}
                                   onChange={(e) =>
                                     setPlayerMetricInputs((prev) => ({
                                       ...prev,
