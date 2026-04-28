@@ -11,6 +11,21 @@ from ..middleware.security import get_current_user, require_coach_or_admin
 router = APIRouter(prefix="/players", tags=["Injuries"])
 
 
+@router.get('/me/injuries', response_model=List[InjuryRead], summary="Get my injuries")
+def get_my_injuries(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retourne les blessures du joueur connecté
+    """
+    player_id = getattr(current_user, 'id', None)
+    if not player_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User id not available')
+    statement = select(Injury).where(Injury.user_id == player_id).order_by(Injury.injury_date.desc())
+    injuries = session.exec(statement).all()
+    return injuries
+
 @router.get("/{player_id}/injuries", response_model=List[InjuryRead], summary="Get player injuries")
 def get_player_injuries(
     player_id: int,

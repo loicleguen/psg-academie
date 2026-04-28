@@ -683,10 +683,6 @@ def generate_individual_week_report(
     return Response(content=img_binary, media_type="image/png")
 
 
-
-
-
-
 @router.get("/players/{player_name}/stats")
 def get_player_stats(
     player_name: str,
@@ -979,3 +975,58 @@ async def generate_radar_chart(
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# ---------------------
+# "Me" convenience endpoints (read-only for the authenticated user)
+# ---------------------
+@router.get('/me/stats')
+def get_my_stats(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if not getattr(current_user, 'player_name', None):
+        raise HTTPException(status_code=404, detail='No player_name set for current user')
+    return get_player_stats(current_user.player_name, session, current_user)
+
+
+@router.get('/me/sessions')
+def get_my_sessions(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if not getattr(current_user, 'player_name', None):
+        raise HTTPException(status_code=404, detail='No player_name set for current user')
+    return get_player_sessions(current_user.player_name, session, current_user)
+
+
+@router.get('/me/selected-session')
+def get_my_selected_session(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if not getattr(current_user, 'player_name', None):
+        raise HTTPException(status_code=404, detail='No player_name set for current user')
+    return get_selected_session(current_user.player_name, session, current_user)
+
+
+@router.get('/me/session/{session_id}/report')
+def get_my_session_report(
+    session_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if not getattr(current_user, 'player_name', None):
+        raise HTTPException(status_code=404, detail='No player_name set for current user')
+    return get_player_session_report(current_user.player_name, session_id, session, current_user)
+
+
+@router.get('/me/reports/session/json')
+def get_my_session_stats_json(
+    session_title: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if not getattr(current_user, 'player_name', None):
+        raise HTTPException(status_code=404, detail='No player_name set for current user')
+    return get_player_session_stats_json(session_title, current_user.player_name, session, current_user)
+

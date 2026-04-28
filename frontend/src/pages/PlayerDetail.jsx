@@ -40,7 +40,8 @@ export default function PlayerDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const compareWith = searchParams.get('compare');
 
-  const [activeTab, setActiveTab] = useState('info');
+  const tab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tab || 'info');
   const [playerInfo, setPlayerInfo] = useState(null);
   const [playerStats, setPlayerStats] = useState(null);
   const [catapultFilter, setCatapultFilter] = useState('all');
@@ -137,13 +138,13 @@ export default function PlayerDetail() {
   // Charger les sessions à l'ouverture de l'onglet Catapult
   useEffect(() => {
     if (activeTab === 'catapult') {
-      catapultService.getSessionsByPlayer(playerName).then(sessions => {
-        // Filtrer sur les 6 derniers mois
+      const sessionsFetcher = isOwnProfile ? catapultService.getMySessions() : catapultService.getSessionsByPlayer(playerName);
+      sessionsFetcher.then(sessions => {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         const filtered = sessions
           .filter(s => new Date(s.date) >= sixMonthsAgo)
-          .sort((a, b) => new Date(b.date) - new Date(a.date)); // Tri décroissant
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
         setPlayerSessions(filtered);
       });
     }
@@ -153,11 +154,14 @@ export default function PlayerDetail() {
     if (selectedSession) {
       const sessionObj = playerSessions.find(s => s.id === Number(selectedSession));
       if (sessionObj) {
-        catapultService.getPlayerSessionStatsJson(sessionObj.session_title, playerName)
-          .then(async (stats) => {
-            stats.radar_image = await generateRadarChart(stats);
-            setSelectedSessionStats(stats);
-          });
+        const statsPromise = isOwnProfile
+          ? catapultService.getMySessionStatsJson(sessionObj.session_title)
+          : catapultService.getPlayerSessionStatsJson(sessionObj.session_title, playerName);
+
+        statsPromise.then(async (stats) => {
+          stats.radar_image = await generateRadarChart(stats);
+          setSelectedSessionStats(stats);
+        });
       }
     } else {
       setSelectedSessionStats(null);
@@ -166,11 +170,12 @@ export default function PlayerDetail() {
 
   useEffect(() => {
     // Charger la session sélectionnée au mount
-    catapultService.getSelectedSession(playerName).then(res => {
-      if (res && res.session_id) {
-        setSelectedSession(res.session_id.toString());
-      }
-    });
+    (isOwnProfile ? catapultService.getMySelectedSession() : catapultService.getSelectedSession(playerName))
+      .then(res => {
+        if (res && res.session_id) {
+          setSelectedSession(res.session_id.toString());
+        }
+      });
   }, [playerName]);
 
   const fetchTeams = async () => {
@@ -207,7 +212,13 @@ export default function PlayerDetail() {
     if (activeTab === 'medical') {
       fetchInjuries();
     }
-  }, [activeTab, playerInfo]);
+  }, [activeTab, playerInfo, playerName]);
+
+  const sameIdentity = (a, b) =>
+    String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+  const meCached = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+  const isOwnProfile = meCached && (sameIdentity(meCached.player_name, playerName) || sameIdentity(meCached.full_name, playerName));
 
   const loadPlayerInfo = async () => {
     try {
@@ -215,7 +226,7 @@ export default function PlayerDetail() {
       if (cached) {
         try {
           const u = JSON.parse(cached);
-          if (u && (u.player_name === playerName || u.full_name === playerName)) {
+          if (u && (sameIdentity(u.player_name, playerName) || sameIdentity(u.full_name, playerName))) {
             setPlayerInfo(u);
             return;
           }
@@ -225,14 +236,14 @@ export default function PlayerDetail() {
       try {
         const meRes = await api.get('/auth/me');
         const me = meRes.data;
-        if (me && (me.player_name === playerName || me.full_name === playerName)) {
+        if (me && (sameIdentity(me.player_name, playerName) || sameIdentity(me.full_name, playerName))) {
           setPlayerInfo(me);
           return;
         }
       } catch (err) { console.debug(err); }
 
       const response = await api.get('/auth/users');
-      const player = response.data.find(u => u.player_name === playerName || u.full_name === playerName);
+      const player = response.data.find(u => sameIdentity(u.player_name, playerName) || sameIdentity(u.full_name, playerName));
       setPlayerInfo(player);
     } catch (err) { console.debug(err); }
   };
@@ -250,7 +261,12 @@ export default function PlayerDetail() {
   const loadPlayerStats = async () => {
     try {
       setLoading(true);
-      const stats = await catapultService.getPlayerStats(playerName);
+      let stats;
+      if (isOwnProfile) {
+        stats = await catapultService.getMyStats();
+      } else {
+        stats = await catapultService.getPlayerStats(playerName);
+      }
       setPlayerStats(stats);
     } catch (err) { console.debug(err); } finally {
       setLoading(false);
@@ -302,7 +318,8 @@ export default function PlayerDetail() {
   const fetchInjuries = async () => {
     if (!playerInfo) return;
     try {
-      const res = await api.get(`/players/${playerInfo.id}/injuries`);
+      const url = isOwnProfile ? '/players/me/injuries' : `/players/${playerInfo.id}/injuries`;
+      const res = await api.get(url);
       const list = res.data || [];
       list.sort((a,b) => new Date(b.injury_date) - new Date(a.injury_date));
       setInjuries(list);
@@ -535,7 +552,9 @@ export default function PlayerDetail() {
     }
   };
 
-  const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+const canEditProfile = me && (me.role === 'admin' || me.role === 'coach');
+const canChangeOwnPassword = me && playerInfo?.id === me.id;
 
   const handleVeoCompare = async () => {
     if (
@@ -743,13 +762,17 @@ export default function PlayerDetail() {
                         </div>
                       )}
 
-                      <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+                      {canEditProfile && (
+                        <>
+                          <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
 
-                      <label htmlFor="photo-upload" className="absolute inset-0 flex items-center justify-center rounded-lg cursor-pointer hover:bg-black hover:bg-opacity-25">
-                        {!playerInfo?.photo_url && (
-                          <span className="px-3 py-1 bg-white bg-opacity-80 text-sm rounded">Upload</span>
-                        )}
-                      </label>
+                          <label htmlFor="photo-upload" className="absolute inset-0 flex items-center justify-center rounded-lg cursor-pointer hover:bg-black hover:bg-opacity-25">
+                            {!playerInfo?.photo_url && (
+                              <span className="px-3 py-1 bg-white bg-opacity-80 text-sm rounded">Upload</span>
+                            )}
+                          </label>
+                        </>
+                      )}
 
 
                     </div>
@@ -757,12 +780,84 @@ export default function PlayerDetail() {
 
                   <div className="flex-1 grid grid-cols-2">
                     <div className="col-span-2 flex justify-end items-start">
-                      <button
-                        onClick={() => { setEditForm(playerInfo || {}); setShowEditModal(true); }}
-                        className="ml-auto px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-900"
-                      >
-                        Modifier
-                      </button>
+                      {canChangeOwnPassword && (
+                        <button
+                          onClick={handleShowPasswordForm}
+                          className="px-3 py-1 text-sm bg-slate-600 text-white rounded hover:bg-slate-700"
+                        >
+                          Modifier le mot de passe
+                        </button>
+                      )}
+
+                      {canEditProfile && (
+                        <button
+                          onClick={() => { setEditForm(playerInfo || {}); setShowEditModal(true); }}
+                          className="ml-auto px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-900"
+                        >
+                          Modifier
+                        </button>
+                      )}
+
+                      {showPasswordForm && canChangeOwnPassword && (
+                        <div className="col-span-2 mb-4 p-4 bg-gray-50 rounded border max-w-md ml-auto">
+                          <form
+                            ref={passwordFormRef}
+                            className="flex flex-col gap-2"
+                            onSubmit={handlePasswordChange}
+                          >
+                            <label>
+                              Ancien mot de passe
+                              <input
+                                type="password"
+                                className="w-full mt-1 px-2 py-1 border rounded"
+                                value={oldPassword}
+                                onChange={(e) => setOldPassword(e.target.value)}
+                                required
+                              />
+                            </label>
+                            <label>
+                              Nouveau mot de passe
+                              <input
+                                type="password"
+                                className="w-full mt-1 px-2 py-1 border rounded"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                required
+                              />
+                            </label>
+                            <label>
+                              Confirmer le mot de passe
+                              <input
+                                type="password"
+                                className="w-full mt-1 px-2 py-1 border rounded"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                              />
+                            </label>
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                type="button"
+                                className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                                onClick={() => {
+                                  setShowPasswordForm(false);
+                                  setOldPassword('');
+                                  setNewPassword('');
+                                  setConfirmPassword('');
+                                }}
+                              >
+                                Annuler
+                              </button>
+                              <button
+                                type="submit"
+                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                              >
+                                Enregistrer
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      )}
 
                     </div>
                     <div>
@@ -834,72 +929,6 @@ export default function PlayerDetail() {
                     <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
                       <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                        {me && playerInfo?.id === me.id && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
-                            <button
-                              className="mb-4 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                              onClick={handleShowPasswordForm}
-                            >
-                              Modifier le mot de passe
-                            </button>
-                            {showPasswordForm && (
-                              <form
-                                style={{ maxHeight: '320px', overflowY: 'auto' }}
-                                ref={passwordFormRef}
-                                className="mb-2 p-2 bg-gray-50 rounded border flex flex-col gap-2 max-w-xs max-h-80 overflow-y-auto"
-                                onSubmit={handlePasswordChange}
-                              >
-                                <label>
-                                  Ancien mot de passe
-                                  <input
-                                    type="password"
-                                    className="w-full mt-1 px-2 py-1 border rounded"
-                                    value={oldPassword}
-                                    onChange={e => setOldPassword(e.target.value)}
-                                    required
-                                  />
-                                </label>
-                                <label>
-                                  Nouveau mot de passe
-                                  <input
-                                    type="password"
-                                    className="w-full mt-1 px-2 py-1 border rounded"
-                                    value={newPassword}
-                                    onChange={e => setNewPassword(e.target.value)}
-                                    required
-                                  />
-                                </label>
-                                <label>
-                                  Confirmer le nouveau mot de passe
-                                  <input
-                                    type="password"
-                                    className="w-full mt-1 px-2 py-1 border rounded"
-                                    value={confirmPassword}
-                                    onChange={e => setConfirmPassword(e.target.value)}
-                                    required
-                                  />
-                                </label>
-                                <div className="flex gap-2">
-                                  <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                                  >
-                                    Enregistrer
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                                    onClick={() => setShowPasswordForm(false)}
-                                  >
-                                    Annuler
-                                  </button>
-                                </div>
-                              </form>
-                            )}
-                          </div>
-                        )}
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Nom complet</label>
