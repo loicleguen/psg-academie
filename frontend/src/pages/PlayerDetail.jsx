@@ -554,6 +554,7 @@ export default function PlayerDetail() {
 
 const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
 const canEditProfile = me && (me.role === 'admin' || me.role === 'coach');
+const canResetPassword = me && me.role === 'admin';
 const canChangeOwnPassword = me && playerInfo?.id === me.id;
 
   const handleVeoCompare = async () => {
@@ -780,23 +781,51 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
 
                   <div className="flex-1 grid grid-cols-2">
                     <div className="col-span-2 flex justify-end items-start">
-                      {canChangeOwnPassword && (
-                        <button
-                          onClick={handleShowPasswordForm}
-                          className="px-3 py-1 text-sm bg-slate-600 text-white rounded hover:bg-slate-700"
-                        >
-                          Modifier le mot de passe
-                        </button>
-                      )}
+                      <div className="col-span-2 flex flex-col items-end gap-2">
+                        {canChangeOwnPassword && (
+                          <button
+                            onClick={handleShowPasswordForm}
+                            className="px-3 py-1 text-sm bg-slate-600 text-white rounded hover:bg-slate-700"
+                          >
+                            Modifier le mot de passe
+                          </button>
+                        )}
 
-                      {canEditProfile && (
-                        <button
-                          onClick={() => { setEditForm(playerInfo || {}); setShowEditModal(true); }}
-                          className="ml-auto px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-900"
-                        >
-                          Modifier
-                        </button>
-                      )}
+                        {canEditProfile && (
+                          <button
+                            onClick={() => { setEditForm(playerInfo || {}); setShowEditModal(true); }}
+                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-900"
+                          >
+                            Modifier
+                          </button>
+                        )}
+
+                        {canResetPassword && (
+                          <button
+                            onClick={async () => {
+                              const firstName = (playerInfo?.full_name || '').trim().split(/\s+/)[0]?.toUpperCase();
+                              if (!firstName) {
+                                alert("Nom complet manquant");
+                                return;
+                              }
+
+                              if (!window.confirm(`Réinitialiser le mot de passe de ${playerInfo.full_name} en ${firstName} ?`)) {
+                                return;
+                              }
+
+                              try {
+                                await api.post(`/auth/users/${playerInfo.id}/reset-password`);
+                                alert(`Mot de passe réinitialisé en ${firstName}`);
+                              } catch (err) {
+                                alert(err.response?.data?.detail || err.message);
+                              }
+                            }}
+                            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                          >
+                            Réinitialiser le mot de passe
+                          </button>
+                        )}
+                      </div>
 
                       {showPasswordForm && canChangeOwnPassword && (
                         <div className="col-span-2 mb-4 p-4 bg-gray-50 rounded border max-w-md ml-auto">
