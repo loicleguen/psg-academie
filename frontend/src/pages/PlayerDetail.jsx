@@ -472,9 +472,9 @@ export default function PlayerDetail() {
         <table className="w-full table-auto border-collapse">
           <thead>
             <tr>
-              <th className="px-4 py-2 text-left"></th>
+              <th className="px-4 py-2"></th>
               {players.map((p, i) => (
-                <th key={i} className="px-4 py-2 text-left">
+                <th key={i} className="px-4 py-2 text-center">
                   <div className="text-xs text-gray-500">{p?.player_name ?? '-'}</div>
                 </th>
               ))}
@@ -485,8 +485,8 @@ export default function PlayerDetail() {
               <tr key={r.key} className="border-t">
                 <td className="px-4 py-3 text-sm text-gray-600 font-medium">{r.label}</td>
                 {players.map((p, i) => (
-                  <td key={i} className="px-4 py-3">
-                    <div className={`text-2xl font-bold ${r.color || ''}`}>{r.format ? r.format(p?.[r.key], p) : (p?.[r.key] ?? '-')}</div>
+                  <td key={i} className="px-4 py-3 text-center align-middle">
+                    <div className={`text-2xl font-bold text-center ${r.color || ''}`}>{r.format ? r.format(p?.[r.key], p) : (p?.[r.key] ?? '-')}</div>
                   </td>
                 ))}
               </tr>
@@ -1170,7 +1170,7 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <StatTable
                     rows={[
-                      { key: 'graph', label: 'Graph Radar', format: (v, player) => player?.radar_image ? (<img src={player.radar_image} alt="Radar" style={{width: '220px', height: '200px'}} />) : 'Chargement...' },
+                      { key: 'graph', label: 'Graph Radar', format: (v, player) => player?.radar_image ? (<div className="flex justify-center"> <img src={player.radar_image} alt="Radar" className="mx-auto" style={{width: '180px', height: '160px'}} /> </div>) : 'Chargement...' },
                       { key: 'minutes', label: 'Minutes', format: v => Math.round(v), color: 'text-blue-600' },
                       { key: 'distance', label: 'Distance (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
                       { key: 'hsr', label: 'HSR (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
