@@ -354,7 +354,7 @@ export default function PlayerDetail() {
         try {
           const s = await catapultService.getPlayerStats(compareWith);
           setComparePlayersStats([s]);
-        } catch (err) { 
+        } catch (err) {
           console.debug(err);
           setComparePlayersStats([]);
         }
@@ -808,7 +808,7 @@ export default function PlayerDetail() {
     if (!clickCoordinates) {
       return;
     }
-    
+
     const payload = {
       coord_x: clickCoordinates.coord_x,
       coord_y: clickCoordinates.coord_y,
@@ -862,7 +862,7 @@ export default function PlayerDetail() {
 
   if (loading) {
     return (
-      <div className="bg-white/60 min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-white/60 min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -1164,7 +1164,7 @@ export default function PlayerDetail() {
               >
                 Stats VEO
               </button>
-              
+
               <button
                 onClick={() => setActiveTab('medical')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
@@ -1182,7 +1182,7 @@ export default function PlayerDetail() {
             {activeTab === 'info' && (
               <div className="space-y-6">
                 <div className="flex items-start gap-15">
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     <div className="relative w-48 h-48">
                       {playerInfo?.photo_url ? (
                         <img src={playerInfo.photo_url.startsWith('http') ? playerInfo.photo_url : `/api/physical${playerInfo.photo_url}`} alt="photo" className="w-48 h-48 object-cover rounded-lg" />
@@ -1239,7 +1239,7 @@ export default function PlayerDetail() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Adresse postale</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4 whitespace-pre-wrap break-words">{playerInfo?.adress || 'À renseigner'}</p>
+                        <p className="text-lg font-semibold text-gray-900 mb-4 whitespace-pre-wrap wrap-break-word">{playerInfo?.adress || 'À renseigner'}</p>
                       </div>
 
                       <div>
@@ -2045,18 +2045,18 @@ export default function PlayerDetail() {
                         </div>
                       )}
                       <label className="block text-m font-medium text-gray-700">Date de la blessure</label>
-                      <input 
-                        type="date" 
-                        value={injuryDate} 
-                        onChange={(e) => setInjuryDate(e.target.value)} 
-                        className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
+                      <input
+                        type="date"
+                        value={injuryDate}
+                        onChange={(e) => setInjuryDate(e.target.value)}
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded"
                       />
                       <label className="block text-m font-medium text-gray-700">En arrêt jusqu'au</label>
-                      <input 
-                        type="date" 
-                        value={injuryEndDate} 
-                        onChange={(e) => setInjuryEndDate(e.target.value)} 
-                        className="mt-1 mb-3 w-full px-3 py-2 border rounded" 
+                      <input
+                        type="date"
+                        value={injuryEndDate}
+                        onChange={(e) => setInjuryEndDate(e.target.value)}
+                        className="mt-1 mb-3 w-full px-3 py-2 border rounded"
                       />
                       <label className="mt-2 block text-m font-medium text-gray-700">Que permet cette blessure</label>
                       <div className="flex items-center gap-2 mt-2">
@@ -2079,22 +2079,22 @@ export default function PlayerDetail() {
                         </select>
                       </div>
                       <label className="mt-4 block text-sm font-medium text-gray-700">Commentaire (localisation, type...)</label>
-                      <textarea 
-                        value={injuryComment} 
-                        onChange={(e) => setInjuryComment(e.target.value)} 
+                      <textarea
+                        value={injuryComment}
+                        onChange={(e) => setInjuryComment(e.target.value)}
                         placeholder="Ex: Genou droit, entorse légère"
-                        className="mt-1 mb-4 w-full px-3 py-2 border rounded" 
+                        className="mt-1 mb-4 w-full px-3 py-2 border rounded"
                         rows={3}
                       ></textarea>
                       <div className="flex justify-end gap-3">
-                        <button 
-                          onClick={() => { setShowAddModal(false); setInjuryEndDate(''); }} 
+                        <button
+                          onClick={() => { setShowAddModal(false); setInjuryEndDate(''); }}
                           className="px-4 py-2 rounded border hover:bg-gray-50"
                         >
                           Annuler
                         </button>
-                        <button 
-                          onClick={addInjury} 
+                        <button
+                          onClick={addInjury}
                           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
                           Ajouter
