@@ -70,3 +70,23 @@ def make_require_coach_or_admin(get_current_user_dep):
         return current_user
 
     return require_coach_or_admin
+
+# common/security.py
+
+def make_require_admin_only(get_current_user_dep):
+    """
+    Factory générique : prend n'importe quelle dépendance get_current_user
+    et retourne une dépendance require_admin_only.
+    """
+    def require_admin_only(
+        current_user=Depends(get_current_user_dep),
+    ):
+        role_value = getattr(current_user.role, "value", current_user.role)
+        if str(role_value).lower() != UserRole.ADMIN.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin only",
+            )
+        return current_user
+
+    return require_admin_only

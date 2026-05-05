@@ -90,7 +90,16 @@ export default function Layout({ children }) {
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
               <div className="ml-3 relative">
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-700">{user?.full_name}</span>
+                  <button
+                    onClick={() => {
+                      const profileSlug = user?.player_name || user?.full_name;
+                      if (!profileSlug) return;
+                      navigate(`/players/${encodeURIComponent(profileSlug)}?tab=info`);
+                    }}
+                    className="text-sm text-gray-700 hover:text-blue-500 hover:underline cursor-pointer transition"
+                  >
+                    {user?.full_name}
+                  </button>
                   <button
                     onClick={handleLogout}
                     className="bg-red-500 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-red-700"

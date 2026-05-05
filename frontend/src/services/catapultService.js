@@ -93,5 +93,33 @@ export const catapultService = {
 
   async setSelectedSession(playerName, sessionId) {
     await api.post(`/catapult/players/${encodeURIComponent(playerName)}/selected-session`, { session_id: sessionId });
-  }
+  },
+
+  // --- /me convenience methods for current authenticated player
+  async getMyStats() {
+    const response = await api.get('/catapult/me/stats');
+    return response.data;
+  },
+
+  async getMySessions() {
+    const response = await api.get('/catapult/me/sessions');
+    return response.data;
+  },
+
+  async getMySelectedSession() {
+    const response = await api.get('/catapult/me/selected-session');
+    return response.data;
+  },
+
+  async getMySessionReport(sessionId) {
+    const response = await api.get(`/catapult/me/session/${sessionId}/report`);
+    return response.data;
+  },
+
+  async getMySessionStatsJson(sessionTitle) {
+    const response = await api.get('/catapult/me/reports/session/json', {
+      params: { session_title: sessionTitle }
+    });
+    return response.data;
+  },
 };
