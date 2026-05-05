@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select, delete
 from datetime import timedelta
 
-from ..middleware.security import require_coach_or_admin, get_current_user
+from ..middleware.security import require_coach_or_admin, get_current_user, require_admin_only
 from ..db.database import get_session
 from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole, RefreshToken
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -472,3 +472,31 @@ def upload_user_photo(
     session.commit()
     session.refresh(user)
     return {"photo_url": user.photo_url}
+
+# backend-catapult/src/routes/auth.py
+
+@router.post(
+    "/users/{user_id}/reset-password",
+    tags=["Auth - Admin"],
+    summary="Reset user password to first name uppercased",
+)
+def reset_user_password(
+    user_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_admin_only),
+):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.full_name:
+        raise HTTPException(status_code=400, detail="full_name is required")
+
+    first_name = user.full_name.strip().split()[0].upper()
+    user.hashed_password = AuthService.get_password_hash(first_name)
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return {"message": "Password reset successfully", "password": first_name}

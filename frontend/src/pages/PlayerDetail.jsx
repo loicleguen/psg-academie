@@ -196,7 +196,8 @@ export default function PlayerDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const compareWith = searchParams.get('compare');
 
-  const [activeTab, setActiveTab] = useState('info');
+  const tab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tab || 'info');
   const [playerInfo, setPlayerInfo] = useState(null);
   const [playerStats, setPlayerStats] = useState(null);
   const [catapultFilter, setCatapultFilter] = useState('all');
@@ -300,13 +301,13 @@ export default function PlayerDetail() {
   // Charger les sessions à l'ouverture de l'onglet Catapult
   useEffect(() => {
     if (activeTab === 'catapult') {
-      catapultService.getSessionsByPlayer(playerName).then(sessions => {
-        // Filtrer sur les 6 derniers mois
+      const sessionsFetcher = isOwnProfile ? catapultService.getMySessions() : catapultService.getSessionsByPlayer(playerName);
+      sessionsFetcher.then(sessions => {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         const filtered = sessions
           .filter(s => new Date(s.date) >= sixMonthsAgo)
-          .sort((a, b) => new Date(b.date) - new Date(a.date)); // Tri décroissant
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
         setPlayerSessions(filtered);
       });
     }
@@ -316,11 +317,14 @@ export default function PlayerDetail() {
     if (selectedSession) {
       const sessionObj = playerSessions.find(s => s.id === Number(selectedSession));
       if (sessionObj) {
-        catapultService.getPlayerSessionStatsJson(sessionObj.session_title, playerName)
-          .then(async (stats) => {
-            stats.radar_image = await generateRadarChart(stats);
-            setSelectedSessionStats(stats);
-          });
+        const statsPromise = isOwnProfile
+          ? catapultService.getMySessionStatsJson(sessionObj.session_title)
+          : catapultService.getPlayerSessionStatsJson(sessionObj.session_title, playerName);
+
+        statsPromise.then(async (stats) => {
+          stats.radar_image = await generateRadarChart(stats);
+          setSelectedSessionStats(stats);
+        });
       }
     } else {
       setSelectedSessionStats(null);
@@ -329,11 +333,12 @@ export default function PlayerDetail() {
 
   useEffect(() => {
     // Charger la session sélectionnée au mount
-    catapultService.getSelectedSession(playerName).then(res => {
-      if (res && res.session_id) {
-        setSelectedSession(res.session_id.toString());
-      }
-    });
+    (isOwnProfile ? catapultService.getMySelectedSession() : catapultService.getSelectedSession(playerName))
+      .then(res => {
+        if (res && res.session_id) {
+          setSelectedSession(res.session_id.toString());
+        }
+      });
   }, [playerName]);
 
   const fetchTeams = async () => {
@@ -370,7 +375,13 @@ export default function PlayerDetail() {
     if (activeTab === 'medical') {
       fetchInjuries();
     }
-  }, [activeTab, playerInfo]);
+  }, [activeTab, playerInfo, playerName]);
+
+  const sameIdentity = (a, b) =>
+    String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+  const meCached = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+  const isOwnProfile = meCached && (sameIdentity(meCached.player_name, playerName) || sameIdentity(meCached.full_name, playerName));
 
   useEffect(() => {
     if (activeTab !== 'veo' || veoMatchSummaries.length > 0) {
@@ -423,7 +434,7 @@ export default function PlayerDetail() {
       if (cached) {
         try {
           const u = JSON.parse(cached);
-          if (u && (u.player_name === playerName || u.full_name === playerName)) {
+          if (u && (sameIdentity(u.player_name, playerName) || sameIdentity(u.full_name, playerName))) {
             setPlayerInfo(u);
             return;
           }
@@ -433,14 +444,14 @@ export default function PlayerDetail() {
       try {
         const meRes = await api.get('/auth/me');
         const me = meRes.data;
-        if (me && (me.player_name === playerName || me.full_name === playerName)) {
+        if (me && (sameIdentity(me.player_name, playerName) || sameIdentity(me.full_name, playerName))) {
           setPlayerInfo(me);
           return;
         }
       } catch (err) { console.debug(err); }
 
       const response = await api.get('/auth/users');
-      const player = response.data.find(u => u.player_name === playerName || u.full_name === playerName);
+      const player = response.data.find(u => sameIdentity(u.player_name, playerName) || sameIdentity(u.full_name, playerName));
       setPlayerInfo(player);
     } catch (err) { console.debug(err); }
   };
@@ -458,7 +469,12 @@ export default function PlayerDetail() {
   const loadPlayerStats = async () => {
     try {
       setLoading(true);
-      const stats = await catapultService.getPlayerStats(playerName);
+      let stats;
+      if (isOwnProfile) {
+        stats = await catapultService.getMyStats();
+      } else {
+        stats = await catapultService.getPlayerStats(playerName);
+      }
       setPlayerStats(stats);
     } catch (err) { console.debug(err); } finally {
       setLoading(false);
@@ -723,7 +739,8 @@ export default function PlayerDetail() {
   const fetchInjuries = async () => {
     if (!playerInfo) return;
     try {
-      const res = await api.get(`/players/${playerInfo.id}/injuries`);
+      const url = isOwnProfile ? '/players/me/injuries' : `/players/${playerInfo.id}/injuries`;
+      const res = await api.get(url);
       const list = res.data || [];
       list.sort((a,b) => new Date(b.injury_date) - new Date(a.injury_date));
       setInjuries(list);
@@ -876,9 +893,9 @@ export default function PlayerDetail() {
         <table className="w-full table-auto border-collapse">
           <thead>
             <tr>
-              <th className="px-4 py-2 text-left"></th>
+              <th className="px-4 py-2"></th>
               {players.map((p, i) => (
-                <th key={i} className="px-4 py-2 text-left">
+                <th key={i} className="px-4 py-2 text-center">
                   <div className="text-xs text-gray-500">{p?.player_name ?? '-'}</div>
                 </th>
               ))}
@@ -889,8 +906,8 @@ export default function PlayerDetail() {
               <tr key={r.key} className="border-t">
                 <td className="px-4 py-3 text-sm text-gray-600 font-medium">{r.label}</td>
                 {players.map((p, i) => (
-                  <td key={i} className="px-4 py-3">
-                    <div className={`text-2xl font-bold ${r.color || ''}`}>{r.format ? r.format(p?.[r.key], p) : (p?.[r.key] ?? '-')}</div>
+                  <td key={i} className="px-4 py-3 text-center align-middle">
+                    <div className={`text-2xl font-bold text-center ${r.color || ''}`}>{r.format ? r.format(p?.[r.key], p) : (p?.[r.key] ?? '-')}</div>
                   </td>
                 ))}
               </tr>
@@ -985,7 +1002,10 @@ export default function PlayerDetail() {
     }
   };
 
-  const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+const canEditProfile = me && (me.role === 'admin' || me.role === 'coach');
+const canResetPassword = me && me.role === 'admin';
+const canChangeOwnPassword = me && playerInfo?.id === me.id;
 
   const handleVeoCompare = async () => {
     if (
@@ -1178,336 +1198,401 @@ export default function PlayerDetail() {
             </nav>
           </div>
 
-          <div className="p-10">
+                    <div className="p-10">
             {activeTab === 'info' && (
               <div className="space-y-6">
-                <div className="flex items-start gap-15">
-                  <div className="shrink-0">
+                <div className="flex items-start gap-6">
+                  {/* Colonne gauche: photo */}
+                  <div className="flex-shrink-0">
                     <div className="relative w-48 h-48">
                       {playerInfo?.photo_url ? (
-                        <img src={playerInfo.photo_url.startsWith('http') ? playerInfo.photo_url : `/api/physical${playerInfo.photo_url}`} alt="photo" className="w-48 h-48 object-cover rounded-lg" />
+                        <img
+                          src={playerInfo.photo_url.startsWith('http') ? playerInfo.photo_url : `/api/physical${playerInfo.photo_url}`}
+                          alt="photo"
+                          className="w-48 h-48 object-cover rounded-lg"
+                        />
                       ) : (
                         <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
                           <svg className="w-24 h-24 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            <path
+                              fillRule="evenodd"
+                              d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         </div>
                       )}
 
-                      <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
-
-                      <label htmlFor="photo-upload" className="absolute inset-0 flex items-center justify-center rounded-lg cursor-pointer hover:bg-black hover:bg-opacity-25">
-                        {!playerInfo?.photo_url && (
-                          <span className="px-3 py-1 bg-white bg-opacity-80 text-sm rounded">Upload</span>
-                        )}
-                      </label>
-
-
+                      {canEditProfile && (
+                        <>
+                          <input
+                            id="photo-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoSelect}
+                            className="hidden"
+                          />
+                          <label
+                            htmlFor="photo-upload"
+                            className="absolute inset-0 flex items-center justify-center rounded-lg cursor-pointer hover:bg-black hover:bg-opacity-25"
+                          >
+                            {!playerInfo?.photo_url && (
+                              <span className="px-3 py-1 bg-white bg-opacity-80 text-sm rounded">Upload</span>
+                            )}
+                          </label>
+                        </>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex-1 grid grid-cols-2">
-                    <div className="col-span-2 flex justify-end items-start">
+                  {/* Colonne milieu: infos en 2 colonnes */}
+                  <div className="flex-1">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Nom complet</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.full_name || 'N/A'}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Email</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.email || 'N/A'}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Date de naissance</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">
+                            {playerInfo?.date_of_birth ? new Date(playerInfo.date_of_birth).toLocaleDateString() : 'À renseigner'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Âge</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Adresse postale</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4 whitespace-pre-wrap break-words">
+                            {playerInfo?.adress || 'À renseigner'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">N° de téléphone</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.phone_number || 'À renseigner'}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Personne à contacter</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.emergency_contact || 'À renseigner'}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Poste</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.position || 'N/A'}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Taille</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.height ? `${playerInfo.height} m` : 'À renseigner'}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Poids</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.weight ? `${playerInfo.weight} kg` : 'À renseigner'}</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Pied fort</label>
+                          <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.strong_foot || 'À renseigner'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Colonne droite: boutons */}
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    {canChangeOwnPassword && (
+                      <button
+                        onClick={handleShowPasswordForm}
+                        className="px-3 py-1 text-sm bg-slate-600 text-white rounded hover:bg-slate-700"
+                      >
+                        Modifier le mot de passe
+                      </button>
+                    )}
+
+                    {canEditProfile && (
                       <button
                         onClick={() => { setEditForm(playerInfo || {}); setShowEditModal(true); }}
-                        className="ml-auto px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-900"
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-900"
                       >
                         Modifier
                       </button>
+                    )}
 
-                    </div>
-                    <div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Nom complet</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.full_name || 'N/A'}</p>
-                      </div>
+                    {canResetPassword && (
+                      <button
+                        onClick={async () => {
+                          const firstName = (playerInfo?.full_name || '').trim().split(/\s+/)[0]?.toUpperCase();
+                          if (!firstName) {
+                            alert("Nom complet manquant");
+                            return;
+                          }
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Email</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.email || 'N/A'}</p>
-                      </div>
+                          if (!window.confirm(`Réinitialiser le mot de passe de ${playerInfo.full_name} en ${firstName} ?`)) {
+                            return;
+                          }
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Date de naissance</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.date_of_birth ? new Date(playerInfo.date_of_birth).toLocaleDateString() : 'À renseigner'}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Âge</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.age ? `${playerInfo.age} ans` : 'N/A'}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Adresse postale</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4 whitespace-pre-wrap wrap-break-word">{playerInfo?.adress || 'À renseigner'}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">N° de téléphone</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.phone_number || 'À renseigner'}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Personne à contacter</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.emergency_contact || 'À renseigner'}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Poste</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.position || 'N/A'}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Taille</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.height ? `${playerInfo.height} m` : 'À renseigner'}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Poids</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.weight ? `${playerInfo.weight} kg` : 'À renseigner'}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Pied fort</label>
-                        <p className="text-lg font-semibold text-gray-900 mb-4">{playerInfo?.strong_foot || 'À renseigner'}</p>
-                      </div>
-                    </div>
-                  </div>
-
+                          try {
+                            await api.post(`/auth/users/${playerInfo.id}/reset-password`);
+                            alert(`Mot de passe réinitialisé en ${firstName}`);
+                          } catch (err) {
+                            alert(err.response?.data?.detail || err.message);
+                          }
+                        }}
+                        className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Réinitialiser le mot de passe
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
             {showEditModal && editForm && (
-                  <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-                      <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+                <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-8" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+                  <h2 className="text-xl font-semibold mb-4">Modifier le joueur</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                        {me && playerInfo?.id === me.id && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
-                            <button
-                              className="mb-4 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                              onClick={handleShowPasswordForm}
-                            >
-                              Modifier le mot de passe
-                            </button>
-                            {showPasswordForm && (
-                              <form
-                                style={{ maxHeight: '320px', overflowY: 'auto' }}
-                                ref={passwordFormRef}
-                                className="mb-2 p-2 bg-gray-50 rounded border flex flex-col gap-2 max-w-xs max-h-80 overflow-y-auto"
-                                onSubmit={handlePasswordChange}
-                              >
-                                <label>
-                                  Ancien mot de passe
-                                  <input
-                                    type="password"
-                                    className="w-full mt-1 px-2 py-1 border rounded"
-                                    value={oldPassword}
-                                    onChange={e => setOldPassword(e.target.value)}
-                                    required
-                                  />
-                                </label>
-                                <label>
-                                  Nouveau mot de passe
-                                  <input
-                                    type="password"
-                                    className="w-full mt-1 px-2 py-1 border rounded"
-                                    value={newPassword}
-                                    onChange={e => setNewPassword(e.target.value)}
-                                    required
-                                  />
-                                </label>
-                                <label>
-                                  Confirmer le nouveau mot de passe
-                                  <input
-                                    type="password"
-                                    className="w-full mt-1 px-2 py-1 border rounded"
-                                    value={confirmPassword}
-                                    onChange={e => setConfirmPassword(e.target.value)}
-                                    required
-                                  />
-                                </label>
-                                <div className="flex gap-2">
-                                  <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                                  >
-                                    Enregistrer
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                                    onClick={() => setShowPasswordForm(false)}
-                                  >
-                                    Annuler
-                                  </button>
-                                </div>
-                              </form>
-                            )}
-                          </div>
-                        )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Nom complet</label>
+                      <input value={editForm.full_name || ''} onChange={(e)=>setEditForm({...editForm, full_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Nom complet</label>
-                          <input value={editForm.full_name || ''} onChange={(e)=>setEditForm({...editForm, full_name: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Email</label>
+                      <input value={editForm.email || ''} onChange={(e)=>setEditForm({...editForm, email: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Email</label>
-                          <input value={editForm.email || ''} onChange={(e)=>setEditForm({...editForm, email: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Poste</label>
+                      <select
+                        value={editForm.position || 'player'}
+                        onChange={(e) => setEditForm({...editForm, position: e.target.value})}
+                        className="mt-1 w-full px-3 py-2 border rounded"
+                      >
+                        <option value="ATTAQUANT">ATTAQUANT</option>
+                        <option value="MILIEU">MILIEU</option>
+                        <option value="DEFENSEUR CENTRAL">DEFENSEUR CENTRAL</option>
+                        <option value="LATERAL">LATERAL</option>
+                        <option value="AILIER">AILIER</option>
+                      </select>
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Poste</label>
-                            <select
-                              value={editForm.position || 'player'}
-                              onChange={(e) => setEditForm({...editForm, position: e.target.value})}
-                              className="mt-1 w-full px-3 py-2 border rounded"
-                            >
-                              <option value="ATTAQUANT">ATTAQUANT</option>
-                              <option value="MILIEU">MILIEU</option>
-                              <option value="DEFENSEUR CENTRAL">DEFENSEUR CENTRAL</option>
-                              <option value="LATERAL">LATERAL</option>
-                              <option value="AILIER">AILIER</option>
-                            </select>
-                          </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Date de naissance</label>
+                      <input type="date" value={editForm.date_of_birth ? String(editForm.date_of_birth).split('T')[0] : ''} onChange={(e)=>setEditForm({...editForm, date_of_birth: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Date de naissance</label>
-                          <input type="date" value={editForm.date_of_birth ? String(editForm.date_of_birth).split('T')[0] : ''} onChange={(e)=>setEditForm({...editForm, date_of_birth: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Âge</label>
+                      <input type="number" value={editForm.age || ''} onChange={(e)=>setEditForm({...editForm, age: e.target.value ? parseInt(e.target.value,10) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Âge</label>
-                          <input type="number" value={editForm.age || ''} onChange={(e)=>setEditForm({...editForm, age: e.target.value ? parseInt(e.target.value,10) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Adresse</label>
+                      <textarea rows={2} value={editForm.adress || ''} onChange={(e)=>setEditForm({...editForm, adress: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded resize-none"></textarea>
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Adresse</label>
-                          <textarea rows={2} value={editForm.adress || ''} onChange={(e)=>setEditForm({...editForm, adress: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded resize-none"></textarea>
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">N° de téléphone</label>
+                      <input value={editForm.phone_number || ''} onChange={(e)=>setEditForm({...editForm, phone_number: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">N° de téléphone</label>
-                          <input value={editForm.phone_number || ''} onChange={(e)=>setEditForm({...editForm, phone_number: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Taille (m)</label>
+                      <input type="number" step="0.01" value={editForm.height || ''} onChange={(e)=>setEditForm({...editForm, height: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Taille (m)</label>
-                          <input type="number" step="0.01" value={editForm.height || ''} onChange={(e)=>setEditForm({...editForm, height: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Poids (kg)</label>
+                      <input type="number" step="0.1" value={editForm.weight || ''} onChange={(e)=>setEditForm({...editForm, weight: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Poids (kg)</label>
-                          <input type="number" step="0.1" value={editForm.weight || ''} onChange={(e)=>setEditForm({...editForm, weight: e.target.value ? parseFloat(e.target.value) : null})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Pied fort</label>
+                      <input value={editForm.strong_foot || ''} onChange={(e)=>setEditForm({...editForm, strong_foot: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Pied fort</label>
-                          <input value={editForm.strong_foot || ''} onChange={(e)=>setEditForm({...editForm, strong_foot: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Contact urgence</label>
+                      <input value={editForm.emergency_contact || ''} onChange={(e)=>setEditForm({...editForm, emergency_contact: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Contact urgence</label>
-                          <input value={editForm.emergency_contact || ''} onChange={(e)=>setEditForm({...editForm, emergency_contact: e.target.value})} className="mt-1 w-full px-3 py-2 border rounded" />
-                        </div>
-
-                        <div className="md:col-span-2 border-t pt-4 mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="flex items-center gap-2">
-                            <input
-                              id="edit-is-active"
-                              type="checkbox"
-                              checked={editForm.is_active !== false}
-                              onChange={(e) => setEditForm({...editForm, is_active: e.target.checked})}
-                              className="h-4 w-4 rounded border-gray-300 text-blue-600"
-                            />
-                            <label htmlFor="edit-is-active" className="text-sm font-medium text-gray-700">Compte actif</label>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Rôle</label>
-                            <select
-                              value={editForm.role || 'player'}
-                              onChange={(e) => setEditForm({...editForm, role: e.target.value})}
-                              className="mt-1 w-full px-2 py-2 border rounded">
-                              <option value="admin">Admin</option>
-                              <option value="coach">Coach</option>
-                              <option value="player">Joueur</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Équipe</label>
-                            <select
-                              value={editForm.team_id || ''}
-                              onChange={(e) => setEditForm({...editForm, team_id: e.target.value ? parseInt(e.target.value,10) : null})}
-                              className="mt-1 w-full px-2 py-2 border rounded">
-                              <option value="">— Aucune —</option>
-                              {teams.map(t => (
-                                <option key={t.id} value={t.id}>
-                                  {`${t.academy?.country?.name || 'unknown'}/${t.academy?.name || 'academy'}/${t.name}`}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
+                    <div className="md:col-span-2 border-t pt-4 mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="edit-is-active"
+                          type="checkbox"
+                          checked={editForm.is_active !== false}
+                          onChange={(e) => setEditForm({...editForm, is_active: e.target.checked})}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        />
+                        <label htmlFor="edit-is-active" className="text-sm font-medium text-gray-700">Compte actif</label>
                       </div>
 
-                      <div className="flex justify-end gap-3 mt-6">
-                        <button
-                          onClick={() => { setShowEditModal(false); setEditForm(null); }}
-                          className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Rôle</label>
+                        <select
+                          value={editForm.role || 'player'}
+                          onChange={(e) => setEditForm({...editForm, role: e.target.value})}
+                          className="mt-1 w-full px-2 py-2 border rounded"
                         >
-                          Annuler
-                        </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              const updateData = {
-                                email: editForm.email,
-                                full_name: editForm.full_name,
-                                role: editForm.role,
-                                is_active: editForm.is_active !== false,
-                                player_name: editForm.player_name,
-                                age: editForm.age || null,
-                                team_id: editForm.team_id || null,
-                                position: editForm.position,
-                                date_of_birth: editForm.date_of_birth || null,
-                                adress: editForm.adress || null,
-                                height: editForm.height || null,
-                                weight: editForm.weight || null,
-                                strong_foot: editForm.strong_foot || null,
-                                phone_number: editForm.phone_number || null,
-                                emergency_contact: editForm.emergency_contact || null,
-                              };
-                              if (editForm.password && editForm.password.trim() !== '') {
-                                updateData.password = editForm.password;
-                              }
-                              const res = await api.put(`/auth/users/${playerInfo?.id}`, updateData);
-                              setPlayerInfo(res.data);
-                              const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
-                              if (me && me.id === res.data.id) { localStorage.setItem('user', JSON.stringify(res.data)); }
-                              setShowEditModal(false);
-                              setEditForm(null);
-                            } catch(err) {
-                              console.error(err);
-                              alert('Erreur lors de la sauvegarde: ' + (err.response?.data?.detail || err.message));
-                            }
-                          }}
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          <option value="admin">Admin</option>
+                          <option value="coach">Coach</option>
+                          <option value="player">Joueur</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Équipe</label>
+                        <select
+                          value={editForm.team_id || ''}
+                          onChange={(e) => setEditForm({...editForm, team_id: e.target.value ? parseInt(e.target.value,10) : null})}
+                          className="mt-1 w-full px-2 py-2 border rounded"
                         >
-                          Enregistrer
-                        </button>
+                          <option value="">— Aucune —</option>
+                          {teams.map(t => (
+                            <option key={t.id} value={t.id}>
+                              {`${t.academy?.country?.name || 'unknown'}/${t.academy?.name || 'academy'}/${t.name}`}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
+
                   </div>
-                )}
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => { setShowEditModal(false); setEditForm(null); }}
+                      className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const updateData = {
+                            email: editForm.email,
+                            full_name: editForm.full_name,
+                            role: editForm.role,
+                            is_active: editForm.is_active !== false,
+                            player_name: editForm.player_name,
+                            age: editForm.age || null,
+                            team_id: editForm.team_id || null,
+                            position: editForm.position,
+                            date_of_birth: editForm.date_of_birth || null,
+                            adress: editForm.adress || null,
+                            height: editForm.height || null,
+                            weight: editForm.weight || null,
+                            strong_foot: editForm.strong_foot || null,
+                            phone_number: editForm.phone_number || null,
+                            emergency_contact: editForm.emergency_contact || null,
+                          };
+                          if (editForm.password && editForm.password.trim() !== '') {
+                            updateData.password = editForm.password;
+                          }
+                          const res = await api.put(`/auth/users/${playerInfo?.id}`, updateData);
+                          setPlayerInfo(res.data);
+                          const me = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null;
+                          if (me && me.id === res.data.id) {
+                            localStorage.setItem('user', JSON.stringify(res.data));
+                          }
+                          setShowEditModal(false);
+                          setEditForm(null);
+                        } catch(err) {
+                          console.error(err);
+                          alert('Erreur lors de la sauvegarde: ' + (err.response?.data?.detail || err.message));
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Enregistrer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showPasswordForm && canChangeOwnPassword && (
+              <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                  <h2 className="text-lg font-semibold mb-4">Modifier le mot de passe</h2>
+                  <form
+                    ref={passwordFormRef}
+                    className="flex flex-col gap-3"
+                    onSubmit={handlePasswordChange}
+                  >
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ancien mot de passe</label>
+                      <input
+                        type="password"
+                        className="w-full px-3 py-2 border rounded"
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau mot de passe</label>
+                      <input
+                        type="password"
+                        className="w-full px-3 py-2 border rounded"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
+                      <input
+                        type="password"
+                        className="w-full px-3 py-2 border rounded"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex gap-3 justify-end mt-4">
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                        onClick={() => {
+                          setShowPasswordForm(false);
+                          setOldPassword('');
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        }}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Enregistrer
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {activeTab === 'catapult' && playerStats && (
               <>
@@ -1536,7 +1621,7 @@ export default function PlayerDetail() {
                 <div className="bg-white/50 rounded-lg border p-6 space-y-6">
                   <StatTable
                     rows={[
-                      { key: 'graph', label: 'Graph Radar', format: (v, player) => player?.radar_image ? (<img src={player.radar_image} alt="Radar" style={{width: '220px', height: '200px'}} />) : 'Chargement...'},
+                      { key: 'graph', label: 'Graph Radar', format: (v, player) => player?.radar_image ? (<div className="flex justify-center"> <img src={player.radar_image} alt="Radar" className="mx-auto" style={{width: '180px', height: '160px'}} /> </div>) : 'Chargement...' },
                       { key: 'minutes', label: 'Minutes', format: v => Math.round(v), color: 'text-blue-600' },
                       { key: 'distance', label: 'Distance (m)', format: v => v?.toFixed(0), color: 'text-green-600' },
                       { key: 'hsr', label: 'HSR (m)', format: v => v?.toFixed(0), color: 'text-orange-600' },
@@ -1994,7 +2079,6 @@ export default function PlayerDetail() {
                                   {formatVeoMetricValue(veoMetricMap[slug])}
                                 </td>
                                 {compareVeoStatsList.map((cs, i) => {
-                                  // On crée un mapping pour chaque joueur comparé
                                   const csMetricMap = (cs?.metrics ?? []).reduce((acc, metric) => {
                                     acc[metric.slug] = metric.value;
                                     return acc;
@@ -2085,7 +2169,7 @@ export default function PlayerDetail() {
                         placeholder="Ex: Genou droit, entorse légère"
                         className="mt-1 mb-4 w-full px-3 py-2 border rounded"
                         rows={3}
-                      ></textarea>
+                      />
                       <div className="flex justify-end gap-3">
                         <button
                           onClick={() => { setShowAddModal(false); setInjuryEndDate(''); }}
