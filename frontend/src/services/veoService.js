@@ -75,6 +75,11 @@ export const veoService = {
     return response.data;
   },
 
+  async deleteMatch(matchId) {
+    const response = await tacticalApi.delete(`/matches/${matchId}`);
+    return response.data;
+  },
+
   async bootstrapFromCatapultSession(payload) {
     const response = await tacticalApi.post('/matches/bootstrap-from-catapult', payload);
     return response.data;
