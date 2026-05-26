@@ -125,7 +125,7 @@ class AuthService:
         Returns:
             Token de rafraîchissement
         """
-        from ..models.user import RefreshToken
+        from ..models.refresh_token import RefreshToken
         import secrets
         
         # Générer un token aléatoire sécurisé
@@ -157,7 +157,7 @@ class AuthService:
         Returns:
             User si le token est valide, None sinon
         """
-        from ..models.user import RefreshToken
+        from ..models.refresh_token import RefreshToken
         
         # Récupérer le refresh token depuis la DB
         statement = select(RefreshToken).where(

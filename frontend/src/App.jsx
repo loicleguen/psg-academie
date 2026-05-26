@@ -43,7 +43,7 @@ function App() {
           <Route
             path="/academies"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <Academies />
                 </Layout>
@@ -54,7 +54,7 @@ function App() {
           <Route
             path="/teams"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <Teams />
                 </Layout>
@@ -65,7 +65,7 @@ function App() {
           <Route
             path="/teams/:teamId"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <TeamDetail />
                 </Layout>
@@ -131,7 +131,7 @@ function App() {
           <Route
             path="/catapult/sessions/:sessionId"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={['admin','coach']}>
                 <Layout>
                   <SessionDetail />
                 </Layout>
