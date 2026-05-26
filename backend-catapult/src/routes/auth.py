@@ -7,7 +7,8 @@ from datetime import timedelta
 
 from ..middleware.security import require_coach_or_admin, get_current_user, require_admin_only
 from ..db.database import get_session
-from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole, RefreshToken
+from ..models.user import User, UserCreate, UserRead, Token, UserUpdate, UserUpdateMe, UserRole
+from ..models.refresh_token import RefreshToken
 from ..services.auth import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter(prefix="/auth", )
