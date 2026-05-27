@@ -17,7 +17,6 @@ class UserRole(str, Enum):
 
     ADMIN = "admin"
     COACH = "coach"
-    ANALYST = "analyst"
     PLAYER = "player"
 
 
