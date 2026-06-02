@@ -1151,8 +1151,10 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
 
         <div className="bg-white/80 rounded-lg shadow-lg mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex justify-center -mb-px">
+            <nav className="flex justify-center -mb-px" role="tablist" aria-label="Onglets du profil joueur">
               <button
+                role="tab"
+                aria-selected={activeTab === 'info'}
                 onClick={() => setActiveTab('info')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'info'
@@ -1164,17 +1166,21 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
               </button>
 
               <button
+                role="tab"
+                aria-selected={activeTab === 'catapult'}
                 onClick={() => setActiveTab('catapult')}
-                className={`px- py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'catapult'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 Stats Catapult
               </button>
 
               <button
+                role="tab"
+                aria-selected={activeTab === 'veo'}
                 onClick={() => setActiveTab('veo')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'veo'
@@ -1186,11 +1192,13 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
               </button>
 
               <button
+                role="tab"
+                aria-selected={activeTab === 'medical'}
                 onClick={() => setActiveTab('medical')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'medical'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover;border-gray-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 Médical
@@ -1213,7 +1221,7 @@ const canChangeOwnPassword = me && playerInfo?.id === me.id;
                         />
                       ) : (
                         <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <svg className="w-24 h-24 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-24 h-24 text-gray-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path
                               fillRule="evenodd"
                               d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
