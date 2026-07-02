@@ -125,4 +125,8 @@ services:
 
 volumes:
   postgres_catapult_data:
+    external: true
+    name: psg-academie_postgres_catapult_data
   postgres_veo_data:
+    external: true
+    name: psg-academie_postgres_veo_data

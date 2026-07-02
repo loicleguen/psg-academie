@@ -89,7 +89,7 @@ async def upload_catapult_csv(
 
     # Créer / mettre à jour les Users importés (utilise la fonction utilitaire)
     from ..services.catapult_parser import create_or_update_users
-    name_to_user_id = create_or_update_users(session, parsed_data, default_team_id=1)
+    name_to_user_id = create_or_update_users(session, parsed_data, default_team_id=3)
 
     # commit des Users créés / modifiés
     session.commit()

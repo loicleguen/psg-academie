@@ -303,10 +303,10 @@ export default function PlayerDetail() {
     if (activeTab === 'catapult') {
       const sessionsFetcher = isOwnProfile ? catapultService.getMySessions() : catapultService.getSessionsByPlayer(playerName);
       sessionsFetcher.then(sessions => {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
         const filtered = sessions
-          .filter(s => new Date(s.date) >= sixMonthsAgo)
+          .filter(s => new Date(s.date) >= oneYearAgo)
           .sort((a, b) => new Date(b.date) - new Date(a.date));
         setPlayerSessions(filtered);
       });

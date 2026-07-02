@@ -7,7 +7,7 @@ from pathlib import Path
 URL = os.getenv("BULK_UPLOAD_URL", "http://localhost:8000/catapult/upload")
 TOKEN = os.getenv("TOKEN", "")
 HEADERS = {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
-CSV_DIR = Path(os.getenv("CSV_DIR", "/tmp/psg_test_csvs"))
+CSV_DIR = Path(os.getenv("CSV_DIR", "/mnt/c/Users/loicl/Desktop/PSGAcadémie/CSV"))
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "8"))
 RETRIES = int(os.getenv("RETRIES", "3"))
 SLEEP_ON_FAIL = int(os.getenv("SLEEP_ON_FAIL", "2"))
