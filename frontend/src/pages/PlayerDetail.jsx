@@ -831,8 +831,8 @@ export default function PlayerDetail() {
       coord_y: clickCoordinates.coord_y,
       injury_date: injuryDate || new Date().toISOString().slice(0,10),
       injury_end_date: injuryEndDate || null,
-      restriction_type: restrictionType,
-      restriction_date: restrictionDate,
+      restriction_type: restrictionType || null,
+      restriction_date: restrictionDate || null,
       comment: injuryComment || ''
     };
 
