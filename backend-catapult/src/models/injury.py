@@ -45,8 +45,6 @@ class InjuryRead(SQLModel):
     injury_end_date: Optional[date]
     restriction_date: Optional[date]
     restriction_type: Optional[str]
-    restriction_date: Optional[date]
-    restriction_type: Optional[str]
     comment: Optional[str]
     coord_x: Optional[float]
     coord_y: Optional[float]
