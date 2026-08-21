@@ -2080,7 +2080,7 @@ export default function Veo() {
                         <th className="py-2 pr-3">Titulaire</th>
                         <th className="py-2 pr-3">Capitaine</th>
                         <th className="py-2 pr-3">Minutes</th>
-                        <th className="py-2 pr-3">Poste joue</th>
+                        <th className="py-2 pr-3">Poste joueur</th>
                       </tr>
                     </thead>
                     <tbody>
